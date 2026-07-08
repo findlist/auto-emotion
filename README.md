@@ -22,6 +22,28 @@
 
 ---
 
+## 🤖 Agent 自动维护
+
+本项目由 **TRAE AI Agent 自驱迭代** 自动维护，遵循专属定时任务规范进行无人值守的持续开发、健康校验与进度沉淀。
+
+- **规范文件**：[`docs/auto-iteration-spec.md`](./docs/auto-iteration-spec.md)（v1.1）
+- **项目路径**：`e:\work/auto-emotion`（Monorepo 架构，所有操作仅限该目录）
+- **进度记忆**：`e:\work/auto-emotion\memory\` 目录，按日期存放 `topics.md` 跨轮次延续进度
+- **调度模式**：定时触发，单次调度上限 4 小时（3.5 小时强制收尾），单轮完成 2–3 个最小单元（单个 ≤8 分钟）
+- **六步闭环**：健康度预检 → 动态规划 → 小步编码 → 全量验收 → 计划复盘 → 进度沉淀
+- **健康校验**：后端 `cd server && npx tsc --noEmit && npx vitest run`，前端 `cd client && npm run build`，校验不通过禁止新功能开发
+- **全局优先级**：收尾补全 → 项目健康故障修复 → 技术债清理 → 样式精修 → 测试补全
+- **阶段锁定**：品质优化收尾未全部验收通过前，禁止启动后续阶段的完整功能开发
+- **当前 P0 收尾**：关键操作确认弹窗、WebSocket 断线重连、对战画布响应式
+- **Git 规范**：每个最小修改单元通过后立即 `git add`（仅本次文件）→ `git commit` → `git push origin HEAD`，提交信息使用中文，禁止 force push、reset --hard 等破坏性命令
+- **资源白名单**：仅可使用 `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image` 生成装饰/占位图，核心游戏资源优先 SVG / CSS / PixiJS 原生绘制
+- **降级规则**：大模型 API Key 缺失时先完成业务框架 + 本地 mock；Redis 异常时核心逻辑走内存兜底；Socket.IO 异常时先完成前端 UI 与单机逻辑，预留事件接入点
+- **运行风格**：默默干活，不主动通知用户；需用户介入的阻塞问题统一放在摘要「遗留问题」中
+
+> 定时任务指令优先级 > 规范默认值 > 项目规格说明（project-spec.md）。
+
+---
+
 ## 特性
 
 - 🎯 **AI 情绪怪兽生成** — 50+ 压力关键词识别（≤3s 响应，失败降级），情绪匹配度 >90%，把真实压力具象化为可击碎的 Boss
