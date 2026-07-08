@@ -1,0 +1,47 @@
+// server/src/ai/schemas/monster.ts
+// 怪兽配置 zod schema：用于校验生成结果与请求体
+// 生成器输出与 API 响应均需通过此 schema 校验
+
+import { z } from 'zod';
+
+// 技能类型枚举：attack 直接伤害、debuff 减益、summon 召唤
+export const skillTypeSchema = z.enum(['attack', 'debuff', 'summon']);
+
+// 单个技能 schema
+export const skillSchema = z.object({
+  name: z.string().min(1, '技能名称不能为空'),
+  type: skillTypeSchema,
+  effect: z.string().min(1, '技能效果不能为空'),
+  cooldown: z.number().positive('冷却时间必须为正数'),
+});
+
+// 外观 schema
+export const appearanceSchema = z.object({
+  color: z.string().min(1, '颜色不能为空'),
+  shape: z.string().min(1, '形状不能为空'),
+  size: z.number().positive('尺寸必须为正数'),
+});
+
+// 怪兽配置 schema：生成器输出的完整结构
+export const monsterSchema = z.object({
+  name: z.string().min(1, '名称不能为空'),
+  avatar: z.string().min(1, '头像不能为空'),
+  hp: z.number().int().positive('生命值必须为正整数'),
+  skills: z.array(skillSchema),
+  weakness: z.string().min(1, '弱点不能为空'),
+  stressTags: z.array(z.string()),
+  appearance: appearanceSchema,
+});
+
+// 请求体 schema：POST /api/ai/monster 的入参校验
+export const monsterGenerateBodySchema = z.object({
+  stressKeywords: z
+    .array(z.string().min(1))
+    .min(1, '至少需要 1 个压力关键词')
+    .max(10, '最多支持 10 个压力关键词'),
+  difficulty: z.number().int().min(1).max(5, '难度档位为 1-5'),
+});
+
+// 推导出的 TS 类型：供生成器与路由复用
+export type MonsterSchema = z.infer<typeof monsterSchema>;
+export type MonsterGenerateBody = z.infer<typeof monsterGenerateBodySchema>;

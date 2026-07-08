@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>情绪爆破局 · 把压力炸成烟花</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=ZCOOL+KuaiLe&family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;700;900&display=swap" rel="stylesheet" />
+<style>
+  /* ============ 设计令牌 ============ */
+  :root{
+    --pink:#FF3D7F;     /* 电粉 - 主色 */
+    --yellow:#FFD93D;   /* 亮黄 - 强调 */
+    --orange:#FF6B35;   /* 暖橙 - 次强 */
+    --ink:#1A1A1A;      /* 墨黑 - 文字/边框 */
+    --cream:#FFF8E7;    /* 米白 - 背景 */
+    --mint:#3DD9B5;     /* 薄荷 - 点缀 */
+    --shadow:6px 6px 0 var(--ink);
+    --shadow-sm:3px 3px 0 var(--ink);
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'DM Mono','Noto Sans SC',monospace;
+    background:var(--cream);
+    color:var(--ink);
+    overflow-x:hidden;
+    line-height:1.5;
+  }
+
+  /* 半色调网点背景纹理 */
+  body::before{
+    content:'';
+    position:fixed;inset:0;
+    background-image:radial-gradient(var(--ink) 1px, transparent 1px);
+    background-size:18px 18px;
+    opacity:.06;
+    pointer-events:none;
+    z-index:1;
+  }
+
+  /* 通用容器 */
+  .wrap{max-width:1200px;margin:0 auto;padding:0 24px;position:relative;z-index:2}
+  .display{font-family:'Bungee','ZCOOL KuaiLe',cursive;font-weight:400;letter-spacing:.02em}
+  .cn-display{font-family:'ZCOOL KuaiLe','Bungee',cursive;font-weight:400}
+
+  /* ============ 导航 ============ */
+  nav{
+    position:sticky;top:0;z-index:100;
+    background:var(--ink);
+    border-bottom:4px solid var(--pink);
+    padding:14px 0;
+  }
+  nav .wrap{display:flex;justify-content:space-between;align-items:center}
+  .logo{font-family:'Bungee',cursive;color:var(--yellow);font-size:20px;letter-spacing:.05em}
+  .logo span{color:var(--pink)}
+  nav ul{display:flex;gap:28px;list-style:none}
+  nav a{color:var(--cream);text-decoration:none;font-size:13px;text-transform:uppercase;letter-spacing:.1em;transition:color .2s}
+  nav a:hover{color:var(--yellow)}
+
+  /* ============ Hero ============ */
+  .hero{
+    position:relative;
+    padding:80px 0 100px;
+    background:var(--pink);
+    border-bottom:6px solid var(--ink);
+    overflow:hidden;
+  }
+  /* 爆炸放射线背景 */
+  .hero::before{
+    content:'';
+    position:absolute;inset:0;
+    background:repeating-conic-gradient(from 0deg at 50% 50%, var(--yellow) 0deg 8deg, transparent 8deg 16deg);
+    opacity:.25;
+    animation:spin 60s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .hero-content{position:relative;z-index:2;text-align:center}
+  .tag{
+    display:inline-block;
+    background:var(--yellow);
+    color:var(--ink);
+    padding:6px 16px;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.15em;
+    border:3px solid var(--ink);
+    box-shadow:var(--shadow-sm);
+    transform:rotate(-2deg);
+    margin-bottom:32px;
+  }
+  .hero h1{
+    font-family:'ZCOOL KuaiLe',cursive;
+    font-size:clamp(64px,12vw,180px);
+    line-height:.9;
+    color:var(--cream);
+    text-shadow:8px 8px 0 var(--ink);
+    margin-bottom:24px;
+  }
+  .hero h1 .blast{color:var(--yellow);display:inline-block;animation:wobble 2s ease-in-out infinite}
+  @keyframes wobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+
+  .slogan{
+    font-size:clamp(18px,2.4vw,28px);
+    color:var(--cream);
+    max-width:680px;
+    margin:0 auto 40px;
+    font-weight:500;
+  }
+  .slogan strong{background:var(--ink);color:var(--yellow);padding:2px 10px}
+
+  .cta-row{display:flex;gap:20px;justify-content:center;flex-wrap:wrap}
+  .btn{
+    display:inline-block;
+    padding:18px 36px;
+    font-family:'Bungee',cursive;
+    font-size:16px;
+    text-decoration:none;
+    border:4px solid var(--ink);
+    box-shadow:var(--shadow);
+    transition:transform .15s,box-shadow .15s;
+    cursor:pointer;
+    background:none;
+  }
+  .btn:hover{transform:translate(3px,3px);box-shadow:var(--shadow-sm)}
+  .btn:active{transform:translate(6px,6px);box-shadow:none}
+  .btn-primary{background:var(--yellow);color:var(--ink)}
+  .btn-secondary{background:var(--cream);color:var(--ink)}
+
+  /* 漂浮的压力词 */
+  .float-word{
+    position:absolute;
+    font-family:'ZCOOL KuaiLe',cursive;
+    font-size:24px;
+    color:var(--cream);
+    background:var(--ink);
+    padding:6px 14px;
+    border:3px solid var(--cream);
+    box-shadow:var(--shadow-sm);
+    animation:float 6s ease-in-out infinite;
+    z-index:1;
+  }
+  .float-word:nth-child(1){top:15%;left:8%;transform:rotate(-8deg);animation-delay:0s}
+  .float-word:nth-child(2){top:25%;right:10%;transform:rotate(6deg);animation-delay:1.5s}
+  .float-word:nth-child(3){bottom:20%;left:12%;transform:rotate(4deg);animation-delay:3s}
+  .float-word:nth-child(4){bottom:30%;right:8%;transform:rotate(-5deg);animation-delay:4.5s}
+  @keyframes float{0%,100%{translate:0 0}50%{translate:0 -18px}}
+
+  /* ============ 章节通用 ============ */
+  section{padding:100px 0;position:relative}
+  .section-head{text-align:center;margin-bottom:64px}
+  .section-num{
+    display:inline-block;
+    font-family:'Bungee',cursive;
+    font-size:14px;
+    color:var(--pink);
+    background:var(--ink);
+    padding:4px 12px;
+    margin-bottom:16px;
+    letter-spacing:.2em;
+  }
+  .section-title{
+    font-family:'ZCOOL KuaiLe',cursive;
+    font-size:clamp(40px,6vw,72px);
+    line-height:1;
+    margin-bottom:16px;
+  }
+  .section-sub{font-size:16px;color:#555;max-width:600px;margin:0 auto}
+
+  /* ============ 痛点区 ============ */
+  .pain{background:var(--cream);border-bottom:6px solid var(--ink)}
+  .pain-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:24px;
+  }
+  .pain-card{
+    background:var(--cream);
+    border:4px solid var(--ink);
+    box-shadow:var(--shadow);
+    padding:32px 24px;
+    transition:transform .2s;
+    position:relative;
+    overflow:hidden;
+  }
+  .pain-card:hover{transform:translate(-3px,-3px);box-shadow:9px 9px 0 var(--ink)}
+  .pain-card::before{
+    content:'';
+    position:absolute;top:0;left:0;right:0;height:8px;
+    background:var(--pink);
+  }
+  .pain-card:nth-child(2)::before{background:var(--yellow)}
+  .pain-card:nth-child(3)::before{background:var(--orange)}
+  .pain-card:nth-child(4)::before{background:var(--mint)}
+  .pain-icon{font-size:48px;margin-bottom:16px;display:block}
+  .pain-card h3{font-family:'ZCOOL KuaiLe',cursive;font-size:24px;margin-bottom:10px}
+  .pain-card p{font-size:14px;color:#444;line-height:1.6}
+  .pain-strike{text-decoration:line-through;text-decoration-color:var(--pink);text-decoration-thickness:3px}
+
+  /* ============ 双节奏区 ============ */
+  .rhythm{background:var(--ink);color:var(--cream);border-bottom:6px solid var(--ink)}
+  .rhythm .section-title{color:var(--cream)}
+  .rhythm .section-sub{color:#aaa}
+  .rhythm-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border:4px solid var(--cream)}
+  .rhythm-side{padding:48px;position:relative}
+  .rhythm-side.idle{background:var(--mint);color:var(--ink)}
+  .rhythm-side.battle{background:var(--orange);color:var(--ink)}
+  .rhythm-label{
+    font-family:'Bungee',cursive;
+    font-size:14px;
+    letter-spacing:.2em;
+    margin-bottom:12px;
+  }
+  .rhythm-side h3{
+    font-family:'ZCOOL KuaiLe',cursive;
+    font-size:48px;
+    margin-bottom:24px;
+    line-height:1;
+  }
+  .rhythm-side ul{list-style:none;font-size:15px}
+  .rhythm-side li{padding:10px 0;border-bottom:2px dashed rgba(0,0,0,.2)}
+  .rhythm-side li:last-child{border:none}
+  .rhythm-side li::before{content:'▸ ';font-weight:700}
+  .rhythm-arrow{
+    position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    font-size:64px;
+    background:var(--ink);
+    color:var(--yellow);
+    width:80px;height:80px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    border:4px solid var(--cream);
+    z-index:3;
+  }
+
+  /* ============ AI 能力区 ============ */
+  .ai{background:var(--yellow);border-bottom:6px solid var(--ink);position:relative;overflow:hidden}
+  .ai::after{
+    content:'AI';
+    position:absolute;
+    font-family:'Bungee',cursive;
+    font-size:400px;
+    color:var(--ink);
+    opacity:.04;
+    right:-50px;top:50%;
+    transform:translateY(-50%);
+    pointer-events:none;
+  }
+  .ai-flow{
+    display:flex;
+    align-items:stretch;
+    gap:0;
+    margin-top:48px;
+    position:relative;
+    z-index:2;
+  }
+  .ai-step{
+    flex:1;
+    background:var(--cream);
+    border:4px solid var(--ink);
+    box-shadow:var(--shadow);
+    padding:32px 24px;
+    position:relative;
+  }
+  .ai-step:not(:last-child){margin-right:32px}
+  .ai-step-num{
+    position:absolute;top:-18px;left:24px;
+    background:var(--pink);color:var(--cream);
+    font-family:'Bungee',cursive;
+    padding:4px 12px;
+    border:3px solid var(--ink);
+    font-size:14px;
+  }
+  .ai-step h4{font-family:'ZCOOL KuaiLe',cursive;font-size:22px;margin:12px 0}
+  .ai-step p{font-size:13px;color:#444;line-height:1.6}
+  .ai-step .demo{
+    margin-top:16px;
+    padding:12px;
+    background:var(--ink);
+    color:var(--yellow);
+    font-family:'DM Mono',monospace;
+    font-size:12px;
+    border:3px solid var(--ink);
+  }
+  .ai-arrow{
+    position:absolute;
+    right:-24px;top:50%;
+    transform:translateY(-50%);
+    font-size:32px;
+    color:var(--ink);
+    z-index:5;
+  }
+
+  /* ============ 对战模式区 ============ */
+  .modes{background:var(--cream);border-bottom:6px solid var(--ink)}
+  .modes-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px}
+  .mode-card{
+    background:var(--cream);
+    border:4px solid var(--ink);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    transition:transform .2s;
+  }
+  .mode-card:hover{transform:translate(-4px,-4px);box-shadow:10px 10px 0 var(--ink)}
+  .mode-banner{
+    padding:40px 24px;
+    text-align:center;
+    border-bottom:4px solid var(--ink);
+    position:relative;
+  }
+  .mode-banner.boss{background:var(--pink)}
+  .mode-banner.brawl{background:var(--orange)}
+  .mode-banner.speed{background:var(--mint)}
+  .mode-emoji{font-size:64px;display:block;margin-bottom:12px}
+  .mode-banner h3{font-family:'ZCOOL KuaiLe',cursive;font-size:28px;color:var(--ink)}
+  .mode-body{padding:28px 24px}
+  .mode-meta{display:flex;gap:16px;margin-bottom:20px;font-size:12px}
+  .mode-meta span{background:var(--ink);color:var(--cream);padding:4px 10px;font-weight:700}
+  .mode-body p{font-size:14px;color:#444;line-height:1.7;margin-bottom:16px}
+  .mode-body strong{color:var(--pink)}
+
+  /* ============ 解压反馈区 ============ */
+  .feedback{background:var(--pink);border-bottom:6px solid var(--ink);color:var(--cream)}
+  .feedback .section-title{color:var(--cream)}
+  .feedback .section-sub{color:rgba(255,255,255,.8)}
+  .intensity-bar{
+    display:flex;
+    gap:8px;
+    margin-top:48px;
+    align-items:flex-end;
+  }
+  .intensity-level{
+    flex:1;
+    background:var(--cream);
+    border:4px solid var(--ink);
+    box-shadow:var(--shadow-sm);
+    padding:24px 16px;
+    text-align:center;
+    color:var(--ink);
+    transition:transform .2s;
+  }
+  .intensity-level:hover{transform:translateY(-8px)}
+  .intensity-level .lvl{font-family:'Bungee',cursive;font-size:36px;color:var(--pink)}
+  .intensity-level:nth-child(1){height:120px}
+  .intensity-level:nth-child(2){height:150px}
+  .intensity-level:nth-child(3){height:180px}
+  .intensity-level:nth-child(4){height:210px}
+  .intensity-level:nth-child(5){height:240px}
+  .intensity-level .label{font-size:12px;margin-top:8px;font-weight:700}
+  .intensity-level .desc{font-size:11px;color:#666;margin-top:4px}
+
+  /* ============ 价值数据区 ============ */
+  .value{background:var(--cream);border-bottom:6px solid var(--ink)}
+  .value-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;text-align:center}
+  .value-num{
+    font-family:'Bungee',cursive;
+    font-size:clamp(40px,6vw,72px);
+    color:var(--pink);
+    line-height:1;
+    margin-bottom:12px;
+  }
+  .value-label{font-size:14px;color:#444;font-weight:700;letter-spacing:.05em}
+
+  /* ============ CTA ============ */
+  .cta{
+    background:var(--ink);
+    color:var(--cream);
+    text-align:center;
+    padding:120px 0;
+    position:relative;
+    overflow:hidden;
+  }
+  .cta::before{
+    content:'';
+    position:absolute;inset:0;
+    background:repeating-conic-gradient(from 0deg at 50% 50%, var(--pink) 0deg 6deg, transparent 6deg 12deg);
+    opacity:.15;
+    animation:spin 40s linear infinite reverse;
+  }
+  .cta-content{position:relative;z-index:2}
+  .cta h2{
+    font-family:'ZCOOL KuaiLe',cursive;
+    font-size:clamp(48px,8vw,96px);
+    line-height:1;
+    margin-bottom:24px;
+    color:var(--yellow);
+    text-shadow:6px 6px 0 var(--pink);
+  }
+  .cta p{font-size:18px;margin-bottom:40px;color:var(--cream)}
+
+  /* ============ Footer ============ */
+  footer{background:var(--ink);color:#888;padding:40px 0;text-align:center;font-size:12px;border-top:4px solid var(--pink)}
+  footer .logo{font-size:16px;margin-bottom:12px}
+
+  /* ============ 爆破粒子 ============ */
+  .particle{
+    position:fixed;
+    width:12px;height:12px;
+    pointer-events:none;
+    z-index:9999;
+    border:2px solid var(--ink);
+  }
+
+  /* ============ 响应式 ============ */
+  @media(max-width:900px){
+    nav ul{display:none}
+    .rhythm-grid{grid-template-columns:1fr}
+    .rhythm-arrow{display:none}
+    .modes-grid{grid-template-columns:1fr}
+    .ai-flow{flex-direction:column}
+    .ai-step:not(:last-child){margin-right:0;margin-bottom:32px}
+    .ai-arrow{display:none}
+    .value-grid{grid-template-columns:repeat(2,1fr)}
+    .intensity-bar{flex-direction:column;align-items:stretch}
+    .intensity-level{height:auto !important}
+  }
+
+  /* 滚动入场动画 */
+  .reveal{opacity:0;transform:translateY(40px);transition:opacity .8s,transform .8s}
+  .reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+
+<!-- 导航 -->
+<nav>
+  <div class="wrap">
+    <div class="logo">情绪<span>爆破</span>局</div>
+    <ul>
+      <li><a href="#pain">痛点</a></li>
+      <li><a href="#rhythm">双节奏</a></li>
+      <li><a href="#ai">AI能力</a></li>
+      <li><a href="#modes">对战模式</a></li>
+      <li><a href="#cta">立即开炸</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header class="hero">
+  <span class="float-word">加班到凌晨</span>
+  <span class="float-word">KPI 压顶</span>
+  <span class="float-word">催婚催育</span>
+  <span class="float-word">房贷压身</span>
+  <div class="wrap hero-content">
+    <span class="tag">生活娱乐赛道 · 社会公益</span>
+    <h1>情绪<span class="blast">爆破</span>局</h1>
+    <p class="slogan">把你的压力源变成 <strong>Boss</strong>，叫上朋友一起 <strong>炸成烟花</strong></p>
+    <div class="cta-row">
+      <a href="#cta" class="btn btn-primary">立即开炸</a>
+      <a href="#rhythm" class="btn btn-secondary">了解玩法</a>
+    </div>
+  </div>
+</header>
+
+<!-- 痛点 -->
+<section class="pain" id="pain">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-num">01 / 痛点</span>
+      <h2 class="section-title cn-display">压力无处释放？</h2>
+      <p class="section-sub">都市人群长期高压，现有渠道都有明显短板。我们把这些痛点<span class="pain-strike">一个个砸碎</span>。</p>
+    </div>
+    <div class="pain-grid">
+      <div class="pain-card reveal">
+        <span class="pain-icon">😰</span>
+        <h3>心理咨询门槛高</h3>
+        <p>费用贵、即时性差、有病耻感。亚健康人群的日常解压需求无人覆盖。</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">📱</span>
+        <h3>单机解压太枯燥</h3>
+        <p>缺乏社交互动、内容有限、重复枯燥、无长线目标，玩两次就腻。</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">🎮</span>
+        <h3>派对游戏有挫败</h3>
+        <p>偏竞技、有死亡惩罚、段位压力大，越玩越焦虑，不解压。</p>
+      </div>
+      <div class="pain-card reveal">
+        <span class="pain-icon">💤</span>
+        <h3>挂机游戏付费深</h3>
+        <p>重数值碾压、付费才能赢、无情绪价值，只养号不治愈。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 双节奏 -->
+<section class="rhythm" id="rhythm">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-num">02 / 双节奏</span>
+      <h2 class="section-title">挂机养号 · 上线开炸</h2>
+      <p class="section-sub">后台自动成长，上线即开 3-5 分钟乱斗。挂机党与对战党，一个都不少。</p>
+    </div>
+    <div class="rhythm-grid reveal">
+      <div class="rhythm-side idle">
+        <div class="rhythm-label">长线节奏</div>
+        <h3>挂机养成</h3>
+        <ul>
+          <li>5 个情绪区域按等级解锁</li>
+          <li>自动刷怪，离线也累计收益</li>
+          <li>武器 / 技能 / 宠物四大成长线</li>
+          <li>上线一键领取 12 小时离线收益</li>
+        </ul>
+      </div>
+      <div class="rhythm-arrow">⚡</div>
+      <div class="rhythm-side battle">
+        <div class="rhythm-label">短线节奏</div>
+        <h3>多人乱斗</h3>
+        <ul>
+          <li>3-5 分钟一局，碎片化解压</li>
+          <li>AI 把压力源变成专属 Boss</li>
+          <li>无死亡惩罚，零挫败竞技</li>
+          <li>破坏得分 + 道具整活，肆意发泄</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI 能力 -->
+<section class="ai" id="ai">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-num">03 / AI 能力</span>
+      <h2 class="section-title cn-display">压力源 → 专属怪兽</h2>
+      <p class="section-sub">输入"加班""堵车""催婚"，AI 实时生成专属 Boss、关卡布局、随机事件。每局都不一样。</p>
+    </div>
+    <div class="ai-flow reveal">
+      <div class="ai-step">
+        <span class="ai-step-num">STEP 1</span>
+        <h4>输入压力源</h4>
+        <p>玩家用一句话描述今日压力，文本长度 1-100 字。</p>
+        <div class="demo">"今天又被领导 PUA 了，KPI 还差 30%"</div>
+        <span class="ai-arrow">→</span>
+      </div>
+      <div class="ai-step">
+        <span class="ai-step-num">STEP 2</span>
+        <h4>AI 解析生成</h4>
+        <p>大模型解析关键词，生成怪兽形象、技能组、弱点机制。</p>
+        <div class="demo">{"name":"PUA 暴君","hp":3200,"weakness":"连击 10 次眩晕"}</div>
+        <span class="ai-arrow">→</span>
+      </div>
+      <div class="ai-step">
+        <span class="ai-step-num">STEP 3</span>
+        <h4>关卡下发</h4>
+        <p>种子 + 布局 + 事件广播给全房间，前端确定性渲染。</p>
+        <div class="demo">seed:8842 | 破坏物:38 | 事件:老板弹窗</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 对战模式 -->
+<section class="modes" id="modes">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-num">04 / 对战模式</span>
+      <h2 class="section-title cn-display">三种开炸姿势</h2>
+      <p class="section-sub">组队打 Boss、自由乱斗、手速竞速，总有一款适合你今天的压力。</p>
+    </div>
+    <div class="modes-grid">
+      <div class="mode-card reveal">
+        <div class="mode-banner boss">
+          <span class="mode-emoji">👹</span>
+          <h3>情绪 Boss 组队战</h3>
+        </div>
+        <div class="mode-body">
+          <div class="mode-meta">
+            <span>3-4 人</span><span>PVE</span><span>3-5 分钟</span>
+          </div>
+          <p>共同击败 AI 生成的情绪 Boss。场景内破坏物品积攒 <strong>大招能量</strong>，集体击碎压力具象化的 Boss，全屏爆破特效。</p>
+          <p>Boss 击败全员获胜，按贡献排名，MVP 额外奖励。</p>
+        </div>
+      </div>
+      <div class="mode-card reveal">
+        <div class="mode-banner brawl">
+          <span class="mode-emoji">💥</span>
+          <h3>解压自由乱斗</h3>
+        </div>
+        <div class="mode-body">
+          <div class="mode-meta">
+            <span>6-8 人</span><span>PVP</span><span>3-5 分钟</span>
+          </div>
+          <p>限时内攻击玩家、破坏场景物品累计积分。被击中仅 <strong>击飞/粘滞</strong>，无死亡惩罚。</p>
+          <p>无惩罚互坑、肆意破坏、道具整活，按积分排名。</p>
+        </div>
+      </div>
+      <div class="mode-card reveal">
+        <div class="mode-banner speed">
+          <span class="mode-emoji">⚡</span>
+          <h3>手速竞速挑战</h3>
+        </div>
+        <div class="mode-body">
+          <div class="mode-meta">
+            <span>单人/多人</span><span>排行</span><span>90 秒</span>
+          </div>
+          <p>90 秒内完成捏泡泡、撕胶带、砸西瓜等微动作 <strong>连击比拼</strong>。高频点击的爽感，连击反馈的节奏感。</p>
+          <p>单人记入速度榜，多人按分数排名。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 解压反馈 -->
+<section class="feedback" id="feedback">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="section-num">05 / 解压反馈</span>
+      <h2 class="section-title cn-display">情绪自适应爆破</h2>
+      <p class="section-sub">AI 每 5 秒分析你的操作节奏，动态调整特效烈度。你越想发泄，反馈越炸裂。</p>
+    </div>
+    <div class="intensity-bar reveal">
+      <div class="intensity-level">
+        <div class="lvl">1</div>
+        <div class="label">佛系</div>
+        <div class="desc">5 粒子 · 微震</div>
+      </div>
+      <div class="intensity-level">
+        <div class="lvl">2</div>
+        <div class="label">舒缓</div>
+        <div class="desc">10 粒子 · 轻震</div>
+      </div>
+      <div class="intensity-level">
+        <div class="lvl">3</div>
+        <div class="label">解压</div>
+        <div class="desc">20 粒子 · 中震</div>
+      </div>
+      <div class="intensity-level">
+        <div class="lvl">4</div>
+        <div class="label">爽快</div>
+        <div class="desc">40 粒子 · 强震</div>
+      </div>
+      <div class="intensity-level">
+        <div class="lvl">5</div>
+        <div class="label">爆破</div>
+        <div class="desc">80 粒子 · 全屏</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 价值数据 -->
+<section class="value">
+  <div class="wrap">
+    <div class="value-grid reveal">
+      <div>
+        <div class="value-num">5</div>
+        <div class="value-label">情绪挂机区域</div>
+      </div>
+      <div>
+        <div class="value-num">3</div>
+        <div class="value-label">种对战模式</div>
+      </div>
+      <div>
+        <div class="value-num">30+</div>
+        <div class="value-label">压力关键词</div>
+      </div>
+      <div>
+        <div class="value-num">0</div>
+        <div class="value-label">挫败惩罚</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta" id="cta">
+  <div class="wrap cta-content">
+    <h2>世界很大<br/>放手去炸</h2>
+    <p>TRAE AI 创造力大赛 · 生活娱乐赛道 + 社会公益</p>
+    <a href="#" class="btn btn-primary" onclick="blastAll(event)">把压力炸成烟花</a>
+  </div>
+</section>
+
+<footer>
+  <div class="logo">情绪<span>爆破</span>局</div>
+  <p>放置挂机养成 + 鼠标点击式多人乱斗 · 网页端即开即玩</p>
+  <p style="margin-top:8px;opacity:.6">© 2026 情绪爆破局 · TRAE AI 创造力大赛参赛作品</p>
+</footer>
+
+<script>
+  // 滚动入场动画
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+  // 点击爆破粒子效果
+  const colors = ['#FF3D7F', '#FFD93D', '#FF6B35', '#3DD9B5', '#FFF8E7'];
+  function blast(x, y) {
+    const count = 18;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = x + 'px';
+      p.style.top = y + 'px';
+      p.style.background = colors[i % colors.length];
+      p.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+      document.body.appendChild(p);
+      const angle = (Math.PI * 2 * i) / count;
+      const dist = 80 + Math.random() * 80;
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist;
+      p.animate([
+        { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
+        { transform: `translate(${dx}px,${dy}px) scale(0) rotate(${Math.random()*720}deg)`, opacity: 0 }
+      ], { duration: 700 + Math.random() * 300, easing: 'cubic-bezier(.2,.8,.2,1)' })
+        .onfinish = () => p.remove();
+    }
+  }
+  document.addEventListener('click', (e) => {
+    // 排除链接按钮的导航跳转干扰
+    blast(e.clientX, e.clientY);
+  });
+
+  // CTA 全屏爆破
+  function blastAll(e) {
+    e.preventDefault();
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        blast(cx + (Math.random() - 0.5) * 400, cy + (Math.random() - 0.5) * 300);
+      }, i * 150);
+    }
+  }
+</script>
+</body>
+</html>

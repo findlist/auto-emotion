@@ -1,0 +1,167 @@
+// server/src/services/shop-service.ts
+// 商城服务
+
+import pool from '../config/database.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+
+interface ShopItem {
+  id: number;
+  name: string;
+  description: string;
+  type: string;
+  price: number;
+  price_type: string; // gold 或 gems
+  emoji: string;
+}
+
+// 商品模板
+const SHOP_ITEMS: Omit<ShopItem, 'id'>[] = [
+  { name: '挂机加速卡(1小时)', description: '挂机效率提升50%', type: 'item', price: 100, price_type: 'gold', emoji: '⚡' },
+  { name: '挂机加速卡(1天)', description: '挂机效率提升100%', type: 'item', price: 500, price_type: 'gold', emoji: '🚀' },
+  { name: '经验药水', description: '使用后获得1000经验', type: 'item', price: 200, price_type: 'gold', emoji: '🧪' },
+  { name: '体力恢复药水', description: '恢复50体力', type: 'item', price: 150, price_type: 'gold', emoji: '❤️' },
+  { name: '泡泡枪皮肤', description: '可爱的泡泡枪外观', type: 'weapon_skin', price: 1000, price_type: 'gold', emoji: '🔫' },
+  { name: '彩虹泡泡皮肤', description: '彩虹色的泡泡枪', type: 'weapon_skin', price: 2000, price_type: 'gold', emoji: '🌈' },
+  { name: '小喵宠物蛋', description: '可孵化出小喵宠物', type: 'pet', price: 3000, price_type: 'gold', emoji: '🥚' },
+  { name: '小柴宠物蛋', description: '可孵化出小柴宠物', type: 'pet', price: 3000, price_type: 'gold', emoji: '🥚' },
+  { name: '传说宠物蛋', description: '可孵化出传说宠物', type: 'pet', price: 10000, price_type: 'gold', emoji: '💎' },
+];
+
+/**
+ * 初始化商品（如果不存在）
+ */
+async function ensureItemsExist(): Promise<void> {
+  const existing = await pool.query('SELECT COUNT(*) as count FROM shop_items');
+  if (parseInt(existing.rows[0].count, 10) > 0) {
+    return;
+  }
+
+  for (const item of SHOP_ITEMS) {
+    await pool.query(
+      `INSERT INTO shop_items (name, description, type, price, price_type, emoji)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [item.name, item.description, item.type, item.price, item.price_type, item.emoji]
+    );
+  }
+}
+
+/**
+ * 获取商品列表
+ */
+export async function getShopItems(type?: string) {
+  await ensureItemsExist();
+
+  let query = 'SELECT id, name, description, type, price, price_type, emoji FROM shop_items WHERE 1=1';
+  const params: unknown[] = [];
+
+  if (type) {
+    query += ' AND type = $1';
+    params.push(type);
+  }
+
+  query += ' ORDER BY price';
+
+  const result = await pool.query(query, params);
+  return result.rows;
+}
+
+/**
+ * 购买商品
+ */
+export async function buyItem(userId: string, itemId: number) {
+  // 获取商品信息
+  const itemResult = await pool.query(
+    `SELECT * FROM shop_items WHERE id = $1`,
+    [itemId]
+  );
+
+  if (itemResult.rows.length === 0) {
+    throw new AppError(ErrorCode.NOT_FOUND, '商品不存在');
+  }
+
+  const item = itemResult.rows[0];
+
+  // 获取用户余额
+  const userResult = await pool.query(
+    `SELECT gold, gems FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  if (userResult.rows.length === 0) {
+    throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
+  }
+
+  const user = userResult.rows[0];
+
+  // 检查余额
+  if (item.price_type === 'gold' && user.gold < item.price) {
+    throw new AppError(ErrorCode.BAD_REQUEST, '金币不足');
+  }
+  if (item.price_type === 'gems' && user.gems < item.price) {
+    throw new AppError(ErrorCode.BAD_REQUEST, '钻石不足');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 扣除货币（原子守卫：WHERE 余额 >= 价格 防止并发购买导致余额变负，RETURNING 验证扣减成功）
+    // 设计原因：事务外的余额检查只读快照，并发请求都读到充足余额后各自进入事务，
+    // 若 UPDATE 无 AND gold >= $1 守卫，串行执行会使金币变负。RETURNING 返回 0 行表示余额已不足
+    if (item.price_type === 'gold') {
+      const deductResult = await client.query(
+        `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
+        [item.price, userId]
+      );
+      if (deductResult.rows.length === 0) {
+        throw new AppError(ErrorCode.BAD_REQUEST, '金币不足');
+      }
+    } else {
+      const deductResult = await client.query(
+        `UPDATE users SET gems = gems - $1 WHERE id = $2 AND gems >= $1 RETURNING gems`,
+        [item.price, userId]
+      );
+      if (deductResult.rows.length === 0) {
+        throw new AppError(ErrorCode.BAD_REQUEST, '钻石不足');
+      }
+    }
+
+    // 添加到背包
+    await client.query(
+      `INSERT INTO user_inventory (user_id, item_type, item_id, quantity)
+       VALUES ($1, $2, $3, 1)
+       ON CONFLICT (user_id, item_type, item_id)
+       DO UPDATE SET quantity = user_inventory.quantity + 1`,
+      [userId, item.type, item.id]
+    );
+
+    await client.query('COMMIT');
+    return { success: true, item };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * 获取用户背包
+ */
+export async function getUserInventory(userId: string) {
+  const result = await pool.query(
+    `SELECT ui.id, ui.item_type, ui.item_id, ui.quantity,
+            COALESCE(si.name, ai.name, pi.name, wi.name) as name,
+            COALESCE(si.emoji, ai.emoji, pi.emoji, wi.emoji) as emoji
+     FROM user_inventory ui
+     LEFT JOIN shop_items si ON si.type = ui.item_type AND si.id = ui.item_id
+     LEFT JOIN achievements ai ON ai.type = ui.item_type AND ai.id = ui.item_id
+     LEFT JOIN pets pi ON pi.id = ui.item_id
+     LEFT JOIN weapons wi ON wi.id = ui.item_id
+     WHERE ui.user_id = $1 AND ui.quantity > 0
+     ORDER BY ui.item_type, ui.id`,
+    [userId]
+  );
+
+  return result.rows;
+}

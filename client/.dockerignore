@@ -1,0 +1,11 @@
+# client/.dockerignore - 避免将本地构建产物/依赖打入镜像
+node_modules
+dist
+npm-debug.log*
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+Dockerfile
+.dockerignore

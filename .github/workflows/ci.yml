@@ -1,0 +1,63 @@
+# 情绪爆破局 CI 流水线
+# 设计原因：Monorepo 架构下前后端独立 package.json，分别 job 并行执行
+# 避免串行等待，任一端失败即可快速发现。触发条件覆盖 push 与 PR 保证主干质量。
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend:
+    name: 后端校验（tsc + vitest）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 类型检查
+        run: npx tsc --noEmit
+
+      - name: 单元测试 + 覆盖率
+        run: npx vitest run --coverage
+
+  frontend:
+    name: 前端校验（build + vitest）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 生产构建（tsc -b + vite build）
+        run: npm run build
+
+      - name: 单元测试
+        run: npx vitest run

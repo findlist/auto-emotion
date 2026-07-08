@@ -1,0 +1,228 @@
+// server/src/services/match-service.ts
+// 快速匹配服务：使用 Redis List 实现匹配队列
+
+import redis from '../config/redis.js';
+import { roomManager } from '../websocket/room-manager.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+
+const MATCH_QUEUE_KEY = 'match:queue';
+const MATCH_STATUS_KEY_PREFIX = 'match:status:'; // match:status:{userId}
+const MATCH_TIMEOUT_MS = 30_000; // 30秒超时
+const MATCH_PLAYER_COUNT = 4; // 4人匹配
+
+// 模块级 timer 管理：userId -> setTimeout 句柄
+// 设计原因：原 setTimeout 未保存返回值，leaveQuickMatch 无法取消，玩家离开后 30 秒仍执行无意义 redis 查询；
+// 玩家多次加入离开会累积 timer 导致泄漏。Map 保存句柄后，leave/匹配成功时可 clearTimeout 释放
+const matchTimers = new Map<string, NodeJS.Timeout>();
+
+/** 清除指定玩家的匹配超时 timer（存在时 clearTimeout 并删除 Map 条目） */
+function clearMatchTimer(userId: string): void {
+  const timer = matchTimers.get(userId);
+  if (timer) {
+    clearTimeout(timer);
+    matchTimers.delete(userId);
+  }
+}
+
+interface QueuePlayer {
+  userId: string;
+  nickname: string;
+  socketId: string;
+  joinedAt: number;
+}
+
+/**
+ * 获取队列中的玩家列表
+ */
+async function getQueuePlayers(): Promise<QueuePlayer[]> {
+  const queue = await redis.lrange(MATCH_QUEUE_KEY, 0, -1);
+  const players: QueuePlayer[] = [];
+  
+  for (let i = 0; i < queue.length; i += 4) {
+    players.push({
+      userId: queue[i],
+      nickname: queue[i + 1],
+      socketId: queue[i + 2],
+      joinedAt: parseInt(queue[i + 3], 10) || Date.now(),
+    });
+  }
+  
+  return players;
+}
+
+/**
+ * 移除玩家出队
+ */
+async function removeFromQueue(userId: string): Promise<void> {
+  const queue = await redis.lrange(MATCH_QUEUE_KEY, 0, -1);
+  
+  for (let i = 0; i < queue.length; i += 4) {
+    if (queue[i] === userId) {
+      // 移除该玩家的4个字段
+      await redis.lrem(MATCH_QUEUE_KEY, 1, queue[i]);     // userId
+      await redis.lrem(MATCH_QUEUE_KEY, 1, queue[i + 1]); // nickname
+      await redis.lrem(MATCH_QUEUE_KEY, 1, queue[i + 2]); // socketId
+      await redis.lrem(MATCH_QUEUE_KEY, 1, queue[i + 3]); // joinedAt
+      break;
+    }
+  }
+}
+
+/**
+ * 创建房间并加入所有玩家
+ */
+async function createRoomWithPlayers(players: QueuePlayer[]): Promise<string> {
+  // 防御性 invariant：调用方（joinQuickMatch/checkAndMatch）调用前均保证 length >= MATCH_PLAYER_COUNT，
+  // 此分支理论上永不触发。即使触发也应归为系统内部错误（INTERNAL_ERROR → HTTP 500），
+  // 而非用户错误，与 idle-engine 内部 invariant 错误码语义保持一致。
+  if (players.length === 0) {
+    throw new AppError(ErrorCode.INTERNAL_ERROR, '创建房间失败：玩家列表为空');
+  }
+  
+  // 第一个玩家作为房主
+  const host = players[0];
+  const room = await roomManager.createRoom(host.userId, host.socketId, host.nickname);
+  
+  // 其他玩家加入房间
+  for (let i = 1; i < players.length; i++) {
+    const player = players[i];
+    await roomManager.joinRoom(room.id, player.userId, player.socketId, player.nickname);
+  }
+  
+  return room.id;
+}
+
+/**
+ * 清理超时的玩家
+ */
+async function cleanupTimeoutPlayers(): Promise<void> {
+  const players = await getQueuePlayers();
+  const now = Date.now();
+  
+  for (const player of players) {
+    if (now - player.joinedAt > MATCH_TIMEOUT_MS) {
+      await removeFromQueue(player.userId);
+    }
+  }
+}
+
+/**
+ * 加入快速匹配队列
+ * - 尝试与队列中已有玩家匹配
+ * - 若无匹配则加入队列，30秒后自动清理
+ * - 队列满4人时自动创建房间
+ */
+export async function joinQuickMatch(
+  userId: string,
+  nickname: string,
+  socketId: string
+): Promise<{ roomId: string }> {
+  // 先清理超时玩家
+  await cleanupTimeoutPlayers();
+  
+  const players = await getQueuePlayers();
+  const joinedAt = Date.now();
+  
+  // 检查是否已在队列中
+  if (players.some(p => p.userId === userId)) {
+    throw new AppError(ErrorCode.BAD_REQUEST, '已在匹配队列中');
+  }
+  
+  // 加入队列
+  await redis.rpush(MATCH_QUEUE_KEY, userId, nickname, socketId, joinedAt.toString());
+  
+  // 检查队列是否已满
+  const updatedPlayers = await getQueuePlayers();
+  
+  if (updatedPlayers.length >= MATCH_PLAYER_COUNT) {
+    // 取前4个玩家创建房间
+    const matchedPlayers = updatedPlayers.slice(0, MATCH_PLAYER_COUNT);
+    
+    // 批量移除
+    for (const player of matchedPlayers) {
+      await removeFromQueue(player.userId);
+      // 清除匹配状态
+      await redis.del(`${MATCH_STATUS_KEY_PREFIX}${player.userId}`);
+      // 清除匹配超时 timer：玩家已匹配成功，无需再等 30 秒超时回调
+      // 设计原因：未清除则 timer 在 30 秒后仍触发，回调内 getQueuePlayers 找不到该玩家虽不会误删，
+      // 但会产生 1 次无意义的 Redis 查询；累积下会产生大量空转 IO
+      clearMatchTimer(player.userId);
+    }
+
+    // 创建房间
+    const roomId = await createRoomWithPlayers(matchedPlayers);
+    return { roomId };
+  }
+  
+  // 30秒超时清理：保存句柄到 matchTimers，供 leaveQuickMatch / 匹配成功路径取消
+  // 设计原因：原 setTimeout 未保存返回值，玩家离开或匹配成功后 30 秒仍执行无意义 Redis 查询；
+  // 多次加入离开会累积 timer 导致泄漏。Map 保存句柄后可在适当时机 clearTimeout 释放
+  const timer = setTimeout(async () => {
+    // 回调执行后无论是否清理成功，都先删除 Map 条目，避免 Map 无限增长
+    matchTimers.delete(userId);
+    const currentPlayers = await getQueuePlayers();
+    const player = currentPlayers.find(p => p.userId === userId);
+
+    if (player) {
+      await removeFromQueue(userId);
+      await redis.del(`${MATCH_STATUS_KEY_PREFIX}${userId}`);
+    }
+  }, MATCH_TIMEOUT_MS);
+  matchTimers.set(userId, timer);
+  
+  // 设置匹配状态
+  await redis.setex(`${MATCH_STATUS_KEY_PREFIX}${userId}`, MATCH_TIMEOUT_MS / 1000, 'matching');
+  
+  throw new AppError(ErrorCode.BAD_REQUEST, `正在匹配中，请稍候（${updatedPlayers.length}/${MATCH_PLAYER_COUNT}）`);
+}
+
+/**
+ * 离开匹配队列
+ */
+export async function leaveQuickMatch(userId: string): Promise<void> {
+  // 先清除匹配超时 timer：玩家已主动离开，无需再等 30 秒回调执行无意义 Redis 查询
+  // 设计原因：未清除则 timer 在 30 秒后仍触发，回调内 getQueuePlayers 找不到该玩家虽不会误删，
+  // 但会产生 1 次无意义的 Redis 查询；多次加入离开会累积 timer 导致内存泄漏
+  clearMatchTimer(userId);
+  await removeFromQueue(userId);
+  await redis.del(`${MATCH_STATUS_KEY_PREFIX}${userId}`);
+}
+
+/**
+ * 获取匹配状态
+ */
+export async function getMatchStatus(userId: string): Promise<{ inQueue: boolean; queueCount?: number }> {
+  const inQueue = await redis.exists(`${MATCH_STATUS_KEY_PREFIX}${userId}`);
+  
+  if (inQueue) {
+    const players = await getQueuePlayers();
+    return { inQueue: true, queueCount: players.length + 1 };
+  }
+  
+  return { inQueue: false };
+}
+
+/**
+ * 检查并触发匹配（供定时任务调用）
+ */
+export async function checkAndMatch(): Promise<void> {
+  const players = await getQueuePlayers();
+  
+  while (players.length >= MATCH_PLAYER_COUNT) {
+    const matchedPlayers = players.slice(0, MATCH_PLAYER_COUNT);
+    
+    // 批量移除
+    for (const player of matchedPlayers) {
+      await removeFromQueue(player.userId);
+      await redis.del(`${MATCH_STATUS_KEY_PREFIX}${player.userId}`);
+      // 与 joinQuickMatch 匹配成功路径一致：清除超时 timer，避免 30 秒后无意义回调
+      clearMatchTimer(player.userId);
+    }
+
+    // 创建房间
+    await createRoomWithPlayers(matchedPlayers);
+
+    // 更新剩余玩家列表
+    players.splice(0, MATCH_PLAYER_COUNT);
+  }
+}

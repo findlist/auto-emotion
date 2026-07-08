@@ -1,0 +1,230 @@
+// server/src/services/season-pass-service.ts
+// 赛季通行证服务
+
+import pool from '../config/database.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+
+const SEASON_DURATION_DAYS = 28; // 4周
+const SEASON_MAX_LEVEL = 50;
+
+interface SeasonReward {
+  level: number;
+  exp_required: number;
+  free_reward_type: string;
+  free_reward_id: number;
+  free_reward_type_amount?: number;
+  premium_reward_type: string;
+  premium_reward_id: number;
+}
+
+// 生成赛季奖励表
+function generateSeasonRewards(): SeasonReward[] {
+  const rewards: SeasonReward[] = [];
+  for (let level = 1; level <= SEASON_MAX_LEVEL; level++) {
+    const expRequired = level * 100;
+    rewards.push({
+      level,
+      exp_required: expRequired,
+      free_reward_type: 'gold',
+      free_reward_id: 0,
+      free_reward_type_amount: level * 10,
+      premium_reward_type: 'skin',
+      premium_reward_id: level % 5 + 1,
+    });
+  }
+  return rewards;
+}
+
+const SEASON_REWARDS = generateSeasonRewards();
+
+/**
+ * 获取当前赛季信息
+ */
+export async function getCurrentSeason(userId: string) {
+  const result = await pool.query(
+    `SELECT season_id, season_level, season_exp, is_premium, season_started_at
+     FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
+  }
+
+  const user = result.rows[0];
+  
+  // 获取赛季配置
+  const seasonResult = await pool.query(
+    `SELECT id, name, started_at, ends_at FROM seasons 
+     WHERE started_at <= NOW() AND ends_at > NOW()
+     ORDER BY started_at DESC LIMIT 1`
+  );
+
+  let season = null;
+  if (seasonResult.rows.length > 0) {
+    season = seasonResult.rows[0];
+  }
+
+  // 获取已领取的奖励：分别查询免费与高级领取记录，避免共用 Set 导致显示相同
+  // 设计原因：原实现用同一个 Set 判断 freeClaimed 和 premiumClaimed，领免费后高级也显示已领取，是真实 bug
+  const claimedResult = await pool.query(
+    `SELECT level, is_premium FROM user_season_rewards WHERE user_id = $1 AND season_id = $2`,
+    [userId, season?.id]
+  );
+  const freeClaimedLevels = new Set(
+    claimedResult.rows.filter(r => !r.is_premium).map(r => r.level)
+  );
+  const premiumClaimedLevels = new Set(
+    claimedResult.rows.filter(r => r.is_premium).map(r => r.level)
+  );
+
+  return {
+    seasonId: season?.id || 0,
+    seasonName: season?.name || '赛季1',
+    seasonStartedAt: season?.started_at || new Date().toISOString(),
+    seasonEndsAt: season?.ends_at || new Date(Date.now() + SEASON_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+    level: user.season_level || 1,
+    exp: user.season_exp || 0,
+    isPremium: user.is_premium || false,
+    rewards: SEASON_REWARDS.map(r => ({
+      ...r,
+      freeClaimed: freeClaimedLevels.has(r.level),
+      premiumClaimed: premiumClaimedLevels.has(r.level),
+    })),
+  };
+}
+
+/**
+ * 购买通行证
+ */
+export async function buySeasonPass(userId: string) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 检查是否已购买
+    const userResult = await client.query(
+      `SELECT is_premium FROM users WHERE id = $1 FOR UPDATE`,
+      [userId]
+    );
+
+    if (userResult.rows[0]?.is_premium) {
+      throw new AppError(ErrorCode.CONFLICT, '已购买高级通行证');
+    }
+
+    // 更新为高级通行证
+    await client.query(
+      `UPDATE users SET is_premium = true WHERE id = $1`,
+      [userId]
+    );
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * 添加赛季经验
+ */
+export async function addSeasonExp(userId: string, exp: number) {
+  await pool.query(
+    `UPDATE users SET season_exp = season_exp + $1 WHERE id = $2`,
+    [exp, userId]
+  );
+}
+
+/**
+ * 领取赛季奖励
+ */
+export async function claimSeasonReward(userId: string, level: number, isPremium: boolean) {
+  // 事务外 fast-fail 预检查：避免无谓获取事务客户端，改善 UX
+  // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在事务内 advisory lock 后的权威检查
+  const userResult = await pool.query(
+    `SELECT season_level, is_premium FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  if (userResult.rows.length === 0) {
+    throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
+  }
+
+  const user = userResult.rows[0];
+
+  if (user.season_level < level) {
+    throw new AppError(ErrorCode.BAD_REQUEST, '等级不足');
+  }
+
+  if (isPremium && !user.is_premium) {
+    throw new AppError(ErrorCode.BAD_REQUEST, '需要高级通行证');
+  }
+
+  // 检查是否已领取（预检查）
+  const claimedResult = await pool.query(
+    `SELECT id FROM user_season_rewards WHERE user_id = $1 AND season_id = $2 AND level = $3 AND is_premium = $4`,
+    [userId, 0, level, isPremium] // season_id 为 0 表示当前赛季
+  );
+
+  if (claimedResult.rows.length > 0) {
+    throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 事务内 advisory lock：基于 userId+level+isPremium 哈希获取事务级锁，串行化同用户同等级同类型并发领取
+    // 设计原因：原实现检查在事务外，并发请求都查到未领取后进入事务，串行 INSERT 都成功都发奖
+    // pg_advisory_xact_lock 在事务结束自动释放，无需 DDL 变更，是 PostgreSQL 标准并发控制方案
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${level}:${isPremium}`]);
+
+    // 事务内权威检查：重新查询领取状态，advisory lock 串行化后前一个请求已 COMMIT
+    const recheck = await client.query(
+      `SELECT id FROM user_season_rewards WHERE user_id = $1 AND season_id = $2 AND level = $3 AND is_premium = $4`,
+      [userId, 0, level, isPremium]
+    );
+
+    if (recheck.rows.length > 0) {
+      throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
+    }
+
+    // 记录领取
+    await client.query(
+      `INSERT INTO user_season_rewards (user_id, season_id, level, is_premium)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, 0, level, isPremium]
+    );
+
+    // 发放奖励
+    const reward = SEASON_REWARDS.find(r => r.level === level);
+    if (reward) {
+      const rewardType = isPremium ? 'premium_reward_type' : 'free_reward_type';
+      const rewardId = isPremium ? reward.premium_reward_id : 0;
+      const rewardAmount = (reward as unknown as { free_reward_type_amount?: number }).free_reward_type_amount || 0;
+
+      if (rewardType === 'free_reward_type') {
+        await client.query(
+          `UPDATE users SET gold = gold + $1 WHERE id = $2`,
+          [rewardAmount, userId]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO user_inventory (user_id, item_type, item_id) VALUES ($1, $2, $3)`,
+          [userId, reward.premium_reward_type, rewardId]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
