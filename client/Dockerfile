@@ -11,8 +11,9 @@ RUN npm config set registry https://registry.npmmirror.com/
 
 # 先复制依赖清单，利用 Docker 层缓存
 # 有 lock 文件用 npm ci（版本锁定），否则 fallback 到 npm install
+# --no-fund/--no-audit 跳过资金提示和安全审计，加速安装
 COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN if [ -f package-lock.json ]; then npm ci --no-fund --no-audit; else npm install --no-fund --no-audit; fi
 
 # 复制源码并打包
 COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
