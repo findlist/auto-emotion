@@ -24,8 +24,8 @@ RUN npm config set registry https://registry.npmmirror.com/
 # 注意：package.json 在 server/ 下，所以路径带 server/ 前缀
 COPY server/package.json server/package-lock.json* ./
 
-# 安装全部依赖（含 devDependencies，构建期需要）
-RUN npm ci
+# 有 lock 用 npm ci（版本锁定），否则 fallback 到 npm install
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # 复制源码并编译
 COPY server/tsconfig.json ./
@@ -46,8 +46,8 @@ RUN npm config set registry https://registry.npmmirror.com/
 COPY --from=builder /app/dist ./dist
 COPY server/package.json server/package-lock.json* ./
 
-# 仅安装生产依赖
-RUN npm ci --omit=dev && npm cache clean --force
+# 有 lock 用 npm ci（版本锁定），否则 fallback 到 npm install
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi && npm cache clean --force
 
 # ---- 数据库迁移支持 ----
 # 复制迁移文件（database/migrations 在 auto-emotion/ 根下，server/ 外面）
