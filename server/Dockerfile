@@ -10,6 +10,11 @@
 # ===== 阶段 1：builder =====
 FROM node:20-alpine AS builder
 
+# ★ 使用国内 Alpine 镜像（阿里云），加速 apk 安装
+#    默认 dl-cdn.alpinelinux.org 在国内极慢，阿里云每 12h 同步一次
+#    ⚠️ 注意：必须连 /alpine/ 一起替换，否则会出现双重路径 /alpine/alpine/
+RUN sed -i 's|dl-cdn.alpinelinux.org/alpine|mirrors.aliyun.com/alpine|g' /etc/apk/repositories
+
 # bcrypt 等原生模块在 alpine 上需要编译工具（musl 无预编译二进制）
 RUN apk add --no-cache python3 make g++
 
