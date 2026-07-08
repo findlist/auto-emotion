@@ -6,10 +6,13 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# 先复制依赖清单，利用 Docker 层缓存
-COPY package.json package-lock.json ./
+# ★ 使用国内 npm 镜像（淘宝），加速依赖安装
+RUN npm config set registry https://registry.npmmirror.com/
 
-RUN npm ci
+# 先复制依赖清单，利用 Docker 层缓存
+# 有 lock 文件用 npm ci（版本锁定），否则 fallback 到 npm install
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # 复制源码并打包
 COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
