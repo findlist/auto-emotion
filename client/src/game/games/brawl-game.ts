@@ -162,20 +162,8 @@ export class BrawlGame {
       this.world.addChild(dest.container);
     }
 
-    // 创建玩家
-    const spawns = levelData.playerSpawns ?? [
-      { x: 100, y: 100 },
-      { x: 700, y: 500 },
-      { x: 100, y: 500 },
-      { x: 700, y: 100 },
-    ];
-    let spawnIdx = 0;
-    for (const [id, _] of this.scores) {
-      if (spawnIdx < spawns.length) {
-        this.addPlayer(id, spawns[spawnIdx].x, spawns[spawnIdx].y, `Player${spawnIdx + 1}`);
-        spawnIdx++;
-      }
-    }
+    // 玩家不在 init 中创建：上方 cleanup() 已清空 this.scores，遍历 scores 永不执行（原为死代码）。
+    // 玩家由 battle-scene.syncPlayers 在 init 完成后通过 addPlayer 逐个注入（M-11 清理死代码）
 
     this.isRunning = true;
     this.setupInput();
