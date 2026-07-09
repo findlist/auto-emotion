@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 
 // vi.hoisted 让 mock 工厂引用的状态在 vi.mock 提升后仍可访问
 const { userState, restoreMock, logoutMock, roomState } = vi.hoisted(() => ({
@@ -73,8 +73,12 @@ describe('App 浏览器返回键导航（popstate 监听）', () => {
 
     // 模拟浏览器返回键：pushState 改变 URL 后触发 popstate 事件
     // pushState 本身不触发 popstate，需手动 dispatch 模拟用户点返回/前进
-    window.history.pushState({}, '', '/login');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    // 用 act 包裹：确保 popstate 回调里的 setPage 状态更新在断言前确定性刷新，
+    // 避免全量并发跑测时 dispatchEvent 在 act 外触发 React 批处理延迟、findByText 超时 flaky
+    await act(async () => {
+      window.history.pushState({}, '', '/login');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
 
     // 验证 page 状态已同步为 login，LoginPage 渲染出标志性文案
     expect(await screen.findByText('登录以继续游戏', {}, { timeout: 2000 })).toBeInTheDocument();
