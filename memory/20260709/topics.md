@@ -117,7 +117,7 @@
 本次完成任务：P1 测试补全 home 首页单元测试
 - 健康预检全绿：后端 tsc 零错误、vitest 614/614；前端 build 零错误零警告
 - 核对 P0 三项收尾任务（确认弹窗/断线重连/画布响应式）代码完整在位（confirm.tsx showConfirm / websocket/index.ts 指数退避+rejoin+Toast+battle.tsx 断线遮罩 / battle.tsx min(100%,800px,calc(75vh*4/3))+aspectRatio 4/3+portrait 提示），与 11:36 验收记录一致，未重复开发
-- 最小单元：补全 home 首页单元测试（8 用例），覆盖已登录用户信息渲染（昵称/Lv/EXP/金币）、user 为 null 默认值兜底（冒险者/Lv.1）、getPressureStats 挂载调用、加载失败 logger.error 记录且 UI 不崩溃、挂机空间/对战大厅按钮回调、底部对战 tab battle→lobby 映射、更多功能成就按钮 onNavigate('achievements')
+- 最小单元1：补全 home 首页单元测试（8 用例），覆盖已登录用户信息渲染（昵称/Lv/EXP/金币）、user 为 null 默认值兜底（冒险者/Lv.1）、getPressureStats 挂载调用、加载失败 logger.error 记录且 UI 不崩溃、挂机空间/对战大厅按钮回调、底部对战 tab battle→lobby 映射、更多功能成就按钮 onNavigate('achievements')
 - 沿用 tasks.test.tsx 的 vi.hoisted mock 模式：mock useUserStore selector 写法、getPressureStats、PressureRadar（data-testid 断言）、logger
 
 修改文件清单：
@@ -127,17 +127,40 @@
 - 前端 vitest run ✅ 217/217 通过（+8 新用例，原 209）
 - 前端 npm run build ✅ 零错误零警告（home chunk 11.28KB 未变）
 - 后端本轮无改动，健康预检 614/614 已通过
+- Git commit 2f6b776 已推送 origin/main
 
 动态计划调整：
-- 本轮完成 1 个最小单元（home 测试补全），测试补全层级推进中
+- 最小单元1 完成（home 测试补全），测试补全层级推进中
 - 剩余未测页面：idle（逻辑重）、battle（依赖 PixiJS 难测）、demo（演示页低优）
 - P2 技术债清理层级已实质完成，样式精修层级 home/tasks 抽查无缺口
 
 遗留阻塞问题：
 - 无
 
+[session_id: auto | topic_summary_time: 2026-07-09 17:46:00]
+本次完成任务：P1 测试补全 idle 挂机空间页单元测试 + Token 无感刷新机制核查
+- 核查确认 P3「Token 无感刷新机制实现」已完整落地：http.ts 实现并发 401 合并刷新（isRefreshing + pendingRequests 队列）、refreshAccessToken 用 fetch 调 /api/auth/refresh 绕过拦截器递归、10s 超时兜底、refresh 失败清登录态跳首页、排除 login/register/refresh 自身避免递归，不重复开发
+- 最小单元2：补全 idle 挂机空间页单元测试（6 用例），覆盖 user 为 null「请先登录」兜底、挂载并发调用 6 个 API（getStatus/listAreas/claim + weaponApi/skillApi/petApi.list）且 userId 派生正确、已登录渲染昵称/等级/金币、离线收益 exp>0 显示离线时长与领取按钮、点击「武器」tab 切换显示武器列表、getStatus 失败时 .catch(()=>null) 兜底使战力用默认值渲染且页面不崩溃
+- 沿用 home.test.tsx 的 vi.hoisted mock 模式：mock useUserStore selector、idle/weapon/skill/pet 四套 API、showConfirm/showToast/showApiError/logger，聚焦渲染层避免复杂 handler 超时
+
+修改文件清单：
+- client/src/pages/idle.test.tsx（新增）
+
+验证结果：
+- 前端 vitest run ✅ 223/223 通过（+6 新用例，原 217）
+- 前端 npm run build ✅ 零错误零警告（idle chunk 16.64KB 未变）
+- 后端本轮无改动，健康预检 614/614 已通过
+
+动态计划调整：
+- 本轮累计完成 2 个最小单元（home + idle 测试补全），达成单轮产出上限（2-3 个），触发终止条件
+- 测试补全层级：核心页面 home/idle 已补，剩余未测页面仅 battle（依赖 PixiJS 渲染难测，已有 battle-scene.test.ts 17 用例覆盖核心逻辑）与 demo（演示页低优）
+- P3 体验优化核查：Token 无感刷新已落地、断线重连房间状态同步已在 P0 完成，剩余首屏懒加载（Vite 已自动代码分割各页面独立 chunk）、无障碍适配（home/idle/battle 已有 aria-label/role 完善）
+
+遗留阻塞问题：
+- 无
+
 下一轮迭代建议：
-- 测试补全：评估 idle 页面补测可行性（挂机逻辑重，需 mock 定时器与 idle API）
-- battle 页面依赖 PixiJS 渲染，测试成本高，建议保留 battle-scene.test.ts 现有覆盖
+- 测试补全：battle 页面依赖 PixiJS，测试成本高，建议保留 battle-scene.test.ts 现有覆盖，不强行补页面级测试
 - 前端覆盖率工具化仍受 @vitest/coverage-v8 依赖红线阻塞，待用户决策
-- P3 体验优化：Token 无感刷新、首屏/PixiJS 资源懒加载、无障碍适配深化
+- P3 体验优化剩余项：首屏/PixiJS 资源懒加载深化（当前 Vite 自动分割已达标，可评估 PixiJS AssetLoader 按需加载）、无障碍适配深化（键盘导航/焦点管理）
+- 项目已接近生产就绪，可启动上线验收标准逐项核对
