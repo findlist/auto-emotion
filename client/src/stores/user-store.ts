@@ -8,7 +8,62 @@ import type { LoginResult, User } from '@/types/user';
  * 用户状态管理
  * - 登录态持久化到 localStorage
  * - 提供 login / register / logout / fetchProfile 方法
+ * - 无 token 时自动以游客身份登录，用户无需手动注册/登录即可游玩
  */
+
+// 游客账号：固定手机号+密码，首次访问自动注册，后续直接登录
+const GUEST = {
+  phone: '13000000000',
+  password: 'guest123456',
+  nickname: '冒险者',
+} as const;
+
+// 后端不可用时的本地兜底用户（API 调用会失败但不阻塞页面浏览）
+const FALLBACK_USER: User = {
+  id: 0,
+  phone: GUEST.phone,
+  nickname: GUEST.nickname,
+  avatarUrl: '',
+  signature: '',
+  coins: 0,
+  gems: 0,
+  level: 1,
+  exp: 0,
+  power: 0,
+  pvp_points: 0,
+  battleScore: 0,
+  status: 0,
+  lastLoginAt: '',
+  createdAt: '',
+};
+
+type SetFn = (partial: Partial<UserState>) => void;
+
+/**
+ * 游客自动登录：先尝试登录，失败则注册（首次访问），都失败则使用本地兜底用户
+ * 设计原因：去掉手动登录流程，用户打开页面即自动获取身份，可直接进入游戏
+ */
+async function autoGuestLogin(set: SetFn): Promise<void> {
+  try {
+    const result = await authApi.login({ phone: GUEST.phone, password: GUEST.password });
+    persistSession(result);
+    set({ user: result.user });
+  } catch {
+    try {
+      const result = await authApi.register({
+        phone: GUEST.phone,
+        password: GUEST.password,
+        nickname: GUEST.nickname,
+      });
+      persistSession(result);
+      set({ user: result.user });
+    } catch {
+      // 后端不可用，使用本地兜底用户让用户至少能浏览页面
+      set({ user: FALLBACK_USER });
+    }
+  }
+}
+
 interface UserState {
   user: User | null;
   loading: boolean;
@@ -33,8 +88,9 @@ export const useUserStore = create<UserState>((set) => ({
 
   restore: async () => {
     const token = localStorage.getItem('token');
-    // 无 token 时直接标记恢复完成，让守卫 effect 走未登录跳转逻辑
+    // 无 token：自动以游客身份登录，用户无需手动注册/登录
     if (!token) {
+      await autoGuestLogin(set);
       set({ restored: true });
       return;
     }
@@ -42,7 +98,7 @@ export const useUserStore = create<UserState>((set) => ({
       const user = await userApi.getProfile();
       set({ user });
     } catch (err) {
-      // 区分错误类型：仅 401（token 真正失效）才清理登录态
+      // 区分错误类型：仅 401（token 真正失效）才清理并重新游客登录
       // 网络错误（httpStatus === undefined，如服务器宕机/超时/DNS 失败）保留 token，
       // 让用户下次操作时重试，避免网络波动导致已登录用户被误登出
       const httpStatus = (err as ErrorResponse | undefined)?.httpStatus;
@@ -50,9 +106,11 @@ export const useUserStore = create<UserState>((set) => ({
         disconnectSocket();
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
+        // token 失效后自动重新游客登录
+        await autoGuestLogin(set);
       }
     } finally {
-      // 无论成功失败都标记恢复完成，避免守卫 effect 在恢复期间误跳登录页
+      // 无论成功失败都标记恢复完成，避免守卫 effect 在恢复期间误跳
       set({ restored: true });
     }
   },

@@ -121,12 +121,16 @@ describe('user-store 用户状态管理', () => {
     expect(useUserStore.getState().user).toBeNull();
   });
 
-  it('restore 无 token 时直接返回，不调 getProfile，标记 restored=true', async () => {
+  it('restore 无 token 时自动游客登录，标记 restored=true', async () => {
+    // 无 token 时触发 autoGuestLogin：先尝试 login，成功则设置 user 和 token
+    vi.mocked(authApi.login).mockResolvedValue(mockLoginResult);
+
     await useUserStore.getState().restore();
 
+    expect(authApi.login).toHaveBeenCalledWith({ phone: '13000000000', password: 'guest123456' });
     expect(userApi.getProfile).not.toHaveBeenCalled();
-    expect(useUserStore.getState().user).toBeNull();
-    // 无 token 也需标记恢复完成，让守卫 effect 走未登录跳转逻辑
+    expect(localStorage.getItem('token')).toBe('tok-abc');
+    expect(useUserStore.getState().user).toEqual(mockUser);
     expect(useUserStore.getState().restored).toBe(true);
   });
 
@@ -141,21 +145,23 @@ describe('user-store 用户状态管理', () => {
     expect(useUserStore.getState().restored).toBe(true);
   });
 
-  it('restore 有 token 但 getProfile 返回 401：清理 token 与 socket（token 真正失效），finally 标记 restored=true', async () => {
+  it('restore 有 token 但 getProfile 返回 401：清理旧 token 后自动游客重新登录', async () => {
     localStorage.setItem('token', 'tok');
     localStorage.setItem('refreshToken', 'ref');
     // 模拟 401 错误：token 失效，http 拦截器 refresh 失败后抛出带 httpStatus 的 ErrorResponse
     const err: ErrorResponse = { code: 401, message: '登录已过期', httpStatus: 401 };
     vi.mocked(userApi.getProfile).mockRejectedValue(err);
+    // 401 后 autoGuestLogin 重新登录
+    vi.mocked(authApi.login).mockResolvedValue(mockLoginResult);
 
     await useUserStore.getState().restore();
 
-    // 401 是 token 真正失效，清理 socket + 清理 localStorage，避免脏 socket 残留
+    // 401 是 token 真正失效，清理 socket + 清理旧 localStorage
     expect(disconnectSocket).toHaveBeenCalled();
-    expect(localStorage.getItem('token')).toBeNull();
-    expect(localStorage.getItem('refreshToken')).toBeNull();
-    expect(useUserStore.getState().user).toBeNull();
-    // 失败也需标记恢复完成，避免守卫 effect 永久阻断在恢复中状态
+    // autoGuestLogin 重新登录成功，设置新 token 和 user
+    expect(authApi.login).toHaveBeenCalledWith({ phone: '13000000000', password: 'guest123456' });
+    expect(localStorage.getItem('token')).toBe('tok-abc');
+    expect(useUserStore.getState().user).toEqual(mockUser);
     expect(useUserStore.getState().restored).toBe(true);
   });
 

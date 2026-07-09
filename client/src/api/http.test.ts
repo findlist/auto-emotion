@@ -148,12 +148,12 @@ describe('http axios 实例拦截器', () => {
       });
       expect(localStorage.getItem('token')).toBeNull();
       expect(localStorage.getItem('refreshToken')).toBeNull();
-      expect(mockLocation.href).toBe('/login');
+      expect(mockLocation.href).toBe('/');
     });
 
-    it('HTTP 401 且当前已在 /login 时不重复跳转', async () => {
+    it('HTTP 401 且当前已在 / 时不重复跳转', async () => {
       localStorage.setItem('token', 'old-token');
-      mockLocation.pathname = '/login';
+      mockLocation.pathname = '/';
 
       const error = {
         response: { status: 401, data: { code: 401, message: '未授权' } },
@@ -304,7 +304,7 @@ describe('http axios 实例拦截器', () => {
       });
       expect(localStorage.getItem('token')).toBeNull();
       expect(localStorage.getItem('refreshToken')).toBeNull();
-      expect(mockLocation.href).toBe('/login');
+      expect(mockLocation.href).toBe('/');
     });
 
     it('401 + 是 /auth/refresh 请求自身 → 不递归刷新，直接清登录态', async () => {
@@ -327,13 +327,13 @@ describe('http axios 实例拦截器', () => {
       });
       expect(fetchMock).not.toHaveBeenCalled();
       expect(localStorage.getItem('token')).toBeNull();
-      expect(mockLocation.href).toBe('/login');
+      expect(mockLocation.href).toBe('/');
     });
 
     it('401 + 是 /auth/login 请求自身 → 不触发 refresh', async () => {
       // 场景：login 接口返回 401（账号密码错误），不应当尝试 refresh（无意义且浪费请求）
       localStorage.setItem('refreshToken', 'some-refresh');
-      mockLocation.pathname = '/login';
+      mockLocation.pathname = '/';
       const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
       vi.stubGlobal('fetch', fetchMock);
 
@@ -346,7 +346,7 @@ describe('http axios 实例拦截器', () => {
         errors: undefined,
       });
       expect(fetchMock).not.toHaveBeenCalled();
-      // 走普通 401 路径但已在 /login 不跳转
+      // 走普通 401 路径但 login 请求被排除，不触发 clearAuthAndRedirectLogin
       expect(mockLocation.href).toBe('');
     });
 
@@ -368,7 +368,7 @@ describe('http axios 实例拦截器', () => {
       });
       expect(fetchMock).not.toHaveBeenCalled();
       expect(localStorage.getItem('token')).toBeNull();
-      expect(mockLocation.href).toBe('/login');
+      expect(mockLocation.href).toBe('/');
     });
 
     it('401 + refresh 接口 10 秒未响应 → 超时 abort，走清登录态跳转路径', async () => {
@@ -399,7 +399,7 @@ describe('http axios 实例拦截器', () => {
       const rejection = await result;
       vi.useRealTimers();
 
-      // 超时后走清登录态路径：reject ErrorResponse(401) + 清 token + 跳转 /login
+      // 超时后走清登录态路径：reject ErrorResponse(401) + 清 token + 跳转 /
       expect(rejection).toEqual({
         code: 401,
         message: '登录已过期，请重新登录',
@@ -407,7 +407,7 @@ describe('http axios 实例拦截器', () => {
       });
       expect(localStorage.getItem('token')).toBeNull();
       expect(localStorage.getItem('refreshToken')).toBeNull();
-      expect(mockLocation.href).toBe('/login');
+      expect(mockLocation.href).toBe('/');
     });
   });
 });

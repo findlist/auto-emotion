@@ -105,12 +105,14 @@ function App() {
   };
 
   const handleRegisterSuccess = () => {
-    navigateTo('login');
+    // 注册成功后用户已登录（register 方法已设置 token），直接进入首页
+    navigateTo('home');
   };
 
   const handleLogout = async () => {
     await logout();
-    navigateTo('login');
+    // 退出后刷新页面，触发自动游客重新登录
+    window.location.reload();
   };
 
   // 进入对战：从 room-store 同步房间信息到 battleState 并跳转
@@ -126,23 +128,12 @@ function App() {
     navigateTo('battle');
   }, [roomStore.roomId, roomStore.mode, navigateTo]);
 
-  // 未登录守卫：重定向到登录页并同步 URL
-  // 设计原因：原实现在 renderPage 内调用 navigateTo（setState + pushState），
-  // 违反 React 渲染期间不应有副作用的原则，StrictMode 双重渲染会调用两次 pushState。
-  // 移到 useEffect 后副作用与渲染分离，renderPage 仅负责渲染 LoginPage 避免空白闪烁。
-  // restored 守卫：restore 是异步的，初始 user=null 期间若直接跳转会把已登录用户误踢到登录页。
-  // 等待 restored=true 后再判定，确保仅真正未登录用户才跳转
-  useEffect(() => {
-    if (!restored) return;
-    if (!user && page !== 'demo' && page !== 'login' && page !== 'register') {
-      navigateTo('login');
-    }
-  }, [restored, user, page, navigateTo]);
+  // 登录守卫已移除：用户通过自动游客登录获取身份，无需手动登录即可进入所有页面
 
   const renderPage = () => {
-    // restore 未完成期间渲染全局 Loading，避免守卫 effect 误跳登录页 + 避免空白闪烁
+    // restore 未完成期间渲染全局 Loading，避免自动登录期间空白闪烁
     if (!restored) {
-      return <Loading text="恢复登录态中..." />;
+      return <Loading text="加载中..." />;
     }
 
     if (page === 'login') {
@@ -159,17 +150,6 @@ function App() {
         <RegisterPage
           onNavigateToLogin={() => navigateTo('login')}
           onRegisterSuccess={handleRegisterSuccess}
-        />
-      );
-    }
-
-    // 未登录守卫：除 demo 外都渲染 LoginPage（useEffect 会同步 URL 到 /login）
-    // 渲染 LoginPage 而非 return null 避免空白闪烁，URL 同步由上方 useEffect 处理
-    if (!user && page !== 'demo') {
-      return (
-        <LoginPage
-          onNavigateToRegister={() => navigateTo('register')}
-          onLoginSuccess={handleLoginSuccess}
         />
       );
     }

@@ -70,12 +70,12 @@ async function refreshAccessToken(): Promise<string> {
   }
 }
 
-/** 清登录态并跳登录页（refresh 不可恢复时调用） */
+/** 清登录态并跳首页（refresh 不可恢复时调用，刷新后自动游客重新登录） */
 function clearAuthAndRedirectLogin(): void {
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');
-  if (window.location.pathname !== '/login') {
-    window.location.href = '/login';
+  if (window.location.pathname !== '/') {
+    window.location.href = '/';
   }
 }
 
@@ -160,8 +160,14 @@ http.interceptors.response.use(
       }
     }
 
-    // 普通 401（无 refreshToken / refresh 请求自身 401 / login 请求 401 / 已重试过）→ 清登录态跳登录
-    if (httpStatus === 401) {
+    // 普通 401（无 refreshToken / refresh 请求自身 401 / 已重试过）→ 清登录态跳首页
+    // 排除 login/register 请求：游客自动登录时 login 401 是预期行为（账号未注册），
+    // 不应触发页面跳转，错误直接 reject 给 autoGuestLogin 的 catch 处理
+    if (
+      httpStatus === 401 &&
+      !originalRequest?.url?.includes('/auth/login') &&
+      !originalRequest?.url?.includes('/auth/register')
+    ) {
       clearAuthAndRedirectLogin();
     }
 
