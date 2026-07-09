@@ -315,18 +315,19 @@ describe('websocket/handlers 事件处理器', () => {
   });
 
   describe('handleStart 开始游戏', () => {
-    it('成功：调用 startGame + updateRoomStatus(playing) + 广播 STATE 与 game:start', async () => {
-      const room = createMockRoom({ id: 'ROOM01', status: 'playing' });
+    it('成功：调用 startGame + 广播 STATE 与 game:start，不调用 updateRoomStatus', async () => {
+      // H-03 修复：playing 状态由 generateLevelAndEvents 内部统一管理，handleStart 不再调用 updateRoomStatus
+      const room = createMockRoom({ id: 'ROOM01', status: 'generating' });
       const deps = createDeps();
       (deps.roomManager.startGame as ReturnType<typeof vi.fn>).mockResolvedValue(room);
-      (deps.roomManager.updateRoomStatus as ReturnType<typeof vi.fn>).mockResolvedValue(room);
 
       await handleStart({ roomId: 'ROOM01' }, deps);
 
       expect(deps.roomManager.startGame).toHaveBeenCalledWith('ROOM01', 'u1');
-      expect(deps.roomManager.updateRoomStatus).toHaveBeenCalledWith('ROOM01', 'playing');
+      // 状态转换已移交 generateLevelAndEvents，此处不应调用 updateRoomStatus
+      expect(deps.roomManager.updateRoomStatus).not.toHaveBeenCalled();
       const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
-      // 先广播 STATE，再广播 game:start
+      // 先广播 STATE（generating），再广播 game:start 通知前端进入加载
       expect(toEmits.ROOM01).toEqual([
         { event: RoomEvents.STATE, data: { room } },
         { event: GameEvents.START, data: { roomId: 'ROOM01' } },

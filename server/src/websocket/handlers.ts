@@ -146,13 +146,15 @@ export async function handleSubmitStress(
   }, deps.socket, '提交压力源失败');
 }
 
-/** 开始游戏：房主触发，启动后切换到 playing 状态并广播 game:start */
+/** 开始游戏：房主触发，广播 generating 状态与 game:start 通知前端进入加载
+ *  设计原因：playing 状态转换由 generateLevelAndEvents 内部统一管理（设置 levelData 后才置 playing），
+ *  此处不再额外调用 updateRoomStatus('playing')，避免与异步关卡生成产生读-改-写竞态，
+ *  导致状态闪烁或 levelData 被覆盖（H-03 修复）
+ */
 export async function handleStart(data: StartInput, deps: HandlerDeps): Promise<void> {
   await withErrorHandling(async () => {
     const room = await deps.roomManager.startGame(data.roomId, deps.user.userId);
     deps.io.to(room.id).emit(RoomEvents.STATE, { room });
-    // 游戏开始后切换到 playing 状态
-    await deps.roomManager.updateRoomStatus(room.id, 'playing');
     deps.io.to(room.id).emit(GameEvents.START, { roomId: room.id });
   }, deps.socket, '开始游戏失败');
 }
