@@ -31,9 +31,16 @@ vi.mock('../middleware/auth.js', () => ({
   },
 }));
 
+// mock idempotency：settle 路由用 checkIdempotency 防重复提交，
+// 默认放行（返回 true），单测按需 mockRejectedValueOnce 覆盖幂等拦截场景
+vi.mock('../utils/idempotency.js', () => ({
+  checkIdempotency: vi.fn().mockResolvedValue(true),
+}));
+
 import router from './idle.js';
 import * as idleService from '../services/idle-service.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { checkIdempotency } from '../utils/idempotency.js';
 
 let server: Server;
 let baseURL: string;
@@ -137,6 +144,27 @@ describe('idle 挂机路由', () => {
       });
 
       expect(res.status).toBe(422);
+    });
+
+    it('幂等拦截命中（5秒内重复提交）时返回 409 "请求已存在，请稍后重试"', async () => {
+      // checkIdempotency 抛 AppError(CONFLICT) 模拟 Redis SET NX 返回 null（key 已存在）
+      (checkIdempotency as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new AppError(ErrorCode.CONFLICT, '请求已存在，请稍后重试')
+      );
+
+      const res = await fetch(`${baseURL}/settle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ durationSeconds: 60 }),
+      });
+      const body = await res.json();
+
+      // CONFLICT(1005) 按 ErrorCode 语义映射为 HTTP 409
+      expect(res.status).toBe(409);
+      expect(body.code).toBe(ErrorCode.CONFLICT);
+      expect(body.message).toBe('请求已存在，请稍后重试');
+      // 幂等拦截命中时不应调用 settle 发放收益
+      expect(idleService.settle).not.toHaveBeenCalled();
     });
 
     it('参数合法调用 settle(userId, durationSeconds) 返回结算结果', async () => {

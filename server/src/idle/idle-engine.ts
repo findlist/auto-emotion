@@ -115,10 +115,12 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
       [gainedExp, gainedCoins, userId]
     );
 
-    // 更新 characters 表的 exp 和 offline_exp
+    // 更新 characters 表的 exp 和 offline_exp，同时重置 idle_since
+    // 设计原因：settle 发放在线收益后必须重置 idle_since 时间基准，否则 claimOffline
+    // 会从旧 idle_since 计算离线时长，导致在线期间已结算的收益被重复发放
     const newOfflineExp = char.offline_exp + gainedExp;
     await client.query(
-      `UPDATE characters SET exp = exp + $1, offline_exp = $2, updated_at = NOW() WHERE user_id = $3`,
+      `UPDATE characters SET exp = exp + $1, offline_exp = $2, idle_since = NOW(), updated_at = NOW() WHERE user_id = $3`,
       [gainedExp, newOfflineExp, userId]
     );
 
