@@ -136,6 +136,26 @@ describe('idle-engine 挂机引擎', () => {
       expect(params[0]).toBe(2);
       expect(params[2]).toBe('u1');
     });
+
+    it('碎片掉落：Math.random 命中 5% 概率时返回 1 个碎片', async () => {
+      mocks.clientQueryMock.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('FROM characters')) {
+          return Promise.resolve({
+            rows: [{
+              level: 1, exp: 0, efficiency: '1', exp_rate: '1', gold_rate: '1',
+              gold: 1000, offline_exp: 0,
+            }],
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+      // Math.random 返回 0.01 命中 < 0.05 的掉落分支
+      vi.spyOn(Math, 'random').mockReturnValue(0.01);
+
+      const result = await settle('u1', 60);
+
+      expect(result.gainedFragments).toBe(1);
+    });
   });
 
   describe('switchArea 切换挂机区域', () => {
@@ -191,6 +211,21 @@ describe('idle-engine 挂机引擎', () => {
       expect(params[0]).toBe(2);
       expect(params[1]).toBe('u1');
     });
+
+    it('角色不存在时抛 "角色不存在" 并 ROLLBACK', async () => {
+      // 区域存在但角色查询无行，覆盖 switchArea 内角色缺失分支
+      mocks.clientQueryMock.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('idle_areas')) {
+          return Promise.resolve({ rows: [{ id: 2, required_level: 5 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await expect(switchArea('u1', 2)).rejects.toThrow('角色不存在');
+
+      const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql as string);
+      expect(sqls[sqls.length - 1]).toBe('ROLLBACK');
+    });
   });
 
   describe('upgradeCharacter 升级属性', () => {
@@ -204,6 +239,15 @@ describe('idle-engine 挂机引擎', () => {
       });
 
       await expect(upgradeCharacter('u1', 'attack')).rejects.toThrow('金币不足，需要 1250 金币');
+
+      const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql as string);
+      expect(sqls[sqls.length - 1]).toBe('ROLLBACK');
+    });
+
+    it('角色不存在时抛 "角色不存在" 并 ROLLBACK', async () => {
+      mocks.clientQueryMock.mockResolvedValue({ rows: [] });
+
+      await expect(upgradeCharacter('u1', 'attack')).rejects.toThrow('角色不存在');
 
       const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql as string);
       expect(sqls[sqls.length - 1]).toBe('ROLLBACK');
@@ -233,6 +277,55 @@ describe('idle-engine 挂机引擎', () => {
       expect(attackUpdate).toBeDefined();
       const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql as string);
       expect(sqls[sqls.length - 1]).toBe('COMMIT');
+    });
+
+    // 聚合覆盖剩余 5 个属性字段的增量与 SQL 片段，避免重复样板代码
+    // [字段, 角色属性初始值, 期望新值, 对应 SQL setClause 片段]
+    it.each<{
+      field: 'hp' | 'defense' | 'crit_rate' | 'crit_damage' | 'efficiency';
+      charFields: Record<string, unknown>;
+      expected: number;
+      sqlFragment: string;
+    }>([
+      { field: 'hp', charFields: { hp: 100 }, expected: 110, sqlFragment: 'hp = hp + 10' },
+      { field: 'defense', charFields: { defense: 20 }, expected: 21, sqlFragment: 'defense = defense + 1' },
+      { field: 'crit_rate', charFields: { crit_rate: '0.15' }, expected: 0.16, sqlFragment: 'crit_rate = crit_rate + 0.01' },
+      { field: 'crit_damage', charFields: { crit_damage: '1.50' }, expected: 1.55, sqlFragment: 'crit_damage = crit_damage + 0.05' },
+      { field: 'efficiency', charFields: { efficiency: '1.00' }, expected: 1.05, sqlFragment: 'efficiency = efficiency + 0.05' },
+    ])('升级 $field 成功：属性按设定增量更新并 COMMIT', async ({ field, charFields, expected, sqlFragment }) => {
+      mocks.clientQueryMock.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('FROM characters')) {
+          return Promise.resolve({ rows: [{ level: 2, gold: 1000, ...charFields }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      const result = await upgradeCharacter('u1', field);
+
+      expect(result.success).toBe(true);
+      // 浮点增量用 toBeCloseTo 规避精度误差，整数字段同样适用
+      expect(result.newValue).toBeCloseTo(expected, 10);
+      const updateSql = mocks.clientQueryMock.mock.calls.find(
+        ([sql]) => typeof sql === 'string' && sql.includes(sqlFragment),
+      );
+      expect(updateSql).toBeDefined();
+      const allSqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql as string);
+      expect(allSqls[allSqls.length - 1]).toBe('COMMIT');
+    });
+
+    it('未知字段触发 default 分支抛 "无效的属性字段" 并 ROLLBACK', async () => {
+      mocks.clientQueryMock.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('FROM characters')) {
+          return Promise.resolve({ rows: [{ level: 2, gold: 1000 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      // 类型断言绕过 TS 字面量校验，覆盖 switch default 防御分支
+      await expect(upgradeCharacter('u1', 'unknown' as 'hp')).rejects.toThrow('无效的属性字段');
+
+      const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql as string);
+      expect(sqls[sqls.length - 1]).toBe('ROLLBACK');
     });
   });
 });
