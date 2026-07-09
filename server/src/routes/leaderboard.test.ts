@@ -1,9 +1,8 @@
 // server/src/routes/leaderboard.test.ts
-// 排行榜路由单元测试：复用 shop/friends 范式（controllableAuth + handler 内 try/catch + fail 自处理）
-// 设计原因：leaderboard.ts 不使用 authMiddleware，部分路由（/friends、/:type/me）在 handler 内检查 req.user。
-// /power、/battle、/speed 三个公共榜单不检查 req.user，但中间件统一注入不影响逻辑。
-// 路由内部 try/catch + fail 自处理错误，测试 app 不挂 errorHandler。
-// mock 边界：service 层全量 mock，route 测试聚焦分页参数解析、鉴权透传、type 校验、排名兜底。
+// 排行榜路由单元测试：/friends /:type/me 逐路由挂载 authMiddleware，/power /battle /speed 公开。
+// 设计原因：leaderboard.ts 对需鉴权的 /friends 与 /:type/me 逐路由挂载 authMiddleware，
+// 公共榜单 /power /battle /speed 不检查 req.user。mock auth.js 按请求头决定是否注入 req.user。
+// mock 边界：service 层与 authMiddleware 全量 mock，route 测试聚焦分页参数解析、鉴权透传、type 校验、排名兜底。
 
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import express from 'express';
@@ -19,19 +18,21 @@ vi.mock('../services/leaderboard-service.js', () => ({
   getFriendsLeaderboard: vi.fn(),
 }));
 
+// mock authMiddleware：通过请求头 x-test-no-auth 模拟未授权场景，未授权时直接返回 401
+// （与真实 authMiddleware 抛 AppError 后被 errorHandler 处理的效果一致）
+vi.mock('../middleware/auth.js', () => ({
+  authMiddleware: (req: Request, res: Response, next: NextFunction): void => {
+    if (req.headers['x-test-no-auth'] === '1') {
+      res.status(401).json({ code: 401, message: '未提供认证令牌', errors: undefined });
+      return;
+    }
+    (req as unknown as { user: { userId: string } }).user = { userId: 'u1' };
+    next();
+  },
+}));
+
 import router from './leaderboard.js';
 import * as leaderboardService from '../services/leaderboard-service.js';
-
-// 可控鉴权中间件：通过请求头 x-test-no-auth 模拟未授权场景，
-// 默认注入 req.user 模拟已登录用户，避免每个用例重复构造
-function controllableAuth(req: Request, _res: Response, next: NextFunction): void {
-  if (req.headers['x-test-no-auth'] === '1') {
-    next();
-    return;
-  }
-  (req as unknown as { user: { userId: string } }).user = { userId: 'u1' };
-  next();
-}
 
 // 共享 Express app 与服务器实例
 let server: Server;
@@ -40,9 +41,8 @@ let baseURL: string;
 beforeAll(() => {
   const app = express();
   app.use(express.json());
-  app.use(controllableAuth);
   app.use('/api/leaderboard', router);
-  // leaderboard 路由内部已 try/catch + fail 自处理错误，无需额外 errorHandler
+  // /friends /:type/me 由 mock authMiddleware 鉴权，/power /battle /speed 公开无需鉴权
   server = app.listen(0);
   const port = (server.address() as { port: number }).port;
   baseURL = `http://localhost:${port}/api/leaderboard`;
@@ -201,7 +201,7 @@ describe('leaderboard 排行榜路由', () => {
 
       expect(res.status).toBe(401);
       expect(body.code).toBe(401);
-      expect(body.message).toBe('未授权');
+      expect(body.message).toBe('未提供认证令牌');
       // 未授权不应调用 service
       expect(leaderboardService.getFriendsLeaderboard).not.toHaveBeenCalled();
     });
@@ -266,7 +266,7 @@ describe('leaderboard 排行榜路由', () => {
       const body = await res.json();
 
       expect(res.status).toBe(401);
-      expect(body.message).toBe('未授权');
+      expect(body.message).toBe('未提供认证令牌');
       expect(leaderboardService.getUserRank).not.toHaveBeenCalled();
     });
 

@@ -7,6 +7,7 @@ import {
   getFriendsLeaderboard,
 } from '../services/leaderboard-service.js';
 import { success, fail } from '../utils/response.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -52,8 +53,8 @@ router.get('/speed', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/leaderboard/friends - 好友榜
-router.get('/friends', async (req: Request, res: Response) => {
+// GET /api/leaderboard/friends - 好友榜（需登录鉴权）
+router.get('/friends', authMiddleware, async (req: Request, res: Response) => {
   const user = req.user;
   if (!user) {
     fail(res, 401, '未授权');
@@ -72,8 +73,8 @@ router.get('/friends', async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/leaderboard/:type/me - 获取个人排名
-router.get('/:type/me', async (req: Request, res: Response) => {
+// GET /api/leaderboard/:type/me - 获取个人排名（需登录鉴权）
+router.get('/:type/me', authMiddleware, async (req: Request, res: Response) => {
   const user = req.user;
   if (!user) {
     fail(res, 401, '未授权');

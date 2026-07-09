@@ -1,5 +1,5 @@
 import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+import type { Request, Response } from 'express';
 import cors from 'cors';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
@@ -8,6 +8,10 @@ import config from './config/index.js';
 void config; // 仅用于启动校验
 import { testConnection } from './config/database.js';
 import redis from './config/redis.js';
+// 引入鉴权中间件（用于在 app.ts 统一挂载到受保护路由前缀）
+import { authMiddleware } from './middleware/auth.js';
+// 引入全局错误处理中间件（按 AppError 的 ErrorCode 映射 HTTP 状态码，替代原统一降级 500）
+import { errorHandler } from './middleware/error-handler.js';
 // 引入挂机路由
 import idleRouter from './routes/idle.js';
 // 引入 AI 路由
@@ -102,60 +106,49 @@ app.use('/api/users', userRouter);
 // 战绩路由
 app.use('/api/game-records', gameRecordRouter);
 
+// 以下业务路由均需登录鉴权：在路由前缀统一挂载 authMiddleware，由其校验 JWT 并注入 req.user，
+// 供 handler 内部读取 userId。idle/users/game-records 已在路由文件内逐路由挂载，此处不重复挂载避免双重校验。
+// auth（注册/登录/刷新）、ai（怪兽生成）为公开路由，不挂载鉴权。
 // 武器路由
-app.use('/api/weapons', weaponRouter);
+app.use('/api/weapons', authMiddleware, weaponRouter);
 
 // 技能路由
-app.use('/api/skills', skillRouter);
+app.use('/api/skills', authMiddleware, skillRouter);
 
 // 宠物路由
-app.use('/api/pets', petRouter);
+app.use('/api/pets', authMiddleware, petRouter);
 
 // 结算路由
-app.use('/api/settle', settleRouter);
+app.use('/api/settle', authMiddleware, settleRouter);
 
 // 好友路由
-app.use('/api/friends', friendRouter);
+app.use('/api/friends', authMiddleware, friendRouter);
 
-// 排行榜路由
+// 排行榜路由（/power /battle /speed 公开，/friends /:type/me 在路由内逐路由挂载鉴权）
 app.use('/api/leaderboard', leaderboardRouter);
 
 // 任务路由
-app.use('/api/tasks', taskRouter);
+app.use('/api/tasks', authMiddleware, taskRouter);
 
 // 成就路由
-app.use('/api/achievements', achievementRouter);
+app.use('/api/achievements', authMiddleware, achievementRouter);
 
 // 赛季通行证路由
-app.use('/api/season-pass', seasonPassRouter);
+app.use('/api/season-pass', authMiddleware, seasonPassRouter);
 
 // 商城路由
-app.use('/api/shop', shopRouter);
+app.use('/api/shop', authMiddleware, shopRouter);
 
 // 匹配路由
-app.use('/api/match', matchRouter);
+app.use('/api/match', authMiddleware, matchRouter);
 
 // 房间路由
-app.use('/api/room', roomRouter);
+app.use('/api/room', authMiddleware, roomRouter);
 
-// 全局错误捕获中间件
-// 注意：必须声明 4 个参数（err, req, res, next）才能被 Express 识别为错误处理中间件
-// _next 前缀下划线以规避 noUnusedParameters 检查
-app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-  console.error(
-    JSON.stringify({
-      level: 'error',
-      message: err.message,
-      path: req.path,
-      timestamp: new Date().toISOString(),
-    }),
-  );
-  res.status(500).json({
-    code: 500,
-    message: 'Internal Server Error',
-    data: null,
-  });
-});
+// 全局错误处理中间件：按 AppError 的 ErrorCode 映射 HTTP 状态码（401/403/404/409/429 等），
+// 替代原统一降级 500 的内联处理。Express 5 会将 async 中间件抛出的错误自动传递至此，
+// 故 authMiddleware/rateLimit 抛出的 AppError 可被正确映射（如 UNAUTHORIZED → 401）。
+app.use(errorHandler);
 
 // 注意：HTTP 服务器已在 websocket/index.ts 中启动（通过 httpServer.listen）
 // 此处不再调用 app.listen，避免端口冲突
