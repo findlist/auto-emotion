@@ -27,8 +27,10 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
   /** 创建房间 */
   async function handleCreateRoom() {
     try {
-      setLoading(true);
+      // resetRoom 必须先于 setLoading：reset 会将 loading 置 false，
+      // 若顺序颠倒 setLoading(true) 会被 reset 覆盖，导致等待期间按钮可重复点击
       resetRoom();
+      setLoading(true);
       connect();
 
       // 通过 API 创建房间
@@ -51,6 +53,9 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : '创建房间失败';
       setError(msg);
+    } finally {
+      // 确保所有路径都重置 loading：成功跳转后用户可能返回大厅，
+      // 若 loading 残留 true 会导致按钮永久禁用无法再次操作
       setLoading(false);
     }
   }
@@ -59,14 +64,16 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
   function handleJoinRoom() {
     if (!roomCode.trim()) return;
     try {
-      setLoading(true);
+      // resetRoom 先于 setLoading，避免 reset 覆盖 loading 状态（同 handleCreateRoom）
       resetRoom();
+      setLoading(true);
       connect();
       roomActions.joinRoom(roomCode.trim().toUpperCase(), user?.nickname ?? '未知');
       onEnterRoom();
     } catch (err) {
       const msg = err instanceof Error ? err.message : '加入房间失败';
       setError(msg);
+    } finally {
       setLoading(false);
     }
   }
@@ -74,8 +81,9 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
   /** 快速匹配 */
   async function handleQuickMatch() {
     try {
-      setMatching(true);
+      // resetRoom 先于 setMatching，避免 reset 覆盖房间状态时影响 matching 展示
       resetRoom();
+      setMatching(true);
       connect();
 
       // 等待连接完成以获取有效 socket.id：connect() 同步返回时 socket.id 尚未就绪，
@@ -95,7 +103,6 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
 
       // 匹配未满 4 人:后端返回 { inQueue: true, queueCount },不进入房间页等待 socket 同步
       if (data.inQueue) {
-        setMatching(false);
         setError(`匹配中,当前队列 ${data.queueCount} 人,凑齐 4 人自动开局`);
         return;
       }
@@ -112,6 +119,9 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : '匹配失败';
       setError(msg);
+    } finally {
+      // 确保所有路径都重置 matching：成功跳转后用户可能返回大厅，
+      // 若 matching 残留 true 会导致按钮永久显示"匹配中..."且禁用
       setMatching(false);
     }
   }
