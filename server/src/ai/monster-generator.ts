@@ -27,6 +27,8 @@ export interface MonsterConfig {
   name: string;
   avatar: string;
   hp: number;
+  // 攻击力：基于难度计算，集中在生成器产出，避免 room-manager 二次硬编码导致数据来源分散
+  attack: number;
   skills: SkillTemplate[];
   weakness: string;
   stressTags: string[];
@@ -48,6 +50,7 @@ export function generate(input: MonsterGenerateInput): MonsterConfig {
 
   // 3. 难度档位：hp 与技能数
   const hp = calcHp(difficulty);
+  const attack = calcAttack(difficulty);
   const skillCount = getSkillCount(difficulty);
   const skills = pickSkills(entries, skillCount);
 
@@ -57,7 +60,7 @@ export function generate(input: MonsterGenerateInput): MonsterConfig {
   // 5. 外观：颜色与形状取首个条目，尺寸随难度增长
   const appearance = buildAppearance(firstEntry, difficulty);
 
-  return { name, avatar, hp, skills, weakness, stressTags, appearance };
+  return { name, avatar, hp, attack, skills, weakness, stressTags, appearance };
 }
 
 // 关键词匹配：逐个查找词典，未命中则用兜底条目（保留原关键词）
@@ -81,6 +84,12 @@ function calcHp(difficulty: number): number {
   const base = difficulty * 1000;
   const offset = Math.floor(Math.random() * 401) - 200; // -200 ~ 200
   return Math.max(100, base + offset);
+}
+
+// 攻击力计算：基础 50 + 难度 × 10，随难度线性增长
+// 设计原因：原 room-manager 硬编码此公式，移至生成器统一数据来源，便于后续平衡性调整
+function calcAttack(difficulty: number): number {
+  return 50 + difficulty * 10;
 }
 
 // 技能数档位：1→1，2-3→2，4-5→3

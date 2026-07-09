@@ -211,18 +211,21 @@ export const roomManager = {
       Promise.resolve().then(() => generateEvents(3, 30, 20)),
     ]);
 
-    // 怪兽兜底数据
+    // 怪兽兜底数据：结构与 MonsterConfig 对齐，避免 generator 失败时字段缺失导致后续取值异常
     const monster = monsterResult.status === 'fulfilled'
       ? monsterResult.value
       : {
           name: '压力怪兽',
+          avatar: '👾',
           hp: difficulty * 1000,
           attack: 50 + difficulty * 10,
           skills: [
             { name: '压力冲击', type: 'attack', effect: '造成伤害', cooldown: 5 },
             { name: '焦虑波', type: 'debuff', effect: '降低移速', cooldown: 8 },
           ],
-          emotion: 'stress',
+          weakness: '被情绪释放技能击破',
+          stressTags: ['压力'],
+          appearance: { color: '#888888', shape: 'circle', size: 1.0 + difficulty * 0.5 },
         };
 
     // 关卡兜底数据
@@ -252,13 +255,16 @@ export const roomManager = {
       console.warn('事件生成失败，使用兜底数据:', eventsResult.reason);
     }
 
-    const monsterEmotion = 'weakness' in monster ? monster.weakness : 'stress';
+    // 情绪标签取首个压力关键词：stressTags 是玩家输入的压力来源（如"加班""KPI"），
+    // 才是怪兽的"情绪"语义；weakness 是弱点描述（如"被连击 10 次眩晕"），语义不符
+    const monsterEmotion = monster.stressTags[0] ?? '压力';
 
     const levelReadyData: LevelReadyData = {
       monster: {
         name: monster.name,
         hp: monster.hp,
-        attack: 50 + difficulty * 10,
+        // attack 由 monster-generator 基于 difficulty 统一计算，避免数据来源分散
+        attack: monster.attack,
         skills: monster.skills.map((s) => s.name),
         emotion: monsterEmotion,
       },

@@ -403,7 +403,7 @@ describe('room-manager 房间管理器', () => {
         stressSources: {}, // 空压力源
       };
       mocks.generateMonsterMock.mockResolvedValue({
-        name: '怪兽', hp: 1000, skills: [], weakness: 'stress',
+        name: '怪兽', hp: 1000, attack: 60, skills: [], weakness: 'stress', stressTags: ['工作压力'],
       });
       mocks.generateLevelMock.mockResolvedValue({
         mode: 'boss', difficulty: 1,
@@ -426,9 +426,9 @@ describe('room-manager 房间管理器', () => {
         stressSources: { u1: 'KPI' },
       };
       mocks.generateMonsterMock.mockResolvedValue({
-        name: 'KPI 噩梦兽', hp: 2000,
+        name: 'KPI 噩梦兽', hp: 2000, attack: 60,
         skills: [{ name: '冲击', type: 'attack', effect: '伤害', cooldown: 5 }],
-        weakness: '被连击眩晕',
+        weakness: '被连击眩晕', stressTags: ['KPI'],
       });
       mocks.generateLevelMock.mockResolvedValue({
         mode: 'boss', difficulty: 1,
@@ -450,8 +450,15 @@ describe('room-manager 房间管理器', () => {
       expect(mocks.toEmitMock).toHaveBeenCalled();
       const [event, data] = mocks.toEmitMock.mock.calls[0];
       expect(event).toBe('game:level-ready');
-      const levelReady = data as { monster: { name: string }; level: { bossPoint: { x: number } } };
+      const levelReady = data as {
+        monster: { name: string; attack: number; emotion: string };
+        level: { bossPoint: { x: number } };
+      };
       expect(levelReady.monster.name).toBe('KPI 噩梦兽');
+      // H-01 修复：emotion 取自 stressTags[0]（压力关键词），非 weakness 描述字符串
+      expect(levelReady.monster.emotion).toBe('KPI');
+      // H-01 修复：attack 由 monster-generator 产出，非 room-manager 硬编码
+      expect(levelReady.monster.attack).toBe(60);
       expect(levelReady.level.bossPoint).toEqual({ x: 400, y: 150 });
     });
 
@@ -485,7 +492,7 @@ describe('room-manager 房间管理器', () => {
         stressSources: { u1: 'KPI' },
       };
       mocks.generateMonsterMock.mockResolvedValue({
-        name: '怪兽', hp: 1000, skills: [], weakness: 'stress',
+        name: '怪兽', hp: 1000, attack: 60, skills: [], weakness: 'stress', stressTags: ['工作压力'],
       });
       // 关卡生成器 reject
       mocks.generateLevelMock.mockRejectedValue(new Error('AI 不可用'));
@@ -506,7 +513,7 @@ describe('room-manager 房间管理器', () => {
         stressSources: { u1: 'KPI' },
       };
       mocks.generateMonsterMock.mockResolvedValue({
-        name: '怪兽', hp: 1000, skills: [], weakness: 'stress',
+        name: '怪兽', hp: 1000, attack: 60, skills: [], weakness: 'stress', stressTags: ['工作压力'],
       });
       mocks.generateLevelMock.mockResolvedValue({
         mode: 'boss', difficulty: 1,

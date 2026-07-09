@@ -57,6 +57,16 @@ describe('monster-generator 怪兽生成器', () => {
     expect(result.hp).toBe(100);
   });
 
+  it('attack 计算：50 + difficulty × 10，随难度线性增长', () => {
+    // 难度 1→60，难度 3→80，难度 5→100
+    const r1 = generate({ stressKeywords: ['加班'], difficulty: 1 });
+    const r3 = generate({ stressKeywords: ['加班'], difficulty: 3 });
+    const r5 = generate({ stressKeywords: ['加班'], difficulty: 5 });
+    expect(r1.attack).toBe(60);
+    expect(r3.attack).toBe(80);
+    expect(r5.attack).toBe(100);
+  });
+
   it('技能数档位：1→1 / 2-3→2 / 4-5→3', () => {
     const d1 = generate({ stressKeywords: ['加班'], difficulty: 1 });
     const d2 = generate({ stressKeywords: ['加班'], difficulty: 2 });
