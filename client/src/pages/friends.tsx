@@ -115,7 +115,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
       {/* 顶部导航 */}
       <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4">
         {/* 返回按钮仅含箭头符号，aria-label 提供语义避免屏幕阅读器朗读"左箭头" */}

@@ -68,27 +68,35 @@ export default function TasksPage({ onBack }: TasksPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
-      {/* 顶部导航 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4">
-        {/* 返回按钮仅含箭头符号，aria-label 提供语义避免屏幕阅读器朗读"左箭头" */}
-        <button onClick={onBack} aria-label="返回" className="text-cream hover:text-yellow transition-colors">
+    <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
+      {/* 顶部导航：bg-glow-pink 增加深色头部氛围层次 */}
+      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
+        {/* 返回按钮放大并加 hover 背景区块，提升点击友好度 */}
+        <button
+          onClick={onBack}
+          aria-label="返回"
+          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
+        >
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold">每日任务</h1>
+        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">每日任务</h1>
       </header>
 
-      {/* 任务列表 */}
-      <main className="flex-1 p-4 overflow-auto">
+      {/* 任务列表：scrollbar-brutal 统一滚动条风格 */}
+      <main className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
-          <div className="text-center py-8">
-            <p className="font-cn text-ink/70">加载中...</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-10">
+            <div className="w-10 h-10 border-4 border-ink border-t-pink rounded-full animate-spin" />
+            <p className="font-mono text-sm text-ink/60">加载任务中...</p>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="text-center py-8">
+          <div className="flex flex-col items-center justify-center gap-4 py-12">
             {/* 装饰性 emoji 与后跟文字语义重复，aria-hidden 屏蔽避免冗余朗读 */}
-            <p className="text-4xl mb-4"><span aria-hidden="true">📋</span></p>
-            <p className="font-cn text-ink/70">暂无任务</p>
+            <span className="text-5xl animate-bounce-slow" aria-hidden="true">📋</span>
+            <div className="text-center">
+              <p className="font-cn text-lg text-ink">暂无任务</p>
+              <p className="font-mono text-sm text-ink/50 mt-1">每日凌晨刷新，敬请期待</p>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -106,7 +114,8 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                       : status === 'completed'
                       ? 'border-mint'
                       : 'border-ink'
-                  } p-4 shadow-[3px_3px_0_#1a1a1a]`}
+                  } p-4 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger`}
+                  style={{ animationDelay: `${idx * 50}ms` }}
                 >
                   <div className="flex items-start gap-3 mb-3">
                     {/* 任务类型 emoji 与后跟任务名语义重复，aria-hidden 屏蔽装饰图标 */}

@@ -96,7 +96,7 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
   const maxLevel = Math.max(...seasonPass.rewards.map(r => r.level));
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
       {/* 顶部导航 */}
       <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4">
         <button onClick={onBack} aria-label="返回" className="text-cream hover:text-yellow transition-colors">

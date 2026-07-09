@@ -350,28 +350,28 @@ function IdlePage({ onBack }: IdlePageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream">
+    <div className="min-h-screen flex flex-col bg-cream max-w-2xl mx-auto scrollbar-brutal">
       {/* 顶部导航 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4">
+      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
         {/* 设计原因:aria-label 覆盖按钮内"← 返回"文本,避免屏幕阅读器朗读"左箭头 返回" */}
         <button
           onClick={onBack}
           aria-label="返回"
-          className="bg-pink text-cream px-3 py-1 font-mono text-sm hover:bg-cream hover:text-ink transition-colors"
+          className="bg-pink text-cream px-3 py-1 font-mono text-sm hover:bg-cream hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
         >
           ← 返回
         </button>
-        <h1 className="font-cn text-xl flex-1 text-center">挂机空间</h1>
-        <div className="flex items-center gap-2">
+        <h1 className="font-cn text-xl flex-1 text-center drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">挂机空间</h1>
+        <div className="flex items-center gap-2 bg-ink/40 px-3 py-1.5 rounded-full ring-1 ring-cream/15">
           {/* 装饰性 emoji,aria-hidden 避免屏幕阅读器冗余朗读"硬币" */}
           <span className="text-yellow" aria-hidden="true">💰</span>
           <span className="font-mono text-sm">{status?.gold ?? 0}</span>
         </div>
       </header>
 
-      {/* 离线收益领取 */}
+      {/* 离线收益领取：加 slideDown 动画吸引注意 */}
       {offlineResult && offlineResult.exp > 0 && (
-        <div className="bg-yellow text-ink px-4 py-3 flex items-center justify-between">
+        <div className="bg-yellow text-ink px-4 py-3 flex items-center justify-between animate-slideDown border-b-2 border-ink">
           <div className="font-mono text-sm">
             <p>离线 {offlineResult.cappedHours} 小时</p>
             <p>
@@ -382,17 +382,17 @@ function IdlePage({ onBack }: IdlePageProps) {
           <button
             onClick={handleClaim}
             disabled={loading}
-            className="bg-ink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-pink transition-colors disabled:opacity-50"
+            className="bg-ink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-pink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_#1a1a1a]"
           >
             领取
           </button>
         </div>
       )}
 
-      {/* 战力展示 */}
-      <div className="bg-ink text-cream px-4 py-3">
+      {/* 战力展示：交错入场 */}
+      <div className="bg-ink text-cream px-4 py-3 animate-stagger">
         <div className="flex items-center gap-4 mb-2">
-          <div className="w-12 h-12 rounded-full bg-pink flex items-center justify-center font-bold text-lg">
+          <div className="w-12 h-12 rounded-full bg-pink flex items-center justify-center font-bold text-lg ring-3 ring-cream/20">
             {user.nickname?.[0] ?? '游'}
           </div>
           <div>
@@ -403,29 +403,29 @@ function IdlePage({ onBack }: IdlePageProps) {
           </div>
         </div>
         <div className="grid grid-cols-4 gap-2 font-mono text-xs">
-          <div className="bg-ink/80 px-2 py-1 rounded">
+          <div className="bg-ink/80 px-2 py-1 rounded border border-cream/10">
             <span className="text-cream/60">攻击</span>
-            <span className="ml-1 text-orange">{status?.attack ?? 0}</span>
+            <span className="ml-1 text-orange font-bold">{status?.attack ?? 0}</span>
           </div>
-          <div className="bg-ink/80 px-2 py-1 rounded">
+          <div className="bg-ink/80 px-2 py-1 rounded border border-cream/10">
             <span className="text-cream/60">防御</span>
-            <span className="ml-1 text-mint">{status?.defense ?? 0}</span>
+            <span className="ml-1 text-mint font-bold">{status?.defense ?? 0}</span>
           </div>
-          <div className="bg-ink/80 px-2 py-1 rounded">
+          <div className="bg-ink/80 px-2 py-1 rounded border border-cream/10">
             <span className="text-cream/60">生命</span>
-            <span className="ml-1 text-pink">{status?.hp ?? 0}</span>
+            <span className="ml-1 text-pink font-bold">{status?.hp ?? 0}</span>
           </div>
-          <div className="bg-ink/80 px-2 py-1 rounded">
+          <div className="bg-ink/80 px-2 py-1 rounded border border-cream/10">
             <span className="text-cream/60">效率</span>
-            <span className="ml-1 text-yellow">{((status?.efficiency ?? 1) * 100).toFixed(0)}%</span>
+            <span className="ml-1 text-yellow font-bold">{((status?.efficiency ?? 1) * 100).toFixed(0)}%</span>
           </div>
         </div>
       </div>
 
-      {/* 区域切换 */}
-      <div className="px-4 py-3">
+      {/* 区域切换：交错入场，区域按钮加按下效果 */}
+      <div className="px-4 py-3 animate-stagger delay-100">
         <p className="font-cn text-sm text-ink/70 mb-2">选择挂机区域</p>
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-brutal">
           {areas.map((area) => {
             const isActive = status?.area_id === area.id;
             const isLocked = (status?.level ?? 1) < area.required_level;
@@ -436,10 +436,10 @@ function IdlePage({ onBack }: IdlePageProps) {
                 disabled={isLocked || loading}
                 className={`flex-shrink-0 px-4 py-3 rounded-lg font-mono text-sm transition-all ${
                   isActive
-                    ? 'bg-pink text-cream shadow-[3px_3px_0_#1a1a1a]'
+                    ? 'bg-pink text-cream shadow-[3px_3px_0_#1a1a1a] -translate-y-[1px]'
                     : isLocked
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-cream border-2 border-ink text-ink hover:bg-yellow hover:border-ink shadow-[3px_3px_0_#1a1a1a]'
+                      : 'bg-cream border-2 border-ink text-ink hover:bg-yellow hover:border-ink shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none'
                 }`}
                 style={{ backgroundColor: isActive ? area.bg_color : undefined }}
               >
@@ -455,11 +455,11 @@ function IdlePage({ onBack }: IdlePageProps) {
 
       {/* 区域信息 */}
       {status?.area_name && (
-        <div className="px-4 py-2 mb-2">
+        <div className="px-4 py-2 mb-2 animate-fadeIn">
           <p className="text-ink/70 font-mono text-xs">
-            当前区域: <span className="text-ink">{status.area_name}</span> ·
-            经验率 <span className="text-pink">{(status.exp_rate ?? 1) * 100}%</span> ·
-            金币率 <span className="text-yellow">{(status.gold_rate ?? 1) * 100}%</span>
+            当前区域: <span className="text-ink font-bold">{status.area_name}</span> ·
+            经验率 <span className="text-pink font-bold">{(status.exp_rate ?? 1) * 100}%</span> ·
+            金币率 <span className="text-yellow font-bold">{(status.gold_rate ?? 1) * 100}%</span>
           </p>
         </div>
       )}
@@ -468,7 +468,7 @@ function IdlePage({ onBack }: IdlePageProps) {
           设计原因：role=tablist/tab/tabpanel + aria-selected/controls/labelled
           构成完整 tab 语义。保留所有 tab 的默认 button 可聚焦性，不引入 roving
           tabindex 避免箭头键导航复杂度，是安全增量改进 */}
-      <div role="tablist" aria-label="挂机功能" className="px-4 flex gap-2 border-b border-ink/20">
+      <div role="tablist" aria-label="挂机功能" className="px-4 flex gap-2 border-b-2 border-ink/20">
         {[
           { key: 'main', label: '升级' },
           { key: 'weapons', label: '武器' },
@@ -482,10 +482,10 @@ function IdlePage({ onBack }: IdlePageProps) {
             aria-controls="idle-panel"
             id={`idle-tab-${tab.key}`}
             onClick={() => setActiveTab(tab.key as typeof activeTab)}
-            className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+            className={`px-4 py-2 font-mono text-sm border-b-3 transition-all ${
               activeTab === tab.key
-                ? 'border-pink text-pink'
-                : 'border-transparent text-ink/60 hover:text-ink'
+                ? 'border-pink text-pink font-bold -mb-[2px]'
+                : 'border-transparent text-ink/60 hover:text-ink hover:border-ink/30'
             }`}
           >
             {tab.label}
@@ -494,9 +494,9 @@ function IdlePage({ onBack }: IdlePageProps) {
       </div>
 
       {/* 主内容区：role=tabpanel 关联当前激活的 tab，屏幕阅读器切换 tab 时自动定位内容区 */}
-      <main role="tabpanel" id="idle-panel" aria-labelledby={`idle-tab-${activeTab}`} className="flex-1 p-4 overflow-y-auto">
+      <main role="tabpanel" id="idle-panel" aria-labelledby={`idle-tab-${activeTab}`} className="flex-1 p-4 overflow-y-auto scrollbar-brutal">
         {activeTab === 'main' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">升级角色属性</p>
             {UPGRADE_FIELDS.map((field) => {
               const value = status?.[field.key] ?? 0;
@@ -506,7 +506,7 @@ function IdlePage({ onBack }: IdlePageProps) {
               return (
                 <div
                   key={field.key}
-                  className="bg-cream border-2 border-ink px-4 py-3 flex items-center justify-between shadow-[3px_3px_0_#1a1a1a]"
+                  className="bg-cream border-2 border-ink px-4 py-3 flex items-center justify-between shadow-[3px_3px_0_#1a1a1a] card-hover"
                 >
                   <div className="flex items-center gap-3">
                     {/* 装饰性 emoji,aria-hidden 避免与后跟 label 文字语义重复(如"红心 生命") */}
@@ -519,7 +519,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                   <button
                     onClick={() => handleUpgrade(field.key)}
                     disabled={loading}
-                    className="bg-pink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-ink transition-colors disabled:opacity-50"
+                    className="bg-pink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_#1a1a1a]"
                   >
                     升级
                   </button>
@@ -530,7 +530,7 @@ function IdlePage({ onBack }: IdlePageProps) {
         )}
 
         {activeTab === 'weapons' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">武器库</p>
             {weapons.map((weapon) => {
               const isOwned = weapon.level !== undefined;
@@ -542,7 +542,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                   key={weapon.id}
                   className={`bg-cream border-2 ${
                     isEquipped ? 'border-yellow' : 'border-ink'
-                  } px-4 py-3 shadow-[3px_3px_0_#1a1a1a]`}
+                  } px-4 py-3 shadow-[3px_3px_0_#1a1a1a] card-hover`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     {/* 装饰性 emoji,aria-hidden 避免与后跟武器名语义重复 */}
@@ -554,19 +554,19 @@ function IdlePage({ onBack }: IdlePageProps) {
                       </p>
                     </div>
                     {isEquipped && (
-                      <span className="bg-yellow text-ink text-xs px-2 py-0.5 font-bold">已装备</span>
+                      <span className="bg-yellow text-ink text-xs px-2 py-0.5 font-bold shadow-[1px_1px_0_#1a1a1a]">已装备</span>
                     )}
                   </div>
                   <p className="text-sm text-ink/70 mb-3">{weapon.description}</p>
                   <div className="flex gap-2">
                     <span className="font-mono text-xs text-ink/60">
-                      攻击: {weapon.base_attack}
+                      攻击: <span className="text-orange font-bold">{weapon.base_attack}</span>
                     </span>
                     <span className="font-mono text-xs text-ink/60">
-                      暴击: {(weapon.base_crit_rate * 100).toFixed(0)}%
+                      暴击: <span className="text-pink font-bold">{(weapon.base_crit_rate * 100).toFixed(0)}%</span>
                     </span>
                     <span className="font-mono text-xs text-ink/60">
-                      暴伤: {(weapon.base_crit_damage * 100).toFixed(0)}%
+                      暴伤: <span className="text-orange font-bold">{(weapon.base_crit_damage * 100).toFixed(0)}%</span>
                     </span>
                   </div>
                   <div className="flex gap-2 mt-3">
@@ -575,7 +575,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                         <button
                           onClick={() => handleUpgradeWeapon(weapon)}
                           disabled={loading}
-                          className="bg-pink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink transition-colors disabled:opacity-50"
+                          className="bg-pink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
                         >
                           升级 ({upgradeCostGold}💰)
                         </button>
@@ -583,7 +583,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                           <button
                             onClick={() => handleEquipWeapon(weapon.id)}
                             disabled={loading}
-                            className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-colors disabled:opacity-50"
+                            className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
                           >
                             装备
                           </button>
@@ -593,7 +593,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                       <button
                         onClick={() => handleBuyWeapon(weapon)}
                         disabled={loading || (status?.gold ?? 0) < weapon.unlock_cost_gold}
-                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-colors disabled:opacity-50"
+                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
                       >
                         购买 ({weapon.unlock_cost_gold}💰)
                       </button>
@@ -606,7 +606,7 @@ function IdlePage({ onBack }: IdlePageProps) {
         )}
 
         {activeTab === 'skills' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">技能书</p>
             {skills.map((skill) => {
               const isUnlocked = skill.level !== undefined;
@@ -619,7 +619,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                   key={skill.id}
                   className={`bg-cream border-2 ${
                     isActive ? 'border-mint' : 'border-ink'
-                  } px-4 py-3 shadow-[3px_3px_0_#1a1a1a]`}
+                  } px-4 py-3 shadow-[3px_3px_0_#1a1a1a] card-hover`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     {/* 装饰性 emoji,aria-hidden 避免与后跟技能名语义重复 */}
@@ -633,7 +633,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                       </p>
                     </div>
                     {isActive && (
-                      <span className="bg-mint text-ink text-xs px-2 py-0.5 font-bold">已激活</span>
+                      <span className="bg-mint text-ink text-xs px-2 py-0.5 font-bold shadow-[1px_1px_0_#1a1a1a]">已激活</span>
                     )}
                   </div>
                   <p className="text-sm text-ink/70 mb-3">{skill.description}</p>
@@ -643,14 +643,14 @@ function IdlePage({ onBack }: IdlePageProps) {
                         <button
                           onClick={() => handleUpgradeSkill(skill)}
                           disabled={loading}
-                          className="bg-pink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink transition-colors disabled:opacity-50"
+                          className="bg-pink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
                         >
                           升级 ({upgradeCostGold}💰)
                         </button>
                         <button
                           onClick={() => handleActivateSkill(skill, !isActive)}
                           disabled={loading}
-                          className={`px-3 py-1 font-mono text-xs font-bold transition-colors disabled:opacity-50 ${
+                          className={`px-3 py-1 font-mono text-xs font-bold transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 ${
                             isActive
                               ? 'bg-red-500 text-cream hover:bg-ink'
                               : 'bg-ink text-cream hover:bg-mint hover:text-ink'
@@ -663,7 +663,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                       <button
                         onClick={() => handleUnlockSkill(skill)}
                         disabled={loading || (status?.level ?? 1) < requiredLevel}
-                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-colors disabled:opacity-50"
+                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
                       >
                         解锁
                       </button>
@@ -676,7 +676,7 @@ function IdlePage({ onBack }: IdlePageProps) {
         )}
 
         {activeTab === 'pets' && (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">宠物</p>
             {pets.map((pet) => {
               const isOwned = pet.is_equipped !== undefined;
@@ -686,7 +686,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                   key={pet.id}
                   className={`bg-cream border-2 ${
                     isEquipped ? 'border-yellow' : 'border-ink'
-                  } px-4 py-3 shadow-[3px_3px_0_#1a1a1a]`}
+                  } px-4 py-3 shadow-[3px_3px_0_#1a1a1a] card-hover`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     {/* 装饰性 emoji,aria-hidden 避免与后跟宠物名语义重复 */}
@@ -698,7 +698,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                       </p>
                     </div>
                     {isEquipped && (
-                      <span className="bg-yellow text-ink text-xs px-2 py-0.5 font-bold">已装备</span>
+                      <span className="bg-yellow text-ink text-xs px-2 py-0.5 font-bold shadow-[1px_1px_0_#1a1a1a]">已装备</span>
                     )}
                   </div>
                   <p className="text-sm text-ink/70 mb-3">{pet.description}</p>
@@ -708,7 +708,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                         <button
                           onClick={() => handleEquipPet(pet)}
                           disabled={loading}
-                          className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-colors disabled:opacity-50"
+                          className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
                         >
                           装备
                         </button>
@@ -717,7 +717,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                       <button
                         onClick={() => handleBuyPet(pet)}
                         disabled={loading || (status?.gold ?? 0) < pet.unlock_cost_gold}
-                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-colors disabled:opacity-50"
+                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
                       >
                         购买 ({pet.unlock_cost_gold}💰)
                       </button>

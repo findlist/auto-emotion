@@ -102,14 +102,18 @@ export default function ShopPage({ onBack }: ShopPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto scrollbar-brutal">
       {/* 顶部导航 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4">
+      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
         {/* 返回按钮仅含箭头符号，aria-label 提供语义避免屏幕阅读器朗读"左箭头" */}
-        <button onClick={onBack} aria-label="返回" className="text-cream hover:text-yellow transition-colors">
+        <button
+          onClick={onBack}
+          aria-label="返回"
+          className="text-cream hover:text-yellow transition-colors text-xl font-bold w-8 h-8 flex items-center justify-center hover:bg-cream/10 rounded"
+        >
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold">商城</h1>
+        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">商城</h1>
       </header>
 
       {/* Tab 切换：WAI-ARIA tab 语义让屏幕阅读器正确识别为标签页界面
@@ -123,8 +127,8 @@ export default function ShopPage({ onBack }: ShopPageProps) {
           aria-controls="shop-panel"
           id="shop-tab-items"
           onClick={() => setActiveTab('items')}
-          className={`flex-1 py-3 font-cn font-bold transition-colors ${
-            activeTab === 'items' ? 'bg-mint text-ink' : 'bg-cream text-ink/70'
+          className={`flex-1 py-3 font-cn font-bold transition-all ${
+            activeTab === 'items' ? 'bg-mint text-ink shadow-[2px_2px_0_#1a1a1a] -mb-[2px] border-b-3 border-ink' : 'bg-cream text-ink/70 hover:bg-ink/5'
           }`}
         >
           商品
@@ -135,8 +139,8 @@ export default function ShopPage({ onBack }: ShopPageProps) {
           aria-controls="shop-panel"
           id="shop-tab-inventory"
           onClick={() => setActiveTab('inventory')}
-          className={`flex-1 py-3 font-cn font-bold transition-colors ${
-            activeTab === 'inventory' ? 'bg-mint text-ink' : 'bg-cream text-ink/70'
+          className={`flex-1 py-3 font-cn font-bold transition-all ${
+            activeTab === 'inventory' ? 'bg-mint text-ink shadow-[2px_2px_0_#1a1a1a] -mb-[2px] border-b-3 border-ink' : 'bg-cream text-ink/70 hover:bg-ink/5'
           }`}
         >
           背包 ({inventory.reduce((sum, item) => sum + item.quantity, 0)})
@@ -147,7 +151,7 @@ export default function ShopPage({ onBack }: ShopPageProps) {
           设计原因：商品类型筛选是 items tabpanel 内的二级标签页，需独立 tablist
           语义。子 tab 的 aria-controls 指向 items 列表的 tabpanel id */}
       {activeTab === 'items' && (
-        <div role="tablist" aria-label="商品类型筛选" className="flex gap-2 p-3 border-b-2 border-ink/20 overflow-x-auto">
+        <div role="tablist" aria-label="商品类型筛选" className="flex gap-2 p-3 border-b-2 border-ink/20 overflow-x-auto scrollbar-brutal">
           {(['all', 'item', 'weapon_skin', 'pet'] as ItemType[]).map((type) => (
             <button
               key={type}
@@ -156,9 +160,9 @@ export default function ShopPage({ onBack }: ShopPageProps) {
               aria-controls="shop-items-panel"
               id={`shop-type-${type}`}
               onClick={() => setActiveType(type)}
-              className={`px-3 py-1 font-cn text-sm whitespace-nowrap transition-colors ${
+              className={`px-3 py-1 font-cn text-sm whitespace-nowrap transition-all ${
                 activeType === type
-                  ? 'bg-ink text-cream'
+                  ? 'bg-ink text-cream shadow-[2px_2px_0_#ff3d7f]'
                   : 'bg-ink/10 text-ink/70 hover:bg-ink/20'
               }`}
             >
@@ -169,38 +173,41 @@ export default function ShopPage({ onBack }: ShopPageProps) {
       )}
 
       {/* 内容区域：role=tabpanel 关联当前激活的 tab，屏幕阅读器切换 tab 时自动定位内容区 */}
-      <main role="tabpanel" id="shop-panel" aria-labelledby={`shop-tab-${activeTab}`} className="flex-1 p-4 overflow-auto">
+      <main role="tabpanel" id="shop-panel" aria-labelledby={`shop-tab-${activeTab}`} className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
-          <div className="text-center py-8">
-            <p className="font-cn text-ink/70">加载中...</p>
+          <div className="text-center py-8 animate-fadeIn">
+            <div className="inline-block w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
+            <p className="font-cn text-ink/70 mt-3">加载中...</p>
           </div>
         ) : activeTab === 'items' ? (
           /* items 列表：子 tabpanel 关联当前激活的类型 tab
              设计原因：子 tabpanel 嵌套在主 tabpanel 内，让屏幕阅读器在类型筛选
              切换时自动定位到商品列表区 */
-          <div role="tabpanel" id="shop-items-panel" aria-labelledby={`shop-type-${activeType}`}>
+          <div role="tabpanel" id="shop-items-panel" aria-labelledby={`shop-type-${activeType}`} className="animate-fadeIn">
             {items.length === 0 ? (
-              <div className="text-center py-8">
+              <div className="text-center py-12 animate-stagger">
                 {/* 装饰性 emoji 与后跟文字语义重复，aria-hidden 屏蔽避免冗余朗读 */}
-                <p className="text-4xl mb-4"><span aria-hidden="true">🛒</span></p>
-                <p className="font-cn text-ink/70">暂无商品</p>
+                <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">🛒</span></p>
+                <p className="font-cn text-ink/70 text-lg">暂无商品</p>
+                <p className="font-mono text-xs text-ink/40 mt-1">敬请期待新上架</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                {items.map((item) => (
+                {items.map((item, idx) => (
                   <div
                     key={item.id}
-                    className="bg-cream border-2 border-ink p-3 shadow-[3px_3px_0_#1a1a1a]"
+                    className="bg-cream border-2 border-ink p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger"
+                    style={{ animationDelay: `${idx * 50}ms` }}
                   >
                     <div className="text-center mb-2">
                       {/* 商品 emoji 与后跟商品名语义重复，aria-hidden 屏蔽装饰图标 */}
-                      <span className="text-4xl" aria-hidden="true">{item.emoji}</span>
+                      <span className="text-4xl inline-block transition-transform hover:scale-110" aria-hidden="true">{item.emoji}</span>
                     </div>
                     <p className="font-cn text-ink font-bold text-center mb-1">{item.name}</p>
-                    <p className="font-mono text-xs text-ink/60 text-center mb-2">
+                    <p className="font-mono text-xs text-ink/60 text-center mb-2 line-clamp-2">
                       {item.description}
                     </p>
-                    <div className="flex items-center justify-center gap-1 mb-3">
+                    <div className="flex items-center justify-center gap-1 mb-3 bg-yellow/20 border border-yellow/40 rounded-full px-3 py-1">
                       {/* 💰 与后跟价格数字语义重复，aria-hidden 屏蔽装饰图标 */}
                       <span className="text-yellow" aria-hidden="true">💰</span>
                       <span className="font-mono text-ink font-bold">{item.price}</span>
@@ -208,7 +215,7 @@ export default function ShopPage({ onBack }: ShopPageProps) {
                     <button
                       onClick={() => handleBuy(item)}
                       disabled={loading}
-                      className="w-full bg-ink text-cream py-2 font-cn font-bold hover:bg-pink transition-colors disabled:opacity-50"
+                      className="w-full bg-ink text-cream py-2 font-cn font-bold hover:bg-pink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_#1a1a1a]"
                     >
                       购买
                     </button>
@@ -218,17 +225,19 @@ export default function ShopPage({ onBack }: ShopPageProps) {
             )}
           </div>
         ) : inventory.length === 0 ? (
-          <div className="text-center py-8">
+          <div className="text-center py-12 animate-stagger">
             {/* 装饰性 emoji 与后跟文字语义重复，aria-hidden 屏蔽避免冗余朗读 */}
-            <p className="text-4xl mb-4"><span aria-hidden="true">🎒</span></p>
-            <p className="font-cn text-ink/70">背包空空如也</p>
+            <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">🎒</span></p>
+            <p className="font-cn text-ink/70 text-lg">背包空空如也</p>
+            <p className="font-mono text-xs text-ink/40 mt-1">去商城购买道具吧</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {inventory.map((item) => (
+          <div className="space-y-3 animate-fadeIn">
+            {inventory.map((item, idx) => (
               <div
                 key={item.id}
-                className="bg-cream border-2 border-ink p-4 shadow-[3px_3px_0_#1a1a1a]"
+                className="bg-cream border-2 border-ink p-4 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger"
+                style={{ animationDelay: `${idx * 50}ms` }}
               >
                 <div className="flex items-center gap-3">
                   {/* 背包道具 emoji 与后跟道具名语义重复，aria-hidden 屏蔽装饰图标 */}
@@ -239,8 +248,8 @@ export default function ShopPage({ onBack }: ShopPageProps) {
                       {TYPE_LABELS[item.item_type] || item.item_type}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className="font-mono text-ink font-bold">x{item.quantity}</span>
+                  <div className="text-right bg-pink/10 border border-pink/30 rounded-full px-3 py-1">
+                    <span className="font-mono text-pink font-bold">x{item.quantity}</span>
                   </div>
                 </div>
               </div>
