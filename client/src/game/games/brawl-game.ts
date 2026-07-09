@@ -155,7 +155,7 @@ export class BrawlGame {
         target: new Graphics().rect(0, 0, d.width, d.width).fill({ color: d.color }),
         antialias: true,
       });
-      const dest = new Destructible(tex, d.x, d.y, d.width, d.width, d.color, d.hp, () =>
+      const dest = new Destructible(tex, d.x, d.y, d.width, d.width, d.color, d.hp, d.reward, () =>
         this.onDestructibleDestroyed(dest),
       );
       this.destructibles.push(dest);
@@ -270,10 +270,13 @@ export class BrawlGame {
     this.particles.spawn(dest.x, dest.y, dest.colorValue, 'mid');
     this.screenShake.shake('low');
 
-    // 得分归属最近一次射击的玩家
-    const currentScore = this.scores.get(this.localPlayerId) || 0;
-    this.scores.set(this.localPlayerId, currentScore + dest.container.width);
-    this.callbacks.onScoreChange?.(this.localPlayerId, currentScore + dest.container.width);
+    // H-09 修复：得分归属最后命中者（dest.lastHitByValue），而非固定归本地玩家
+    // H-10 修复：分数使用关卡配置的 reward，而非 container.width 渲染值（Sprite 未渲染时 width 可能为 0）
+    const scorer = dest.lastHitByValue ?? this.localPlayerId;
+    const currentScore = this.scores.get(scorer) || 0;
+    const newScore = currentScore + dest.rewardValue;
+    this.scores.set(scorer, newScore);
+    this.callbacks.onScoreChange?.(scorer, newScore);
   }
 
   private handleMouseMove(e: FederatedPointerEvent): void {
@@ -380,11 +383,11 @@ export class BrawlGame {
 
       if (!proj.isAlive) continue;
 
-      // 投射物 vs 可破坏物
+      // 投射物 vs 可破坏物：传入 ownerId 记录命中者，用于破碎时得分归属
       for (const dest of this.destructibles) {
         if (!dest.isAlive) continue;
         if (this.circleRectHit(proj.x, proj.y, proj.radiusValue, dest.x, dest.y, dest.halfWidth, dest.halfHeight)) {
-          dest.takeDamage(1);
+          dest.takeDamage(1, projData.ownerId);
           proj.destroy();
           break;
         }

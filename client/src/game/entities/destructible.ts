@@ -18,6 +18,10 @@ export class Destructible {
   private color: number;
   private alive = true;
   private onShatter: ShatterCallback | null;
+  // 奖励分数：由关卡配置传入，破碎时归属最后命中者，避免依赖 container.width 渲染值
+  private reward: number;
+  // 最后命中者：记录谁打出了致命一击，用于得分归属，null 表示非玩家破坏（如 boss 投射物）
+  private lastHitBy: string | null = null;
 
   constructor(
     texture: Texture,
@@ -27,6 +31,7 @@ export class Destructible {
     height: number,
     color: number,
     hp: number,
+    reward: number,
     onShatter: ShatterCallback | null,
   ) {
     this.container = new Container();
@@ -41,6 +46,7 @@ export class Destructible {
     this.width = width;
     this.height = height;
     this.color = color;
+    this.reward = reward;
     this.onShatter = onShatter;
   }
 
@@ -72,10 +78,23 @@ export class Destructible {
     return this.maxHp > 0 ? this.hp / this.maxHp : 0;
   }
 
-  /** 受到伤害，血量归零时触发破碎回调 */
-  takeDamage(amount: number): void {
+  /** 奖励分数：破碎时发放给最后命中者 */
+  get rewardValue(): number {
+    return this.reward;
+  }
+
+  /** 最后命中者 ID：用于得分归属，null 表示非玩家破坏 */
+  get lastHitByValue(): string | null {
+    return this.lastHitBy;
+  }
+
+  /** 受到伤害，血量归零时触发破碎回调。attackerId 记录命中者用于得分归属 */
+  takeDamage(amount: number, attackerId?: string): void {
     if (!this.alive) return;
 
+    if (attackerId !== undefined) {
+      this.lastHitBy = attackerId;
+    }
     this.hp -= amount;
 
     if (this.hp <= 0) {

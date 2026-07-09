@@ -41,6 +41,12 @@ export interface BossGameCallbacks {
   onLocalShoot?(angle: number): void;
 }
 
+// 投射物数据：关联 ownerId 用于得分归属，'boss' 标识 Boss 发射的投射物（破坏物品不计分）
+interface ProjectileData {
+  projectile: Projectile;
+  ownerId: string;
+}
+
 /**
  * Boss 组队战模式
  * - 多玩家协作击败 Boss
@@ -51,7 +57,7 @@ export class BossGame {
   private app: Application;
   private world: Container;
   private players: Map<string, Player> = new Map();
-  private projectiles: Projectile[] = [];
+  private projectiles: ProjectileData[] = [];
   private destructibles: Destructible[] = [];
   private boss: BossData | null = null;
   private particles: ParticleEffect;
@@ -194,6 +200,7 @@ export class BossGame {
         d.width,
         0xffffff,
         d.hp,
+        d.reward,
         () => this.onDestructibleDestroyed(dest),
       );
       this.destructibles.push(dest);
@@ -241,7 +248,8 @@ export class BossGame {
       this.bounds,
       6,
     );
-    this.projectiles.push(projectile);
+    // 关联 playerId 用于破坏物得分归属
+    this.projectiles.push({ projectile, ownerId: playerId });
     this.world.addChild(projectile.sprite);
   }
 
@@ -270,11 +278,15 @@ export class BossGame {
     this.particles.spawn(dest.x, dest.y, dest.colorValue, 'low');
     this.screenShake.shake('low');
 
-    // 计分（归属最近一次射击的玩家，这里简化为归属本地玩家）
-    const currentScore = this.scores.get(this.localPlayerId) || 0;
-    const reward = 10;
-    this.scores.set(this.localPlayerId, currentScore + reward);
-    this.callbacks.onScoreChange?.(this.localPlayerId, currentScore + reward);
+    // H-09 修复：得分归属最后命中者，Boss 投射物破坏的物品 lastHitBy 为 null 不计玩家得分
+    const scorer = dest.lastHitByValue;
+    if (scorer) {
+      const currentScore = this.scores.get(scorer) || 0;
+      // H-10 修复：分数使用关卡配置的 rewardValue，而非硬编码 10
+      const newScore = currentScore + dest.rewardValue;
+      this.scores.set(scorer, newScore);
+      this.callbacks.onScoreChange?.(scorer, newScore);
+    }
 
     // 充能大招
     this.ultimateCharge = Math.min(100, this.ultimateCharge + 5);
@@ -335,7 +347,8 @@ export class BossGame {
         this.bounds,
         8,
       );
-      this.projectiles.push(projectile);
+      // Boss 投射物 ownerId='boss'，破坏物品时 lastHitBy 不计入玩家得分
+      this.projectiles.push({ projectile, ownerId: 'boss' });
       this.world.addChild(projectile.sprite);
     }
   }
@@ -376,12 +389,13 @@ export class BossGame {
     }
 
     // 更新所有投射物
-    const alive: Projectile[] = [];
-    for (const proj of this.projectiles) {
+    const alive: ProjectileData[] = [];
+    for (const projData of this.projectiles) {
+      const proj = projData.projectile;
       proj.update(delta);
 
-      // 碰撞检测：投射物 vs Boss
-      if (this.boss && proj.isAlive) {
+      // 碰撞检测：玩家投射物 vs Boss（Boss 自身弹幕不误伤 Boss）
+      if (projData.ownerId !== 'boss' && this.boss && proj.isAlive) {
         const dx = proj.x - this.boss.x;
         const dy = proj.y - this.boss.y;
         if (Math.sqrt(dx * dx + dy * dy) < 55) {
@@ -397,11 +411,12 @@ export class BossGame {
       }
 
       // 碰撞检测：投射物 vs 可破坏物
+      // 玩家投射物传 ownerId 记录命中者；Boss 投射物不传（lastHitBy 保持 null，不计玩家得分）
       if (proj.isAlive) {
         for (const dest of this.destructibles) {
           if (!dest.isAlive) continue;
           if (this.circleRectHit(proj.x, proj.y, proj.radiusValue, dest.x, dest.y, dest.halfWidth, dest.halfHeight)) {
-            dest.takeDamage(1);
+            dest.takeDamage(1, projData.ownerId !== 'boss' ? projData.ownerId : undefined);
             proj.destroy();
             break;
           }
@@ -414,7 +429,7 @@ export class BossGame {
         continue;
       }
 
-      alive.push(proj);
+      alive.push(projData);
     }
     this.projectiles = alive;
 
@@ -452,7 +467,7 @@ export class BossGame {
     this.players.forEach((p) => this.world.removeChild(p.container));
     this.players.clear();
 
-    this.projectiles.forEach((p) => p.destroy());
+    this.projectiles.forEach((p) => p.projectile.destroy());
     this.projectiles = [];
 
     this.destructibles.forEach((d) => d.destroy());
