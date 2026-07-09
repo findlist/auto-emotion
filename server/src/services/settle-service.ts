@@ -84,9 +84,10 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
     const baseGold = Math.floor(30 * rewardRate);
 
     // 写入 game_records
+    // started_at 用 make_interval(secs => $3) 参数化计算，避免字符串拼接 INTERVAL 导致 SQL 注入风险
     const recordResult = await client.query(
       `INSERT INTO game_records (room_id, mode, duration_seconds, started_at, ended_at, total_score)
-       VALUES ($1, $2, $3, NOW() - INTERVAL '${durationSeconds} seconds', NOW(), $4)
+       VALUES ($1, $2, $3, NOW() - make_interval(secs => $3), NOW(), $4)
        RETURNING id`,
       [roomId, mode, durationSeconds, players.reduce((sum, p) => sum + p.score, 0)]
     );
