@@ -44,7 +44,7 @@ export async function listRecords(userId: string, page = 1, pageSize = 10): Prom
     'SELECT COUNT(*) FROM game_record_players WHERE user_id = $1',
     [userId]
   );
-  const total = parseInt(countResult.rows[0].count);
+  const total = parseInt(countResult.rows[0].count, 10);
 
   const records = await pool.query(
     `SELECT gr.*, grp.nickname, grp.score, grp.rank, grp.is_mvp, grp.exp_reward, grp.gold_reward

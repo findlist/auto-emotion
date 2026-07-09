@@ -6,7 +6,7 @@ import { getEnv } from './index.js';
 
 const pool = new Pool({
   host: getEnv('DB_HOST', 'localhost'),
-  port: parseInt(getEnv('DB_PORT', '5432')),
+  port: parseInt(getEnv('DB_PORT', '5432'), 10),
   database: getEnv('DB_NAME', 'emotion_burst'),
   user: getEnv('DB_USER', 'postgres'),
   password: getEnv('DB_PASSWORD', ''),
