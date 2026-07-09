@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useUserStore } from '@/stores/user-store';
 import { leaderboardApi, type LeaderboardEntry, type LeaderboardType } from '@/api/leaderboard';
 import { logger } from '@/utils/logger';
+import { handleTabKeyDown } from '@/utils/a11y';
 
 interface LeaderboardPageProps {
   onBack: () => void;
@@ -104,7 +105,8 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
       </header>
 
       {/* Tab 切换：WAI-ARIA tab 语义，border-b-3 + 激活态阴影增强层次 */}
-      <div role="tablist" aria-label="排行榜类型" className="flex border-b-3 border-ink overflow-x-auto scrollbar-brutal">
+      <div role="tablist" aria-label="排行榜类型" className="flex border-b-3 border-ink overflow-x-auto scrollbar-brutal"
+        onKeyDown={(e) => handleTabKeyDown(e, TAB_CONFIG.map((t) => t.key), activeTab, (k) => { setActiveTab(k as LeaderboardType); setPage(1); })}>
         {TAB_CONFIG.map((tab) => (
           <button
             key={tab.key}

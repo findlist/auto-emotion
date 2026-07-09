@@ -4,6 +4,7 @@ import { showToast } from '@/utils/toast';
 import { showApiError } from '@/utils/api-error';
 import { showConfirm } from '@/utils/confirm';
 import { logger } from '@/utils/logger';
+import { handleTabKeyDown } from '@/utils/a11y';
 
 interface ShopPageProps {
   onBack: () => void;
@@ -120,7 +121,8 @@ export default function ShopPage({ onBack }: ShopPageProps) {
           设计原因：role=tablist/tab/tabpanel + aria-selected/controls/labelled
           构成完整 tab 语义。保留所有 tab 的默认 button 可聚焦性，不引入 roving
           tabindex 避免箭头键导航复杂度，是安全增量改进 */}
-      <div role="tablist" aria-label="商城视图" className="flex border-b-2 border-ink">
+      <div role="tablist" aria-label="商城视图" className="flex border-b-2 border-ink"
+        onKeyDown={(e) => handleTabKeyDown(e, ['items', 'inventory'], activeTab, (k) => setActiveTab(k as Tab))}>
         <button
           role="tab"
           aria-selected={activeTab === 'items'}
@@ -151,7 +153,8 @@ export default function ShopPage({ onBack }: ShopPageProps) {
           设计原因：商品类型筛选是 items tabpanel 内的二级标签页，需独立 tablist
           语义。子 tab 的 aria-controls 指向 items 列表的 tabpanel id */}
       {activeTab === 'items' && (
-        <div role="tablist" aria-label="商品类型筛选" className="flex gap-2 p-3 border-b-2 border-ink/20 overflow-x-auto scrollbar-brutal">
+        <div role="tablist" aria-label="商品类型筛选" className="flex gap-2 p-3 border-b-2 border-ink/20 overflow-x-auto scrollbar-brutal"
+          onKeyDown={(e) => handleTabKeyDown(e, ['all', 'item', 'weapon_skin', 'pet'], activeType, (k) => setActiveType(k as ItemType))}>
           {(['all', 'item', 'weapon_skin', 'pet'] as ItemType[]).map((type) => (
             <button
               key={type}

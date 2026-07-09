@@ -15,6 +15,7 @@ import { showToast } from '@/utils/toast';
 import { showApiError } from '@/utils/api-error';
 import { showConfirm } from '@/utils/confirm';
 import { logger } from '@/utils/logger';
+import { handleTabKeyDown } from '@/utils/a11y';
 
 interface IdlePageProps {
   onBack: () => void;
@@ -468,7 +469,8 @@ function IdlePage({ onBack }: IdlePageProps) {
           设计原因：role=tablist/tab/tabpanel + aria-selected/controls/labelled
           构成完整 tab 语义。保留所有 tab 的默认 button 可聚焦性，不引入 roving
           tabindex 避免箭头键导航复杂度，是安全增量改进 */}
-      <div role="tablist" aria-label="挂机功能" className="px-4 flex gap-2 border-b-2 border-ink/20">
+      <div role="tablist" aria-label="挂机功能" className="px-4 flex gap-2 border-b-2 border-ink/20"
+        onKeyDown={(e) => handleTabKeyDown(e, ['main', 'weapons', 'skills', 'pets'], activeTab, (k) => setActiveTab(k as typeof activeTab))}>
         {[
           { key: 'main', label: '升级' },
           { key: 'weapons', label: '武器' },
