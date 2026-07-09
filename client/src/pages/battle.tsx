@@ -102,6 +102,11 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
 
   useEffect(() => {
     let cancelled = false;
+    // 标记是否已通过初始化或首次连接 emit 过 room:join
+    // 设计原因：重连场景下 socket.on('connect') 与 socket.io.on('reconnect') 都会触发，
+    // websocket/index.ts 的 reconnect 事件已统一处理重连 rejoin（含补发 level-ready），
+    // 此处若再 emit 会导致 room:join 重复发送，后端二次刷新 socketId 与广播 state（M-12 修复）
+    let hasJoined = false;
 
     // 复用全局大厅 socket 实例，避免双 socket 导致后端房间内 socketId 混乱与事件路由错乱
     // 大厅 socket 已处理 connect/disconnect/reconnect 的 Toast 提示，此处只关心对战业务事件
@@ -109,16 +114,19 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
     setConnected(socket.connected);
 
     // 大厅 socket 可能在进入对战页前已连接，此时主动 emit room:join 加入房间
-    // 若未连接，connect 事件由大厅 socket 触发后会通过 reconnect 逻辑恢复，此处仍兜底 emit 一次
     if (socket.connected) {
       socket.emit('room:join', { roomId, nickname });
+      hasJoined = true;
     }
     // 监听大厅 socket 的连接状态变化，同步本地 UI
     const onConnect = () => {
       if (cancelled) return;
       setConnected(true);
-      // 重连成功后重新加入房间，触发后端刷新 socketId 并下发最新 room:state
-      socket.emit('room:join', { roomId, nickname });
+      // 仅首次连接时 emit room:join；重连由 websocket/index.ts 的 reconnect 事件统一处理
+      if (!hasJoined) {
+        socket.emit('room:join', { roomId, nickname });
+        hasJoined = true;
+      }
     };
     const onDisconnect = () => {
       if (cancelled) return;
