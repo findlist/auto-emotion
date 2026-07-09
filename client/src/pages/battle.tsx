@@ -88,6 +88,10 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
   // nickname 仅用于 emit room:join，无需在变化时重建整个对战流程（M-19 修复）
   const nicknameRef = useRef(nickname);
   useEffect(() => { nicknameRef.current = nickname; }, [nickname]);
+  // 延迟离开房间的定时器引用：StrictMode 开发环境下 effect 执行顺序为 mount→cleanup→mount，
+  // cleanup 中若直接 leaveRoom 会导致后端房间状态混乱（离开后立即重新加入）。
+  // 用 setTimeout 延迟执行，effect 重新执行时取消定时器，仅真实卸载时才离开房间（H-13 修复）
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +110,12 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
 
   useEffect(() => {
     let cancelled = false;
+    // StrictMode 重挂载时取消上一次 cleanup 排定的延迟 leaveRoom，
+    // 避免开发环境不必要的离开+重连（H-13 修复）
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
     // 标记是否已通过初始化或首次连接 emit 过 room:join
     // 设计原因：重连场景下 socket.on('connect') 与 socket.io.on('reconnect') 都会触发，
     // websocket/index.ts 的 reconnect 事件已统一处理重连 rejoin（含补发 level-ready），
@@ -337,11 +347,18 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       // 避免用户退出对战后在大厅断线重连时被误 rejoin 回已退出的房间
       // try/catch 保护：socket 已断开时 getSocket() 会抛 'Socket not connected'，
       // 若不捕获会中断 cleanup 后续资源释放，导致 PixiJS 纹理与 WebGL 上下文泄漏
-      try {
-        roomActions.leaveRoom(roomId);
-      } catch (err) {
-        logger.error('离开房间失败', err);
-      }
+      // 延迟离开房间：StrictMode 开发环境下 mount→cleanup→mount 快速连续触发，
+      // 直接 leaveRoom 会导致后端房间状态混乱（离开后立即重新加入）。
+      // 用 setTimeout(0) 延迟执行，若 effect 重新执行则在 setup 中取消定时器，仅真实卸载时才离开（H-13 修复）
+      // 生产环境（无 StrictMode）cleanup 后组件直接卸载，定时器照常执行，行为与原直接调用等价
+      leaveTimerRef.current = setTimeout(() => {
+        leaveTimerRef.current = null;
+        try {
+          roomActions.leaveRoom(roomId);
+        } catch (err) {
+          logger.error('离开房间失败', err);
+        }
+      }, 0);
 
       if (tickerCallbackRef.current && engineRef.current) {
         engineRef.current.ticker.remove(tickerCallbackRef.current);
