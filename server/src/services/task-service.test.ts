@@ -141,6 +141,8 @@ describe('task-service 每日任务服务', () => {
         String(sql).includes('INSERT INTO user_daily_tasks')
       );
       expect(insertCalls).toHaveLength(1);
+      // ON CONFLICT 兜底并发：两个并发请求同时首次插入时，第二个命中 UNIQUE 约束转为累加更新，避免 unique violation 报错
+      expect(String(insertCalls[0][0])).toContain('ON CONFLICT');
       // 参数：user_id, task_id, progress=delta（首次插入 delta 即正确进度）, today
       expect(insertCalls[0][1]).toEqual(['u1', 2, 30, expect.any(String)]);
     });

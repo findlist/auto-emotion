@@ -133,10 +133,14 @@ export async function updateTaskProgress(userId: string, taskType: number, delta
         [delta, row.user_task_id]
       );
     } else {
-      // 首次创建记录：progress = delta（INSERT 阶段无并发更新风险，重复行保护依赖 schema 唯一约束）
+      // 首次创建记录：用 ON CONFLICT DO UPDATE 兜底并发竞态
+      // 设计原因：schema 已有 UNIQUE(user_id, task_id, date) 约束，两个并发请求同时进入此分支时，
+      // 第二个 INSERT 会触发 unique violation 报错而非静默重复。改用 ON CONFLICT 转为累加更新，
+      // 保证并发请求都能成功并正确累加 progress，避免任务进度丢失或接口 500
       await pool.query(
         `INSERT INTO user_daily_tasks (user_id, task_id, progress, claimed, date)
-         VALUES ($1, $2, $3, false, $4)`,
+         VALUES ($1, $2, $3, false, $4)
+         ON CONFLICT (user_id, task_id, date) DO UPDATE SET progress = user_daily_tasks.progress + $3`,
         [userId, row.id, delta, today]
       );
     }
