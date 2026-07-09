@@ -352,10 +352,12 @@ describe('room-manager 房间管理器', () => {
       mocks.getMock.mockResolvedValue(JSON.stringify(existing));
       // 模拟 SET NX EX 获取开始锁成功（ioredis 成功返回 'OK'）
       mocks.setMock.mockResolvedValue('OK');
-      // AI 生成器全部成功返回
+      // AI 生成器全部成功返回（mock 数据与 MonsterConfig 完整结构对齐，含 stressTags/attack）
       mocks.generateMonsterMock.mockResolvedValue({
-        name: '压力怪兽', hp: 1000, skills: [{ name: '冲击', type: 'attack', effect: '伤害', cooldown: 5 }],
-        weakness: 'stress',
+        name: '压力怪兽', hp: 1000, attack: 60,
+        skills: [{ name: '冲击', type: 'attack', effect: '伤害', cooldown: 5 }],
+        weakness: '被情绪释放技能击破', stressTags: ['工作压力'],
+        avatar: '👾', appearance: { color: '#888888', shape: 'circle', size: 1.5 },
       });
       mocks.generateLevelMock.mockResolvedValue({
         mode: 'boss', difficulty: 1,
@@ -392,6 +394,38 @@ describe('room-manager 房间管理器', () => {
       // 锁获取失败时不应写入房间状态，也不应触发 AI 生成
       expect(mocks.setexMock).not.toHaveBeenCalled();
       expect(mocks.generateMonsterMock).not.toHaveBeenCalled();
+    });
+
+    it('关卡生成失败时恢复房间状态为 ready 并广播错误', async () => {
+      // 设计原因：generateLevelAndEvents 抛错时原 catch 仅记录日志，房间卡死 generating 无法重新开局；
+      // 修复后 catch 应重置 status=ready 持久化并广播 room:error 通知前端重试
+      const existing: Room = {
+        id: 'R1', hostId: 'u1', status: 'ready', mode: 'boss',
+        players: [{ userId: 'u1', nickname: '玩家1', socketId: 's1', isReady: true }],
+        stressSources: { u1: '工作压力' },
+      };
+      mocks.getMock.mockResolvedValue(JSON.stringify(existing));
+      mocks.setMock.mockResolvedValue('OK');
+      // generateMonsterMock 返回 undefined（fulfilled），触发 monster.stressTags 取值抛 TypeError
+      mocks.generateMonsterMock.mockResolvedValue(undefined);
+      mocks.generateLevelMock.mockResolvedValue({
+        mode: 'boss', difficulty: 1, destructibles: [], spawnPoints: [{ x: 400, y: 500 }],
+      });
+      mocks.generateEventsMock.mockReturnValue([]);
+
+      await roomManager.startGame('R1', 'u1');
+
+      // 异步 catch 恢复逻辑需等待其执行完成
+      await vi.waitFor(() => {
+        // 房间状态恢复为 ready 并持久化，房主可重新开局
+        expect(mocks.setexMock).toHaveBeenCalledWith(
+          'room:R1', expect.any(Number), expect.stringContaining('"status":"ready"')
+        );
+      });
+      // 广播 room:error 通知前端开局失败
+      expect(mocks.toEmitMock).toHaveBeenCalledWith(
+        'room:error', expect.objectContaining({ message: '开局失败，请重试' })
+      );
     });
   });
 

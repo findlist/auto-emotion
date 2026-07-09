@@ -3,7 +3,7 @@
 // 使用 Redis 存储房间数据
 
 import { io } from './index.js';
-import { GameEvents, type LevelReadyPayload } from './events.js';
+import { GameEvents, RoomEvents, type LevelReadyPayload } from './events.js';
 import type { GameMode } from '../types/game.js';
 import redis from '../config/redis.js';
 import { AppError, ErrorCode } from '../utils/error.js';
@@ -186,6 +186,13 @@ export const roomManager = {
     this.generateLevelAndEvents(room)
       .catch((err) => {
         console.error('关卡生成失败:', err);
+        // 关卡生成失败后恢复房间状态为 ready，避免房间卡死在 generating 无法重新开局
+        // 设计原因：原 catch 仅记录日志，room.status 留在 generating，而 startGame 要求 status===ready
+        // 才允许开局，导致房主无法再次开始，房间永久不可用；恢复为 ready 后玩家可重试
+        room.status = 'ready';
+        // Promise.resolve 包装防止 setex 返回非 Promise（如降级场景）时 .catch 报错
+        Promise.resolve(redis.setex(`room:${room.id}`, ROOM_TTL, serializeRoom(room))).catch(() => {});
+        this.broadcast(room.id, RoomEvents.ERROR, { message: '开局失败，请重试' });
       })
       .finally(() => {
         // 释放开始锁，忽略释放错误（TTL 兜底）
