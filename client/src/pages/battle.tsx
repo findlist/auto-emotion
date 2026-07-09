@@ -84,6 +84,10 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
   const tickerCallbackRef = useRef<((ticker: Ticker) => void) | null>(null);
   // 同步 players 到 ref，供 socket 回调闭包读取最新值，避免闭包捕获旧 state
   const playersRef = useRef<PlayerScore[]>([]);
+  // nickname 用 ref 存储，避免 nickname 变化触发主 useEffect 重建（销毁游戏引擎+场景+socket 监听）
+  // nickname 仅用于 emit room:join，无需在变化时重建整个对战流程（M-19 修复）
+  const nicknameRef = useRef(nickname);
+  useEffect(() => { nicknameRef.current = nickname; }, [nickname]);
 
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +119,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
 
     // 大厅 socket 可能在进入对战页前已连接，此时主动 emit room:join 加入房间
     if (socket.connected) {
-      socket.emit('room:join', { roomId, nickname });
+      socket.emit('room:join', { roomId, nickname: nicknameRef.current });
       hasJoined = true;
     }
     // 监听大厅 socket 的连接状态变化，同步本地 UI
@@ -124,7 +128,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       setConnected(true);
       // 仅首次连接时 emit room:join；重连由 websocket/index.ts 的 reconnect 事件统一处理
       if (!hasJoined) {
-        socket.emit('room:join', { roomId, nickname });
+        socket.emit('room:join', { roomId, nickname: nicknameRef.current });
         hasJoined = true;
       }
     };
@@ -351,8 +355,9 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       if (assetsRef.current) assetsRef.current.destroy();
       if (engineRef.current) engineRef.current.destroy();
     };
-  // 依赖 roomId/nickname/mode，避免重渲染时重复注册监听；socket 实例由 getSocket 全局单例保证
-  }, [roomId, nickname, mode]);
+  // 依赖 roomId/mode，避免重渲染时重复注册监听；nickname 通过 ref 读取无需作为依赖（M-19），
+  // socket 实例由 getSocket 全局单例保证
+  }, [roomId, mode]);
 
   const handleStartGame = useCallback(() => {
     // 开始游戏事件名与后端 RoomEvents.START 对齐
