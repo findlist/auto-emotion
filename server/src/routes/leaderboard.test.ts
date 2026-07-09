@@ -16,6 +16,7 @@ vi.mock('../services/leaderboard-service.js', () => ({
   getSpeedLeaderboard: vi.fn(),
   getUserRank: vi.fn(),
   getFriendsLeaderboard: vi.fn(),
+  getFriendsUserRank: vi.fn(),
 }));
 
 // mock authMiddleware：通过请求头 x-test-no-auth 模拟未授权场景，未授权时直接返回 401
@@ -297,21 +298,22 @@ describe('leaderboard 排行榜路由', () => {
       expect(leaderboardService.getUserRank).toHaveBeenCalledWith('u1', 'power');
     });
 
-    it('type=friends 内部转调 getUserRank(userId, "power")（friends 无独立榜单，复用战力榜）', async () => {
-      // 设计原因：leaderboard.ts 中 type==='friends' 分支调用 getUserRank(userId, 'power')，
-      // 这是源码既定行为（好友榜个人排名复用战力榜排名），测试需如实覆盖
-      (leaderboardService.getUserRank as ReturnType<typeof vi.fn>).mockResolvedValue({
-        userId: 'u1',
+    it('type=friends 调用 getFriendsUserRank(userId) 返回好友圈排名', async () => {
+      // 设计原因：H-02 修复后 friends 分支改调 getFriendsUserRank，
+      // 在好友圈内计算名次，不再错误复用全服 getUserRank(userId, 'power')
+      (leaderboardService.getFriendsUserRank as ReturnType<typeof vi.fn>).mockResolvedValue({
         rank: 3,
+        score: 200,
       });
 
       const res = await fetch(`${baseURL}/friends/me`);
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body.data).toEqual({ userId: 'u1', rank: 3 });
-      // 验证 friends 类型内部转调 power 榜单
-      expect(leaderboardService.getUserRank).toHaveBeenCalledWith('u1', 'power');
+      expect(body.data).toEqual({ rank: 3, score: 200 });
+      // 验证调用好友圈排名查询，而非全服 getUserRank
+      expect(leaderboardService.getFriendsUserRank).toHaveBeenCalledWith('u1');
+      expect(leaderboardService.getUserRank).not.toHaveBeenCalled();
     });
 
     it('排名不存在时 fail 返回 404 "未找到排名"', async () => {

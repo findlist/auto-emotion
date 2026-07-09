@@ -5,6 +5,7 @@ import {
   getSpeedLeaderboard,
   getUserRank,
   getFriendsLeaderboard,
+  getFriendsUserRank,
 } from '../services/leaderboard-service.js';
 import { success, fail } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
@@ -93,7 +94,8 @@ router.get('/:type/me', authMiddleware, async (req: Request, res: Response) => {
   try {
     let result;
     if (type === 'friends') {
-      result = await getUserRank(user.userId, 'power');
+      // 好友榜个人排名需限定在好友圈内计算，不能复用全服 getUserRank
+      result = await getFriendsUserRank(user.userId);
     } else if (type === 'power' || type === 'battle' || type === 'speed') {
       result = await getUserRank(user.userId, type);
     } else {

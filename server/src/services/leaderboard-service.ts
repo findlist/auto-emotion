@@ -130,6 +130,44 @@ export async function updateUserScore(
 }
 
 /**
+ * 获取用户在好友圈中的排名
+ * 设计原因：好友榜个人排名需限定在好友范围内计算，
+ * 复用全服 getUserRank 会返回全服名次而非好友圈名次，导致 /friends/me 语义错误
+ */
+export async function getFriendsUserRank(userId: string): Promise<{ rank: number; score: number } | null> {
+  // 获取好友列表（与 getFriendsLeaderboard 一致：好友 + 自己）
+  const friendsResult = await pool.query(
+    `SELECT friend_id FROM friendships WHERE user_id = $1 AND status = 1`,
+    [userId]
+  );
+  const friendIds = friendsResult.rows.map(r => r.friend_id);
+  // 包含自己，确保即使无好友也能返回第 1 名
+  friendIds.push(parseInt(userId, 10));
+
+  // 在好友圈内按 power 计算当前用户名次
+  const result = await pool.query(
+    `SELECT rank FROM (
+       SELECT id, ROW_NUMBER() OVER (ORDER BY power DESC) as rank
+       FROM users WHERE id = ANY($1) AND status = 0
+     ) ranked
+     WHERE id = $2`,
+    [friendIds, userId]
+  );
+
+  if (result.rows.length === 0) return null;
+
+  const userResult = await pool.query(
+    `SELECT power as score FROM users WHERE id = $1`,
+    [userId]
+  );
+
+  return {
+    rank: result.rows[0].rank,
+    score: userResult.rows[0]?.score || 0,
+  };
+}
+
+/**
  * 获取好友排行
  */
 export async function getFriendsLeaderboard(

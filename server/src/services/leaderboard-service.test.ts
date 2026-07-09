@@ -31,6 +31,7 @@ import {
   getSpeedLeaderboard,
   updateUserScore,
   getFriendsLeaderboard,
+  getFriendsUserRank,
 } from './leaderboard-service.js';
 
 describe('leaderboard-service 排行榜服务', () => {
@@ -233,6 +234,56 @@ describe('leaderboard-service 排行榜服务', () => {
       const result = await getFriendsLeaderboard('1', 1, 20);
 
       expect(result.ranking[0].score).toBe(0);
+    });
+  });
+
+  describe('getFriendsUserRank 好友圈个人排名', () => {
+    it('用户存在返回好友圈内 rank 与 score', async () => {
+      mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ friend_id: 2 }, { friend_id: 3 }] }) // 好友列表
+        .mockResolvedValueOnce({ rows: [{ rank: 2 }] }) // 好友圈排名
+        .mockResolvedValueOnce({ rows: [{ score: 200 }] }); // 分数查询
+
+      const result = await getFriendsUserRank('1');
+
+      expect(result).toEqual({ rank: 2, score: 200 });
+      // 验证 ANY 参数包含自己与好友
+      const anyParam = mocks.queryMock.mock.calls[1][1][0];
+      expect(anyParam).toEqual(expect.arrayContaining([1, 2, 3]));
+    });
+
+    it('无好友仅自己，rank=1', async () => {
+      mocks.queryMock
+        .mockResolvedValueOnce({ rows: [] }) // 无好友
+        .mockResolvedValueOnce({ rows: [{ rank: 1 }] })
+        .mockResolvedValueOnce({ rows: [{ score: 100 }] });
+
+      const result = await getFriendsUserRank('1');
+
+      expect(result).toEqual({ rank: 1, score: 100 });
+    });
+
+    it('用户不存在返回 null，不再查分数', async () => {
+      mocks.queryMock
+        .mockResolvedValueOnce({ rows: [] }) // 无好友
+        .mockResolvedValueOnce({ rows: [] }); // 排名查询无结果
+
+      const result = await getFriendsUserRank('999');
+
+      expect(result).toBeNull();
+      // 排名查询失败后不应再查分数（共 2 次查询：好友列表 + 排名）
+      expect(mocks.queryMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('score 为 null 兜底为 0', async () => {
+      mocks.queryMock
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ rank: 1 }] })
+        .mockResolvedValueOnce({ rows: [{ score: null }] });
+
+      const result = await getFriendsUserRank('1');
+
+      expect(result).toEqual({ rank: 1, score: 0 });
     });
   });
 });
