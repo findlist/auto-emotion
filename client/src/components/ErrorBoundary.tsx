@@ -23,7 +23,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     logger.error('ErrorBoundary caught an error', error);
-    logger.error('Component stack:', errorInfo.componentStack ? new Error(errorInfo.componentStack) : undefined);
+    // 直接传入组件栈字符串，避免 new Error(componentStack) 产生误导性 stack trace
+    // 设计原因：new Error 会把组件栈包装成 Error 对象，console.error 打印的 stack 显示为
+    // "Error: <componentStack>" 而非真正调用栈，干扰排查；logger.error 第二参数为 unknown 可直接接收字符串
+    logger.error('Component stack:', errorInfo.componentStack);
   }
 
   resetError = () => {
