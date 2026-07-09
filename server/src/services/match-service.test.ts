@@ -47,16 +47,15 @@ import {
 } from './match-service.js';
 
 /**
- * 构造 lrange 返回的扁平队列数组
- * 每个玩家占 4 个字段：userId, nickname, socketId, joinedAt
- * 设计原因：match-service 内部按 4 步长解析队列，扁平数组便于精确模拟 Redis List 真实结构
+ * 构造 lrange 返回的队列数组
+ * 每个玩家序列化为一条 JSON 字符串，与 match-service 的存储结构对齐
+ * 设计原因：match-service 采用 JSON 单条存储保证 lrem 原子删除，
+ * 测试需模拟真实 Redis List 结构，避免按值误删风险被测试掩盖
  */
 function queue(...players: Array<[string, string, string, number]>): string[] {
-  const arr: string[] = [];
-  for (const [uid, nick, sid, t] of players) {
-    arr.push(uid, nick, sid, t.toString());
-  }
-  return arr;
+  return players.map(([uid, nick, sid, t]) =>
+    JSON.stringify({ userId: uid, nickname: nick, socketId: sid, joinedAt: t })
+  );
 }
 
 describe('match-service 快速匹配服务', () => {
@@ -92,13 +91,14 @@ describe('match-service 快速匹配服务', () => {
         code: ErrorCode.BAD_REQUEST,
       });
 
-      // rpush 写入 4 个字段
+      // rpush 写入单条 JSON 字符串（含 userId/nickname/socketId/joinedAt）
       expect(mocks.rpush).toHaveBeenCalledWith(
         'match:queue',
-        'u1',
-        'nick1',
-        's1',
-        expect.any(String)
+        expect.stringContaining('"userId":"u1"')
+      );
+      expect(mocks.rpush).toHaveBeenCalledWith(
+        'match:queue',
+        expect.stringContaining('"nickname":"nick1"')
       );
       // setex 设置 30 秒匹配状态
       expect(mocks.setex).toHaveBeenCalledWith(
@@ -167,7 +167,7 @@ describe('match-service 快速匹配服务', () => {
       expect(mocks.joinRoom).toHaveBeenCalledTimes(3);
     });
 
-    it('cleanup 清理超时玩家（joinedAt 超过 30 秒）触发 lrem 4 次', async () => {
+    it('cleanup 清理超时玩家（joinedAt 超过 30 秒）触发 lrem 1 次', async () => {
       // 超时玩家：joinedAt 为 60 秒前
       const timeoutTime = Date.now() - 60_000;
       // cleanup 第 1 次 lrange 返回超时玩家，removeFromQueue 内 lrange 返回超时玩家（触发 lrem）
@@ -183,8 +183,8 @@ describe('match-service 快速匹配服务', () => {
         code: ErrorCode.BAD_REQUEST,
       });
 
-      // 超时玩家的 4 个字段被 lrem 移除
-      expect(mocks.lrem).toHaveBeenCalledTimes(4);
+      // 超时玩家被 lrem 移除整条 JSON 记录（1 次）
+      expect(mocks.lrem).toHaveBeenCalledTimes(1);
     });
 
     it('未满时 30 秒后 setTimeout 自动清理出队', async () => {
@@ -208,8 +208,8 @@ describe('match-service 快速匹配服务', () => {
         // 推进 30 秒触发 setTimeout 回调
         await vi.advanceTimersByTimeAsync(30_000);
 
-        // 回调内 removeFromQueue 执行 lrem 4 次 + del 状态 1 次
-        expect(mocks.lrem).toHaveBeenCalledTimes(4);
+        // 回调内 removeFromQueue 执行 lrem 1 次（删除整条 JSON）+ del 状态 1 次
+        expect(mocks.lrem).toHaveBeenCalledTimes(1);
         expect(mocks.del).toHaveBeenCalledWith('match:status:u1');
       } finally {
         vi.useRealTimers();
@@ -250,8 +250,8 @@ describe('match-service 快速匹配服务', () => {
 
       await leaveQuickMatch('u1');
 
-      // 4 个字段被 lrem
-      expect(mocks.lrem).toHaveBeenCalledTimes(4);
+      // 玩家被 lrem 移除整条 JSON 记录（1 次）
+      expect(mocks.lrem).toHaveBeenCalledTimes(1);
       expect(mocks.del).toHaveBeenCalledWith('match:status:u1');
     });
 
@@ -281,7 +281,7 @@ describe('match-service 快速匹配服务', () => {
           code: ErrorCode.BAD_REQUEST,
         });
 
-        // 离开匹配：removeFromQueue 内 lrange 返回自己（4 字段被 lrem）
+        // 离开匹配：removeFromQueue 内 lrange 返回自己（整条 JSON 被 lrem）
         script = [queue(['u1', 'n1', 's1', now])];
         await leaveQuickMatch('u1');
 
@@ -291,8 +291,8 @@ describe('match-service 快速匹配服务', () => {
         const lrangeCountBeforeAdvance = mocks.lrange.mock.calls.length;
         await vi.advanceTimersByTimeAsync(30_000);
         expect(mocks.lrange.mock.calls.length).toBe(lrangeCountBeforeAdvance);
-        // lrem 仍是 leaveQuickMatch 内的 4 次，回调未额外触发
-        expect(mocks.lrem).toHaveBeenCalledTimes(4);
+        // lrem 仍是 leaveQuickMatch 内的 1 次，回调未额外触发
+        expect(mocks.lrem).toHaveBeenCalledTimes(1);
       } finally {
         vi.useRealTimers();
       }

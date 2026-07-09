@@ -37,16 +37,23 @@ interface QueuePlayer {
 async function getQueuePlayers(): Promise<QueuePlayer[]> {
   const queue = await redis.lrange(MATCH_QUEUE_KEY, 0, -1);
   const players: QueuePlayer[] = [];
-  
-  for (let i = 0; i < queue.length; i += 4) {
-    players.push({
-      userId: queue[i],
-      nickname: queue[i + 1],
-      socketId: queue[i + 2],
-      joinedAt: parseInt(queue[i + 3], 10) || Date.now(),
-    });
+
+  for (const item of queue) {
+    try {
+      // 队列以 JSON 字符串单条存储玩家对象，解析还原结构
+      // 设计原因：原扁平存储 4 个独立字段，lrem 按值删除时重复值会误删其他玩家字段
+      const player = JSON.parse(item) as QueuePlayer;
+      players.push({
+        userId: player.userId,
+        nickname: player.nickname,
+        socketId: player.socketId,
+        joinedAt: player.joinedAt,
+      });
+    } catch {
+      // 跳过无法解析的脏数据，避免单个坏元素导致整队列解析失败
+    }
   }
-  
+
   return players;
 }
 
@@ -55,15 +62,18 @@ async function getQueuePlayers(): Promise<QueuePlayer[]> {
  */
 async function removeFromQueue(userId: string): Promise<void> {
   const queue = await redis.lrange(MATCH_QUEUE_KEY, 0, -1);
-  
-  for (let i = 0; i < queue.length; i += 4) {
-    if (queue[i] === userId) {
-      // 移除该玩家的4个字段
-      await redis.lrem(MATCH_QUEUE_KEY, 1, queue[i]);     // userId
-      await redis.lrem(MATCH_QUEUE_KEY, 1, queue[i + 1]); // nickname
-      await redis.lrem(MATCH_QUEUE_KEY, 1, queue[i + 2]); // socketId
-      await redis.lrem(MATCH_QUEUE_KEY, 1, queue[i + 3]); // joinedAt
-      break;
+
+  for (const item of queue) {
+    try {
+      const player = JSON.parse(item) as QueuePlayer;
+      if (player.userId === userId) {
+        // 删除整个玩家 JSON 字符串，保证原子性
+        // 设计原因：按值删除完整对象不会误伤其他玩家，规避扁平存储下重复值误删风险
+        await redis.lrem(MATCH_QUEUE_KEY, 1, item);
+        break;
+      }
+    } catch {
+      // 跳过无法解析的元素，继续查找目标玩家
     }
   }
 }
@@ -128,8 +138,10 @@ export async function joinQuickMatch(
     throw new AppError(ErrorCode.BAD_REQUEST, '已在匹配队列中');
   }
   
-  // 加入队列
-  await redis.rpush(MATCH_QUEUE_KEY, userId, nickname, socketId, joinedAt.toString());
+  // 单条 JSON 字符串入队，确保 lrem 可按完整对象原子删除
+  // 设计原因：扁平存储 4 字段时重复值会误删其他玩家，JSON 单条存储规避该风险
+  const player: QueuePlayer = { userId, nickname, socketId, joinedAt };
+  await redis.rpush(MATCH_QUEUE_KEY, JSON.stringify(player));
   
   // 检查队列是否已满
   const updatedPlayers = await getQueuePlayers();
