@@ -93,6 +93,8 @@ function DemoPage({ onBack }: DemoPageProps) {
     let engine: GameEngine | null = null;
     let sceneManager: SceneManager | null = null;
     let assets: AssetLoader | null = null;
+    // scene 提升到外层作用域，供 cleanup 显式调用 destroy() 释放 BattleScene 缓存的 GPU 纹理
+    let scene: BattleScene | null = null;
     let tickerCallback: ((ticker: Ticker) => void) | null = null;
     let cancelled = false;
 
@@ -121,7 +123,7 @@ function DemoPage({ onBack }: DemoPageProps) {
       assets = new AssetLoader(engine.renderer);
       sceneManager = new SceneManager(engine.stage);
 
-      const scene = new BattleScene(
+      scene = new BattleScene(
         engine,
         assets,
         { width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
@@ -155,6 +157,9 @@ function DemoPage({ onBack }: DemoPageProps) {
       if (engine && tickerCallback) {
         engine.ticker.remove(tickerCallback);
       }
+      // 先销毁 BattleScene 再销毁 SceneManager：SceneManager.destroy() 仅 onExit/removeChild，
+      // 不会触发场景 destroy()；BattleScene.destroy() 负责释放子游戏缓存的 generateTexture 纹理
+      if (scene) scene.destroy();
       if (sceneManager) sceneManager.destroy();
       if (assets) assets.destroy();
       if (engine) engine.destroy();

@@ -323,11 +323,22 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       // 主动离开房间，触发后端清理房间数据（而非依赖 5 分钟 TTL）
       // 走 roomActions.leaveRoom 而非直接 emit，确保 lastRoomId/lastNickname 同步清除，
       // 避免用户退出对战后在大厅断线重连时被误 rejoin 回已退出的房间
-      roomActions.leaveRoom(roomId);
+      // try/catch 保护：socket 已断开时 getSocket() 会抛 'Socket not connected'，
+      // 若不捕获会中断 cleanup 后续资源释放，导致 PixiJS 纹理与 WebGL 上下文泄漏
+      try {
+        roomActions.leaveRoom(roomId);
+      } catch (err) {
+        logger.error('离开房间失败', err);
+      }
 
       if (tickerCallbackRef.current && engineRef.current) {
         engineRef.current.ticker.remove(tickerCallbackRef.current);
       }
+      // 先销毁 BattleScene 再销毁 SceneManager：SceneManager.destroy() 只调用 onExit/removeChild，
+      // 不会触发场景自身的 destroy()；而 BattleScene.destroy() 负责释放 BossGame/BrawlGame/SpeedGame
+      // 缓存的 generateTexture 纹理（projectileTexture/playerTexture 等 GPU 资源），
+      // 这些纹理不是显示对象子节点，不会被 engine.destroy({children:true}) 自动回收
+      battleSceneRef.current?.destroy();
       if (sceneManagerRef.current) sceneManagerRef.current.destroy();
       if (assetsRef.current) assetsRef.current.destroy();
       if (engineRef.current) engineRef.current.destroy();

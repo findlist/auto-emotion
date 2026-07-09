@@ -1,5 +1,5 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
-import type { FederatedPointerEvent, Texture } from 'pixi.js';
+import type { FederatedPointerEvent } from 'pixi.js';
 import { ParticleEffect } from '../effects/particle.js';
 import { ScreenShake } from '../effects/screen-shake.js';
 
@@ -251,10 +251,6 @@ export class SpeedGame {
   private timeText: Text;
   private gameTypeText: Text;
 
-  // 西瓜爆炸粒子纹理缓存：每次砸西瓜需要 8 个粒子，仅红/绿 2 种颜色可安全复用
-  private redParticleTexture: Texture | null = null;
-  private greenParticleTexture: Texture | null = null;
-
   // 延迟移除目标的定时器集合：onTapeTorn/onWatermelonSmash 用 setTimeout 延迟移除容器，
   // 若用户在定时器触发前退出游戏，未清理的定时器会操作已销毁的 world 抛 PixiJS 错误。
   // 用 Set 收集 timer id，cleanup 时统一 clearTimeout 保障资源及时释放
@@ -316,28 +312,6 @@ export class SpeedGame {
     const texture = this.app.renderer.generateTexture({ target: g, antialias: true });
     g.destroy();
     return texture;
-  }
-
-  /** 懒加载西瓜爆炸红色粒子纹理（圆 10px），onWatermelonSmash 一次 8 个粒子复用 */
-  private getRedParticleTexture(): Texture {
-    if (!this.redParticleTexture) {
-      const g = new Graphics();
-      g.circle(0, 0, 10).fill({ color: 0xff0000 });
-      this.redParticleTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
-      g.destroy();
-    }
-    return this.redParticleTexture;
-  }
-
-  /** 懒加载西瓜爆炸绿色粒子纹理（圆 10px），onWatermelonSmash 一次 8 个粒子复用 */
-  private getGreenParticleTexture(): Texture {
-    if (!this.greenParticleTexture) {
-      const g = new Graphics();
-      g.circle(0, 0, 10).fill({ color: 0x90ee90 });
-      this.greenParticleTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
-      g.destroy();
-    }
-    return this.greenParticleTexture;
   }
 
   async start() {
@@ -454,16 +428,11 @@ export class SpeedGame {
   }
 
   private onWatermelonSmash(watermelon: Watermelon) {
-    // 西瓜爆炸效果：8 个粒子复用红/绿 2 个缓存纹理，避免每次砸西瓜生成 8 个 generateTexture 引发 GC 抖动
-    const redTexture = this.getRedParticleTexture();
-    const greenTexture = this.getGreenParticleTexture();
-    for (let i = 0; i < 8; i++) {
-      const isRed = i % 2 === 0;
-      const texture = isRed ? redTexture : greenTexture;
-      const color = isRed ? 0xff0000 : 0x90ee90;
-      const particle = new ParticleEffect(this.world, texture);
-      particle.spawn(watermelon.x, watermelon.y, color, 'high', 5);
-    }
+    // 西瓜爆炸：复用 this.particles 分批 spawn 红/绿粒子
+    // 原实现每次创建 8 个临时 ParticleEffect 实例，其粒子既不进入 update() 循环也不被 destroy()，
+    // 每次砸西瓜累积 40 个永久 Sprite 造成内存泄漏；Particle 通过 tint 着色，单一纹理即可显示任意颜色
+    this.particles.spawn(watermelon.x, watermelon.y, 0xff0000, 'high', 4);
+    this.particles.spawn(watermelon.x, watermelon.y, 0x90ee90, 'high', 4);
     this.screenShake.shake('high');
     this.addScore(WATERMELON_SCORE);
 
@@ -521,9 +490,11 @@ export class SpeedGame {
     if (!this.isRunning) return;
     if (this.currentMiniGame !== 'tape') return;
 
-    const { x } = e;
+    // 使用实际指针 y 坐标做命中检测：原代码传 y=0 导致 checkHit 恒返回 false
+    // （Tape.y 最小为 100，py=0 永远不满足 py >= this.y），撕胶带小游戏完全失效
+    const { x, y } = e;
     for (const target of this.targets) {
-      if (target instanceof Tape && target.checkHit(x, 0)) {
+      if (target instanceof Tape && target.checkHit(x, y)) {
         target.tear(x);
         break;
       }
@@ -606,10 +577,5 @@ export class SpeedGame {
     this.hud.destroy({ children: true });
     this.particles.destroy();
     this.screenShake.destroy();
-    // 销毁缓存的西瓜爆炸粒子纹理，避免 GPU 资源泄漏
-    this.redParticleTexture?.destroy(true);
-    this.greenParticleTexture?.destroy(true);
-    this.redParticleTexture = null;
-    this.greenParticleTexture = null;
   }
 }
