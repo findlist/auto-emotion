@@ -1,6 +1,7 @@
 // server/src/idle/offline-calculator.ts
 // 离线收益计算器（不写入数据库）
 
+import type { QueryResultRow } from 'pg';
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 
@@ -17,8 +18,25 @@ const SECONDS_PER_HOUR = 3600;
 // 离线收益上限（小时）
 const MAX_OFFLINE_HOURS = 12;
 
-// 查询函数类型：兼容 pool.query 与 client.query，便于事务内重算
-type QueryFn = (text: string, params?: unknown[]) => Promise<{ rows: any[] }>;
+// characters 表查询行：精确字段类型替代 any，编译期拦截字段名/类型错误
+interface CharacterRow extends QueryResultRow {
+  idle_since: string;
+  area_id: number;
+  efficiency: string;
+  level: number;
+}
+
+// idle_areas 表查询行：exp_rate/gold_rate 为 numeric，pg 驱动返回 string 需 parseFloat
+interface AreaRow extends QueryResultRow {
+  exp_rate: string;
+  gold_rate: string;
+}
+
+// 查询函数类型：泛型 T 支持调用方指定行类型，兼容 pool.query 与 client.query，便于事务内重算
+type QueryFn = <T extends QueryResultRow = QueryResultRow>(
+  text: string,
+  params?: unknown[]
+) => Promise<{ rows: T[] }>;
 
 /**
  * 计算离线收益（不写入数据库）
@@ -31,7 +49,7 @@ export async function calculateOffline(
   queryFn: QueryFn = pool.query.bind(pool) as QueryFn,
 ): Promise<OfflineResult> {
   // 1. 从 characters 获取 idle_since 和 area_id
-  const charResult = await queryFn(
+  const charResult = await queryFn<CharacterRow>(
     `SELECT c.idle_since, c.area_id, c.efficiency, c.level
      FROM characters c
      WHERE c.user_id = $1`,
@@ -59,7 +77,7 @@ export async function calculateOffline(
   }
 
   // 3. 从 idle_areas 获取 exp_rate, gold_rate
-  const areaResult = await queryFn(
+  const areaResult = await queryFn<AreaRow>(
     `SELECT exp_rate, gold_rate FROM idle_areas WHERE id = $1`,
     [char.area_id]
   );
