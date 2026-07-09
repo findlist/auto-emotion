@@ -224,3 +224,283 @@
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计）
 - P3 无障碍：tablist 方向键导航（4 处页面）
 - 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
+
+[session_id: auto | topic_summary_time: 2026-07-10 01:45:00]
+本次完成任务：bug-check High 修复（H-11 lobby loading 状态未重置 + H-06 idle-settle 幂等性缺失与重复结算）
+- 健康预检全绿：后端 tsc 零错误、vitest 620/620；前端 build 零错误零警告（860 modules, 932ms）
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 用户指令基线"P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"（当前最高优先级）
+- 最小单元1（H-11）：lobby.tsx 三个 handler（handleCreateRoom/handleJoinRoom/handleQuickMatch）存在两个问题：① setLoading(true)/setMatching(true) 在 resetRoom() 之前调用，被 reset 覆盖导致等待期间按钮可重复点击；② 成功跳转路径（onEnterRoom）不重置 loading/matching，用户返回大厅后按钮永久禁用。修复：resetRoom 移到 setLoading 之前，catch 中删除手动重置，改用 finally 确保所有路径（成功/失败/inQueue 返回）都重置状态
+- 最小单元2（H-06）：idle-settle 存在两个问题：① settle 路由无幂等控制，客户端可高频重复调用导致收益翻倍；② settle 发放收益后不重置 idle_since，claimOffline 会从旧 idle_since 计算离线时长，导致在线期间已结算的收益被重复发放。修复：settle 路由新增 checkIdempotency('idle:settle:userId') 5秒窗口幂等拦截（Redis 异常时降级放行不阻塞核心业务）；idle-engine settle 的 UPDATE characters 语句添加 idle_since=NOW() 重置时间基准；新增幂等拦截命中返回 409 的测试用例
+
+修改文件清单：
+- client/src/pages/lobby.tsx（三个 handler resetRoom 顺序调整 + finally 重置 loading/matching）
+- server/src/routes/idle.ts（导入 checkIdempotency；settle 路由新增幂等控制+Redis 降级）
+- server/src/idle/idle-engine.ts（settle UPDATE characters 添加 idle_since=NOW()）
+- server/src/routes/idle.test.ts（mock idempotency.js；新增幂等拦截 409 测试用例）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误
+- 后端 vitest run ✅ 621/621 通过（原 620 + H-06 新增 1 幂等拦截测试，无回归）
+- 前端 npm run build ✅ 零错误零警告（860 modules, 919ms）
+- 前端 vitest run ✅ 224/224 通过（lobby 7 测试无回归）
+- Git commit 21e7b88（H-11）、d8b6555（H-06）已推送 origin/main
+
+动态计划调整：
+- 本轮完成 2 个最小单元（H-11 loading 状态重置 + H-06 幂等性与 idle_since 重置），达成单轮产出下限（2-3 个），触发终止条件
+- bug-check 报告 13 个 High 已修复 8 个（H-02/H-03/H-04/H-07/H-08/H-12 上轮 + H-11/H-06 本轮），剩余 5 个：H-01 monster-generator 结构对齐、H-05 match 队列误删、H-09/H-10 前端游戏逻辑、H-13 待复核
+- checkIdempotency 工具此前已实现但未在任何路由实际使用，本轮首次集成到 settle 路由，可作为后续其他付费/领奖接口幂等控制的参考范式
+- idle-settle 幂等性修复后，settle 与 claimOffline 的时间基准统一：settle 重置 idle_since=NOW()，claimOffline 从 idle_since 计算离线时长，两者不再重叠
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- H-01 monster-generator 结构对齐（后端，需统一 MonsterConfig 与 LevelReadyPayload，中风险）
+- H-05 match 队列 lrem 误删（改用 JSON 序列化或 Hash，中风险）
+- H-09/H-10 前端游戏逻辑（需具体定位）
+- C-04 room-manager Redis 竞态（高风险重构，建议先补并发测试）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计）
+- P3 无障碍：tablist 方向键导航（4 处页面）
+- 其他付费/领奖接口（shop 购买、tasks 领取、achievements 领取、season-pass 购买领取）可参考 settle 幂等范式补齐 checkIdempotency
+- 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
+
+[session_id: auto | topic_summary_time: 2026-07-10 02:00:00]
+本次完成任务：bug-check High 修复（H-01 monster-generator 结构对齐 + H-09/H-10 可破坏物得分归属与分数计算）
+- 健康预检全绿：后端 tsc 零错误、vitest 621/621；前端 build 零错误零警告（860 modules, 924ms）
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 用户指令基线"P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"（当前最高优先级）
+- 最小单元1（H-01）：monster-generator 与 room-manager 结构对齐。① emotion 原取 monster.weakness（弱点描述字符串"被连击 10 次眩晕"），语义错误，改为 monster.stressTags[0] ?? '压力'（压力关键词才是情绪来源）；② attack 原在 room-manager 硬编码 50+difficulty*10，移入 MonsterConfig 由 monster-generator 的 calcAttack 统一产出，数据来源集中化便于后续平衡性调整；③ 兜底 monster 数据原缺 avatar/weakness/stressTags/appearance 字段且多余 emotion 字段，generator 失败时 monster.stressTags[0] 会运行时 TypeError，补全为完整 MonsterConfig 结构；④ skills.map((s)=>s.name) 是正确的 SkillTemplate[]→string[] 转换，非 bug 保留。同步更新 room-manager.test.ts 4 处 mock 数据补全 stressTags/attack，"全部成功"用例新增 emotion='KPI' 与 attack=60 断言验证修复
+- 最小单元2（H-09 + H-10）：可破坏物得分归属与分数计算修复。Destructible 类新增 reward（构造函数参数）与 lastHitBy（string|null）属性，takeDamage 增加 attackerId 可选参数记录命中者；brawl-game 创建 Destructible 传 d.reward，碰撞检测传 projData.ownerId，onDestructibleDestroyed 得分归属 dest.lastHitByValue ?? localPlayerId 替代固定本地玩家，分数用 dest.rewardValue 替代 dest.container.width（Sprite 未渲染时 width 可能为 0）；boss-game projectiles 从 Projectile[] 改为 ProjectileData[]（{projectile, ownerId}），shoot 存 playerId，bossSkill 存 'boss'，碰撞检测玩家投射物传 ownerId 而 Boss 弹幕传 undefined（lastHitBy 保持 null 不计玩家得分），Boss 弹幕不再误伤 Boss，onDestructibleDestroyed 仅在 scorer 非 null 时计分，分数用 dest.rewardValue 替代硬编码 10
+
+修改文件清单：
+- server/src/ai/monster-generator.ts（MonsterConfig 增加 attack 字段，generate 计算 attack，新增 calcAttack 函数）
+- server/src/ai/monster-generator.test.ts（新增 attack 计算测试用例）
+- server/src/websocket/room-manager.ts（emotion 改用 stressTags[0]，attack 改用 monster.attack，兜底数据补全字段）
+- server/src/websocket/room-manager.test.ts（4 处 mock 补全 stressTags/attack，新增 emotion/attack 断言）
+- client/src/game/entities/destructible.ts（新增 reward/lastHitBy 属性，takeDamage 增加 attackerId 参数，新增 rewardValue/lastHitByValue getter）
+- client/src/game/games/brawl-game.ts（创建 Destructible 传 reward，碰撞检测传 ownerId，得分用 rewardValue 归属 lastHitBy）
+- client/src/game/games/boss-game.ts（projectiles 改 ProjectileData[]，shoot/bossSkill 存 ownerId，碰撞检测传 attackerId，Boss 弹幕不误伤 Boss，得分归属 lastHitBy 用 rewardValue）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误
+- 后端 vitest run ✅ 622/622 通过（原 621 + H-01 新增 1 个 attack 测试）
+- 前端 npm run build ✅ 零错误零警告（860 modules, 893ms）
+- 前端 vitest run ✅ 224/224 通过（无回归，battle-scene 17 测试全绿）
+- Git commit 829cea8（H-01）、ca9e35e（H-09/H-10）已推送 origin/main
+
+动态计划调整：
+- 本轮完成 2 个最小单元（H-01 结构对齐 + H-09/H-10 得分逻辑），达成单轮产出下限（2-3 个），触发终止条件
+- bug-check 报告 13 个 High 已修复 11 个（H-01/H-02/H-03/H-04/H-06/H-07/H-08/H-09/H-10/H-11/H-12），剩余 2 个：H-05 match 队列 lrem 误删（中风险，改用 JSON 序列化）、H-13 battle.tsx StrictMode 双调用（仅开发环境，低优先级）
+- 9 个 Critical 已修复 7 个，剩余 C-04（Redis 竞态，高风险重构）、C-05（handleDisconnect 清理，设计决策）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- H-05 match 队列 lrem 误删：改用 JSON 序列化单条存储或 Redis Hash，中风险
+- H-13 battle.tsx StrictMode 双调用：仅开发环境影响，用 ref 标记真实卸载，低优先级
+- C-04 room-manager Redis 竞态：需评估 WATCH/MULTI/EXEC 或 SET NX EX 锁，高风险重构建议先补并发测试
+- C-05 handleDisconnect 清理：设计决策，需与 P0 重连流程统一设计
+- Medium 级 bug：M-02 generateLevelAndEvents 失败不重置状态（房间卡死 generating）、M-03 SQL INTERVAL 参数化、M-12 reconnect room:join 重复发送、M-19 battle.tsx nickname 依赖重建
+- P3 无障碍：tablist 方向键导航（4 处页面）
+- 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
+
+[session_id: auto | topic_summary_time: 2026-07-10 02:15:00]
+本次完成任务：bug-check 健康故障修复 3 项（H-05 match 队列 lrem 误删 + M-02 关卡生成失败房间卡死 + M-03 SQL INTERVAL 注入风险）
+- 健康预检全绿：后端 tsc 零错误、vitest 622/622；前端 build 零错误零警告（860 modules, 921ms）
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 用户指令基线"P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"（当前最高优先级）
+- 最小单元1（H-05）：match-service 队列原扁平存储 4 个独立字段（userId/nickname/socketId/joinedAt），removeFromQueue 用 lrem 按值逐个删除，队列中存在重复值（如相同 nickname 或时间戳）时会误删其他玩家字段导致队列错位。改为 JSON 单条存储：rpush 传入 JSON.stringify(player)，getQueuePlayers 解析 JSON，removeFromQueue 找到目标后 lrem 删除整条 JSON 字符串（1 次）保证原子性。同步更新测试：queue() 辅助函数改返回 JSON 数组，rpush 断言改单个 JSON 字符串，lrem 次数 4→1
+- 最小单元2（M-02）：startGame 的 generateLevelAndEvents 异步调用，catch 仅 console.error 记录日志，room.status 留在 generating，而 startGame 要求 status===ready 才允许开局，导致关卡生成失败时房间永久卡死无法重新开始。修复：catch 中重置 room.status='ready' 并持久化（Promise.resolve 包装 setex 防止返回非 Promise 时 .catch 报错）、广播 RoomEvents.ERROR('room:error') 通知前端重试（前端 battle.tsx 已监听该事件）。同步补全"房主启动"测试 mock monster 数据（含 stressTags/attack/avatar/appearance，与 H-01 统一的 MonsterConfig 对齐）消除 TypeError 噪音；新增 catch 恢复测试（vi.waitFor 等待异步 setex+广播 room:error 断言）
+- 最小单元3（M-03）：settle-service 写入 game_records 的 started_at 用字符串拼接 `INTERVAL '${durationSeconds} seconds'`，durationSeconds 来自函数参数，存在 SQL 注入风险。改为 `make_interval(secs => $3)` 参数化，复用 $3（durationSeconds）不增加参数个数，测试 params[3] 断言（total_score）不受影响
+
+修改文件清单：
+- server/src/services/match-service.ts（getQueuePlayers/removeFromQueue 改 JSON 解析，joinQuickMatch rpush 改 JSON.stringify）
+- server/src/services/match-service.test.ts（queue() 改 JSON 数组，rpush/lrem 断言适配）
+- server/src/websocket/room-manager.ts（import RoomEvents；startGame catch 重置 status=ready+持久化+广播 room:error）
+- server/src/websocket/room-manager.test.ts（mock monster 数据补全 stressTags；新增 catch 恢复测试）
+- server/src/services/settle-service.ts（INTERVAL 字符串拼接改 make_interval 参数化）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误
+- 后端 vitest run ✅ 623/623 通过（原 622 + M-02 新增 1 个 catch 恢复测试，无回归）
+- 前端 npm run build ✅ 零错误零警告（本轮无前端改动，健康预检已绿）
+- Git commit cf5d7cb（H-05）、7c077f6（M-02）、1b281cd（M-03）已推送 origin/main
+
+动态计划调整：
+- 本轮完成 3 个最小单元（H-05 + M-02 + M-03），达成单轮产出上限（2-3 个），触发终止条件
+- bug-check 报告 9 个 Critical 已修复 7 个（C-04 高风险重构、C-05 设计决策剩余）；13 个 High 已修复 12 个（仅剩 H-13 StrictMode 双调用，低优先级仅开发环境）；Medium 已修复 3 个（M-02/M-03），剩余 M-12 reconnect room:join 重复发送、M-19 battle.tsx nickname 依赖重建
+- H-05 修复后 match 队列存储结构变更（扁平→JSON），如生产环境 Redis 有遗留扁平数据需清空 match:queue 键（Redis 为缓存，重启即清，无迁移负担）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- M-12 reconnect room:join 重复发送（需定位 handlers.ts 重连逻辑，低风险）
+- M-19 battle.tsx nickname 依赖重建（前端，低风险）
+- C-04 room-manager Redis 竞态（高风险重构，建议先补并发测试）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计）
+- H-13 battle.tsx StrictMode 双调用（仅开发环境，低优先级）
+- P3 无障碍：tablist 方向键导航（4 处页面）
+- 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
+
+[session_id: auto | topic_summary_time: 2026-07-10 02:30:00]
+本次完成任务：Medium bug 修复（M-12 重连 room:join 重复发送 + M-19 nickname 依赖重建）+ P3 无障碍 tablist 方向键导航
+- 健康预检全绿：后端 tsc 零错误、vitest 623/623；前端 build 零错误零警告（860 modules, 911ms）、vitest 224/224
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 最小单元1（M-12）：battle.tsx 重连场景下 socket.on('connect') 与 socket.io.on('reconnect') 都会触发，websocket/index.ts 的 reconnect 事件已统一处理重连 rejoin（含补发 level-ready），battle.tsx 的 onConnect 再 emit 会导致 room:join 重复发送。用 hasJoined 局部变量标记首次 join，仅首次连接时由 battle.tsx 负责 emit，重连交由 websocket/index.ts 统一处理
+- 最小单元2（M-19）：battle.tsx 主 useEffect 依赖 [roomId, nickname, mode]，nickname 变化会触发 cleanup 销毁游戏引擎+场景+socket 监听后重新初始化。nickname 仅用于 emit room:join，无需在变化时重建整个对战流程。改用 nicknameRef 存储，依赖数组改为 [roomId, mode]
+- 最小单元3（P3 无障碍）：新建 utils/a11y.ts 导出 handleTabKeyDown 通用函数，支持 ArrowLeft/Right 切换 tab、Home/End 跳首末，切换后自动聚焦新 tab 保证连续方向键操作流畅。friends/idle/leaderboard/shop 4 个页面 5 处 tablist（shop 含主+子两个 tablist）统一接入，符合 WAI-ARIA tablist 键盘导航规范
+
+修改文件清单：
+- client/src/pages/battle.tsx（M-12 hasJoined 标记 + M-19 nicknameRef 存储与依赖数组调整）
+- client/src/utils/a11y.ts（新建：handleTabKeyDown 通用 tablist 方向键导航函数）
+- client/src/pages/friends.tsx（import + tablist onKeyDown 接入）
+- client/src/pages/idle.tsx（import + tablist onKeyDown 接入）
+- client/src/pages/leaderboard.tsx（import + tablist onKeyDown 接入）
+- client/src/pages/shop.tsx（import + 主 tablist + 子 tablist onKeyDown 接入）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（本轮无后端改动）
+- 后端 vitest run ✅ 623/623 通过（健康预检）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 966ms，+1 a11y.ts 模块）
+- 前端 vitest run ✅ 224/224 通过（无回归）
+- Git commit 99ef8d3（M-12）、475ca9a（M-19）、538bd09（P3 tablist）已推送 origin/main
+
+动态计划调整：
+- 本轮完成 3 个最小单元（M-12 + M-19 + P3 tablist），达成单轮产出上限（2-3 个），触发终止条件
+- bug-check Medium 已修复 5 个（M-02/M-03/M-12/M-19 + H-05），剩余无明确 Medium 项
+- P3 无障碍 tablist 方向键导航已全部完成（4 页面 5 处 tablist），剩余 P3 项：aria-live/aria-busy 全局缺失、可交互卡片键盘支持
+- 9 个 Critical 剩余 2 个（C-04 高风险重构、C-05 设计决策），13 个 High 剩余 1 个（H-13 StrictMode 双调用仅开发环境）
+- 项目健康度评估：阻断性 bug 全部清零，剩余均为高风险重构或设计决策项，可启动上线验收
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-04 room-manager Redis 竞态（高风险重构，建议先补并发测试再实施 WATCH/MULTI/EXEC 或 SET NX EX 锁）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- H-13 battle.tsx StrictMode 双调用（仅开发环境，用 ref 标记真实卸载，低优先级）
+- P3 无障碍继续：aria-live/aria-busy 全局缺失、可交互卡片键盘支持
+- 上线验收标准核对：CI/CD 流水线、数据库索引/事务/并发机制、全场景适配终验
+- 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
+
+[session_id: auto | topic_summary_time: 2026-07-10 02:40:00]
+本次完成任务：bug-check 健康故障修复与技术债清理（H-13 StrictMode 双调用 + M-11 brawl 死代码 + L-04 updateHUD 每帧重绘）
+- 健康预检全绿：后端 tsc 零错误、vitest 623/623；前端 build 零错误零警告（861 modules, 961ms）、vitest 224/224
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 用户指令基线"P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"（当前最高优先级）
+- 最小单元1（H-13）：battle.tsx StrictMode 开发环境下 effect 执行顺序为 mount→cleanup→mount，cleanup 中直接 roomActions.leaveRoom(roomId) 会导致后端房间状态混乱（离开后立即重新加入）。新增 leaveTimerRef，cleanup 中用 setTimeout(0) 延迟 leaveRoom 执行，effect 重新执行（StrictMode 重挂载）时在 setup 开头 clearTimeout 取消定时器，仅真实卸载时才离开房间。生产环境无 StrictMode，cleanup 后组件直接卸载，定时器照常执行，行为与原直接调用等价
+- 最小单元2（M-11）：brawl-game init 开头调用 this.cleanup()（清空 this.scores），随后遍历 this.scores 创建玩家的循环永不执行（死代码）。玩家实际由 battle-scene.syncPlayers 在 init 完成后通过 addPlayer 逐个注入。删除 spawns/spawnIdx/for-of 死代码块
+- 最小单元3（L-04）：speed-game updateHUD 每帧被 update() 调用，PixiJS Text 赋值（scoreText/comboText/timeText）会触发文本纹理重新生成。加字符串比对，仅内容变化时赋值，避免每帧无谓重绘。time 文本仍每秒更新（Math.ceil 变化时），score/combo 仅在命中/连击变化时更新
+
+修改文件清单：
+- client/src/pages/battle.tsx（新增 leaveTimerRef + setup 取消定时器 + cleanup 延迟 leaveRoom）
+- client/src/game/games/brawl-game.ts（移除 init 中遍历已清空 scores 的死代码）
+- client/src/game/games/speed-game.ts（updateHUD 加脏检查）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（本轮无后端改动）
+- 后端 vitest run ✅ 623/623 通过（健康预检）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 961ms）
+- 前端 vitest run ✅ 224/224 通过（无回归，battle-scene 17 测试全绿）
+- battle-scene chunk 340.93KB → 340.85KB（M-11 死代码移除）
+- Git commit cf22862（H-13）、9c49bd6（M-11）、3a507b9（L-04）已推送 origin/main
+
+动态计划调整：
+- 本轮完成 3 个最小单元（H-13 + M-11 + L-04），达成单轮产出上限（2-3 个），触发终止条件
+- bug-check 报告 13 个 High 已全部修复（H-13 本轮修复，为最后一个 High）；9 个 Critical 剩余 2 个（C-04 高风险重构、C-05 设计决策）
+- bug-check Medium 已修复 6 个（M-02/M-03/M-11/M-12/M-19 + H-05），剩余 M-01/M-04~M-10/M-13~M-18
+- bug-check Low 已修复 1 个（L-04），剩余 L-01~L-03/L-05~L-11
+- H-13 修复后所有 High 级 bug 清零，剩余 Critical 2 个均为高风险重构/设计决策，Medium/Low 为技术债清理方向
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-04 room-manager Redis 竞态（高风险重构，建议先补并发测试再实施 WATCH/MULTI/EXEC 或 SET NX EX 锁）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- Medium 级继续：M-01 app.ts 启动顺序未 await（DB/Redis 连接就绪后再 listen，需重构 websocket/index.ts 启动流程）、M-10 parseInt 缺基数参数（trivial）、M-13 engine.ts destroy 在 init 未完成时不销毁
+- Low 级继续：L-01 idle.tsx 升级费用 level=0 时为 0（需前后端同步修复 weaponUpgradeCost 与 skill cost）、L-09 app.ts 优雅关闭、L-11 WebSocket 握手未检查 JWT 黑名单
+- P3 无障碍继续：aria-live/aria-busy 全局缺失、可交互卡片键盘支持
+- 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
+
+[session_id: auto | topic_summary_time: 2026-07-10 02:50:00]
+本次完成任务：bug-check 健康故障修复 3 项（L-11 WebSocket 握手 JWT 黑名单 + L-09 进程优雅关闭 + M-10 parseInt 缺基数参数）
+- 健康预检全绿：后端 tsc 零错误、vitest 623/623；前端 build 零错误零警告（861 modules, 921ms）
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 用户指令基线"品质优化专项 95%、P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"（当前最高优先级）
+- 最小单元1（L-11）：websocket/index.ts 的 io.use 握手中间件原仅做 jwt.verify，未检查 Redis 黑名单，导致用户登出/封禁后旧 token 仍可建立对战连接，形成安全绕过（HTTP 侧 authMiddleware 已校验黑名单）。改为 async 中间件，verify 后查询 blacklist:<token>，命中则拒绝连接；Redis 异常时降级放行并记录警告，避免缓存故障导致所有对战连接不可用（遵循游戏降级规则，与 authMiddleware 行为对齐）
+- 最小单元2（L-09）：websocket/index.ts 原 httpServer.listen 后无进程信号处理，容器编排（Docker/K8s）发送 SIGTERM 时连接粗暴断开。新增 gracefulShutdown 函数，按序关闭 io（触发客户端 reconnect）→ httpServer（停止监听）→ pool.end()（释放 DB 连接池）→ redis.quit()（断开缓存），资源关闭异常 try/catch 不阻塞退出流程。注册 SIGTERM/SIGINT 信号处理器
+- 最小单元3（M-10）：3 处 parseInt 缺基数参数，用户输入或环境变量若含 0x 前缀会被误解析为 16 进制。database.ts DB_PORT、game-record.ts page/pageSize、record-service.ts count 统一补齐 radix=10，与项目其余 21 处 parseInt 调用风格一致
+
+修改文件清单：
+- server/src/websocket/index.ts（import redis/pool；io.use 改 async 加黑名单检查降级；新增 gracefulShutdown + SIGTERM/SIGINT 注册）
+- server/src/config/database.ts（parseInt 补基数 10）
+- server/src/routes/game-record.ts（page/pageSize parseInt 补基数 10）
+- server/src/services/record-service.ts（count parseInt 补基数 10）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误
+- 后端 vitest run ✅ 623/623 通过（无回归，stderr 为测试预期日志：errorHandler 冒泡/AI 兜底）
+- 前端 npm run build ✅ 零错误零警告（本轮无前端改动，健康预检已绿）
+
+动态计划调整：
+- 本轮完成 3 个最小单元（L-11 + L-09 + M-10），达成单轮产出上限（2-3 个），触发终止条件
+- bug-check 报告 Low 已修复 4 个（L-04 上轮 + L-09/L-11 本轮 + M-10 技术债清理），剩余 L-01（升级费用 level=0 需前后端同步）、L-02/L-03/L-05~L-10
+- bug-check 剩余 Critical 2 个（C-04 Redis 竞态高风险重构、C-05 handleDisconnect 设计决策）、High 0 个（全部修复）、Medium 剩余 M-01/M-04~M-10/M-13~M-18
+- L-11 修复后 WebSocket 握手与 HTTP authMiddleware 黑名单检查行为对齐：正常时拦截登出/封禁 token，Redis 故障时降级放行保证对战可用
+- L-09 优雅关闭覆盖容器编排常见信号，生产环境部署可靠性提升
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-04 room-manager Redis 竞态（高风险重构，建议先补并发测试再实施 WATCH/MULTI/EXEC 或 SET NX EX 锁）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- Medium 级继续：M-01 app.ts 启动顺序未 await（需重构 websocket/index.ts 启动流程，DB/Redis 连接就绪后再 listen）、M-13 engine.ts destroy 在 init 未完成时不销毁
+- Low 级继续：L-01 idle.tsx 升级费用 level=0 时为 0（需前后端同步修复 weaponUpgradeCost 与 skill cost）、L-02/L-03/L-05~L-10
+- P3 无障碍继续：aria-live/aria-busy 全局缺失、可交互卡片键盘支持
+- 项目接近生产就绪，可启动上线验收标准（规范第十一条）逐项核对
+- 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
+
+[session_id: auto | topic_summary_time: 2026-07-10 03:00:00]
+本次完成任务：bug-check 健康故障修复与技术债清理（M-13 engine.ts destroy 资源泄漏 + L-05 ErrorBoundary 日志语义）
+- 健康预检全绿：后端 tsc 零错误、vitest 623/623；前端 build 零错误零警告（861 modules, 955ms）、vitest 224/224
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 用户指令基线"P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"（当前最高优先级）
+- 最小单元1（M-13）：engine.ts destroy 原检查 if(!this.ready) return，init 进行中用户退出时 ready 仍为 false 跳过销毁，但 _app 已创建并可能正在获取 WebGL 上下文，不销毁会导致 GPU 资源泄漏。移除 ready 字段（移除读取后 TS6133 只写不读报错），改为 try/catch 包裹 _app.destroy 调用，init 未完成时 renderer/stage 可能未初始化抛错可安全忽略，不阻断 cleanup 后续资源释放。battle-scene 17 测试全绿无回归
+- 最小单元2（L-05）：ErrorBoundary.componentDidCatch 原 new Error(errorInfo.componentStack) 把组件栈字符串包装成 Error 对象，console.error 打印的 stack 显示为 "Error: <componentStack>" 而非真正调用栈，干扰排查。logger.error 第二参数为 unknown 可直接接收字符串，移除 new Error 包装，errorInfo.componentStack（string | undefined）直接传入。ErrorBoundary 8 测试全绿无回归
+- L-08 评估：settle 路由（idle.ts 49-58 行）已实现降级（try/catch 区分 AppError 命中拦截 vs Redis 异常放行），工具层抛错让调用方决定降级策略是合理的，提取 checkIdempotencySafe 变体在当前仅一处调用时属于过早抽象，违反"避免过度工程化"原则，不做
+- L-01 评估：前端 idle.tsx 费用基于 weapon.level/skill.level，后端 idle-engine.upgradeCharacter 费用基于 char.level，前后端公式不一致。修复需核实 weapon-service/skill-service 费用逻辑，涉及多处核实，超过 8 分钟最小单元边界，留待下轮
+- M-15 评估：syncPlayers 通过可选链 battleSceneRef.current?.syncPlayers 调用，仅在 BattleScene 已创建后触发；init(mode, levelData) 是同步调用，创建后立即完成设置 currentMode。currentMode 为 null 的场景几乎不存在，修复价值不大，不做
+
+修改文件清单：
+- client/src/game/core/engine.ts（移除 ready 字段，destroy 改 try/catch）
+- client/src/components/ErrorBoundary.tsx（移除 new Error 包装，直接传字符串）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（本轮无后端改动）
+- 后端 vitest run ✅ 623/623 通过（健康预检）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 978ms）
+- 前端 vitest run ✅ 224/224 通过（无回归，ErrorBoundary 8 + battle-scene 17 测试全绿）
+- Git commit 34b202f（M-13）、cacaa50（L-05）已推送 origin/main
+
+动态计划调整：
+- 本轮完成 2 个最小单元（M-13 资源泄漏 + L-05 日志语义），达成单轮产出下限（2-3 个），触发终止条件
+- bug-check 报告 9 个 Critical 已修复 7 个（C-04 高风险重构、C-05 设计决策剩余）；13 个 High 全部修复；Medium 已修复 7 个（M-02/M-03/M-11/M-12/M-13/M-19 + H-05），剩余 M-01/M-04~M-10/M-14~M-18；Low 已修复 5 个（L-04/L-05/L-09/L-11 + M-10 技术债），剩余 L-01~L-03/L-06~L-10
+- 阻断性 bug 全部清零，剩余均为高风险重构、设计决策或低优先级技术债
+- M-13 修复后 engine.ts 不再依赖 ready 字段判断销毁时机，try/catch 覆盖所有 init 状态（未开始/进行中/已完成）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-04 room-manager Redis 竞态（高风险重构，建议先补并发测试再实施 WATCH/MULTI/EXEC 或 SET NX EX 锁）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- L-01 idle.tsx 升级费用 level=0 时为 0（需核实 weapon-service/skill-service 费用逻辑，前后端公式不一致，中风险）
+- Medium 级继续：M-01 app.ts 启动顺序未 await（需重构 websocket/index.ts 启动流程）、M-14 scene-manager destroy 不销毁非当前场景
+- P3 无障碍继续：aria-live/aria-busy 全局缺失、可交互卡片键盘支持
+- 项目接近生产就绪，可启动上线验收标准（规范第十一条）逐项核对
+- 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
