@@ -332,16 +332,21 @@ export class BattleScene implements Scene {
     }
 
     // 新增远程玩家：出生点索引基于现有远程玩家数量，避免与已有玩家位置重叠
-    const existingRemoteCount = this.remotePlayers.filter(
-      (p) => p.userId !== this.localUserId,
-    ).length;
-    let spawnIdx = existingRemoteCount;
-    for (const p of players) {
-      if (p.userId === this.localUserId) continue;
-      if (oldIds.has(p.userId)) continue;
-      const spawn = BattleScene.REMOTE_SPAWNS[spawnIdx % BattleScene.REMOTE_SPAWNS.length];
-      this.addRemotePlayerAt(this.currentMode ?? 'brawl', p, spawn.x, spawn.y);
-      spawnIdx++;
+    // currentMode 为 null 表示游戏尚未 init，此时无法确定目标游戏实例，
+    // 原代码用 'brawl' 兜底会把玩家错加到 brawlGame（若已创建）。改为跳过添加，
+    // 仅更新 remotePlayers 列表，由 init 完成后 addRemotePlayers 统一注入正确实例。
+    if (this.currentMode) {
+      const existingRemoteCount = this.remotePlayers.filter(
+        (p) => p.userId !== this.localUserId,
+      ).length;
+      let spawnIdx = existingRemoteCount;
+      for (const p of players) {
+        if (p.userId === this.localUserId) continue;
+        if (oldIds.has(p.userId)) continue;
+        const spawn = BattleScene.REMOTE_SPAWNS[spawnIdx % BattleScene.REMOTE_SPAWNS.length];
+        this.addRemotePlayerAt(this.currentMode, p, spawn.x, spawn.y);
+        spawnIdx++;
+      }
     }
 
     this.remotePlayers = players;

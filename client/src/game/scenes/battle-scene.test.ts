@@ -334,4 +334,18 @@ describe('BattleScene 多人对战同步逻辑', () => {
     scene.syncPlayers([]);
     expect(mockBrawlInstance.removePlayer).toHaveBeenCalledWith('u2');
   });
+
+  it('syncPlayers 在 init 前调用不添加玩家到游戏实例', () => {
+    // currentMode 为 null（游戏未 init）时收到 room:state 的边界场景：
+    // 应仅更新 remotePlayers 列表，不调用任何 game 实例的 addPlayer，
+    // 避免原代码用 'brawl' 兜底把玩家错加到 brawlGame
+    const { scene } = createScene({ localUserId: 'u1', remotePlayers: [] });
+    // 注意：此处未调用 scene.init，currentMode 仍为 null
+    scene.syncPlayers([
+      { userId: 'u2', nickname: '玩家2' },
+      { userId: 'u3', nickname: '玩家3' },
+    ]);
+    expect(mockBossInstance.addPlayer).not.toHaveBeenCalled();
+    expect(mockBrawlInstance.addPlayer).not.toHaveBeenCalled();
+  });
 });
