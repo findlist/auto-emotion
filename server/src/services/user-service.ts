@@ -37,10 +37,16 @@ export async function register(input: RegisterInput) {
     await client.query('BEGIN');
     
     const userResult = await client.query(
-      `INSERT INTO users (phone, password_hash, nickname) 
-       VALUES ($1, $2, $3) RETURNING id, phone, nickname, experience, gold, pvp_points, created_at`,
+      `INSERT INTO users (phone, password_hash, nickname)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (phone) DO NOTHING
+       RETURNING id, phone, nickname, experience, gold, pvp_points, created_at`,
       [phone, passwordHash, nickname]
     );
+    // 并发注册竞态兜底：前置检查通过后对方可能已插入，ON CONFLICT 命中返回空行
+    if (userResult.rows.length === 0) {
+      throw new AppError(ErrorCode.CONFLICT, '手机号已注册');
+    }
     const user = userResult.rows[0];
 
     await client.query(

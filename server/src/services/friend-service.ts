@@ -80,15 +80,27 @@ export async function sendFriendRequest(userId: string, targetUserId: number) {
     [targetUserId, userId]
   );
   if (reverseCheck.rows.length > 0) {
-    // 直接成为好友
-    await pool.query(
-      `UPDATE friendships SET status = 1 WHERE user_id = $1 AND friend_id = $2`,
-      [targetUserId, userId]
-    );
-    await pool.query(
-      `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, 1)`,
-      [userId, targetUserId]
-    );
+    // 双向建立好友关系需事务保护：UPDATE 对方请求为已接受 + INSERT 自己侧好友记录
+    // 设计原因：两步分开执行若中间失败会导致单向好友关系（对方是好友、自己不是），
+    // 数据不一致且难以排查；事务保证原子性，失败整体回滚
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE friendships SET status = 1 WHERE user_id = $1 AND friend_id = $2`,
+        [targetUserId, userId]
+      );
+      await client.query(
+        `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, 1)`,
+        [userId, targetUserId]
+      );
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
     return { success: true, autoAccepted: true };
   }
 

@@ -152,6 +152,29 @@ describe('user-service 用户服务', () => {
       expect(sqls[sqls.length - 1]).toBe('ROLLBACK');
       expect(mocks.releaseMock).toHaveBeenCalledOnce();
     });
+
+    it('并发注册竞态时 ON CONFLICT 兜底返回 CONFLICT 并 ROLLBACK', async () => {
+      // 前置检查通过（并发窗口内对方尚未插入），但 INSERT 时对方已抢先插入
+      mocks.queryMock.mockResolvedValue({ rows: [] });
+      mocks.bcryptHashMock.mockResolvedValue('hashed-pw');
+      // INSERT ON CONFLICT DO NOTHING 命中唯一约束，返回空行表示手机号已存在
+      mocks.clientQueryMock.mockImplementation((sql: string) => {
+        if (typeof sql === 'string' && sql.includes('INSERT INTO users')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await expect(register(buildRegisterInput())).rejects.toMatchObject({
+        code: ErrorCode.CONFLICT,
+        message: '手机号已注册',
+      });
+      // 竞态兜底走事务回滚，不产生重复用户
+      const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql as string);
+      expect(sqls[0]).toBe('BEGIN');
+      expect(sqls[sqls.length - 1]).toBe('ROLLBACK');
+      expect(mocks.releaseMock).toHaveBeenCalledOnce();
+    });
   });
 
   describe('login 登录', () => {

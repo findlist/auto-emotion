@@ -104,4 +104,25 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
     expect(leaderboardApiMock.getUserRank).toHaveBeenCalledTimes(1);
     expect(leaderboardApiMock.getUserRank).toHaveBeenCalledWith('battle');
   });
+
+  it('当前用户在排行榜中时高亮显示(我)标记（userId 类型不一致也能匹配）', async () => {
+    // userId 用 string 模拟后端 bigint 序列化为字符串，user.id 为 number
+    // 验证 String() 比较兼容类型差异，高亮与(我)标记正常渲染
+    const rankingWithMe = [
+      { rank: 1, userId: '1' as unknown as number, nickname: '我自己', score: 9999 },
+      { rank: 2, userId: 20, nickname: '其他人', score: 8888 },
+    ];
+    leaderboardApiMock.getPower.mockResolvedValue({ ranking: rankingWithMe, total: 2 });
+    leaderboardApiMock.getUserRank.mockResolvedValue({ rank: 1, score: 9999 });
+
+    render(<LeaderboardPage onBack={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('我自己')).toBeInTheDocument();
+    });
+    // 验证 (我) 标记渲染（userId 为 string、user.id 为 number，String() 比较兼容）
+    expect(screen.getByText('(我)')).toBeInTheDocument();
+    // 其他人不应有 (我) 标记
+    expect(screen.queryByText('其他人(我)')).not.toBeInTheDocument();
+  });
 });

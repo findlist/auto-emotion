@@ -120,7 +120,7 @@ describe('friend-service 好友服务', () => {
       });
     });
 
-    it('收到过对方请求时双向自动接受，返回 autoAccepted', async () => {
+    it('收到过对方请求时双向自动接受，事务内 UPDATE+INSERT 并 COMMIT', async () => {
       mocks.queryMock
         .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // 用户存在
         .mockResolvedValueOnce({ rows: [] }) // 不是好友
@@ -130,16 +130,37 @@ describe('friend-service 好友服务', () => {
       const result = await sendFriendRequest('1', 2);
 
       expect(result).toEqual({ success: true, autoAccepted: true });
-      // 验证双向建立：UPDATE 对方请求 + INSERT 自己侧
+      // 验证双向建立走事务保护：BEGIN → UPDATE 对方请求 → INSERT 自己侧 → COMMIT
+      expect(mocks.clientQueryMock).toHaveBeenCalledWith('BEGIN');
       // userId 为 string、targetUserId 为 number，参数透传保持原类型
-      expect(mocks.queryMock).toHaveBeenCalledWith(
+      expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE friendships SET status = 1'),
         [2, '1']
       );
-      expect(mocks.queryMock).toHaveBeenCalledWith(
+      expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO friendships'),
         ['1', 2]
       );
+      expect(mocks.clientQueryMock).toHaveBeenCalledWith('COMMIT');
+      expect(mocks.releaseMock).toHaveBeenCalled();
+    });
+
+    it('双向自动接受事务失败时 ROLLBACK 并 release 并透传错误', async () => {
+      mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // 用户存在
+        .mockResolvedValueOnce({ rows: [] }) // 不是好友
+        .mockResolvedValueOnce({ rows: [] }) // 未发送过请求
+        .mockResolvedValueOnce({ rows: [{ id: 5 }] }); // 反向检查命中
+      const error = new Error('INSERT 失败');
+      mocks.clientQueryMock
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE
+        .mockRejectedValueOnce(error); // INSERT 抛错
+
+      await expect(sendFriendRequest('1', 2)).rejects.toThrow('INSERT 失败');
+
+      expect(mocks.clientQueryMock).toHaveBeenCalledWith('ROLLBACK');
+      expect(mocks.releaseMock).toHaveBeenCalled();
     });
 
     it('正常发送请求返回 requestId', async () => {

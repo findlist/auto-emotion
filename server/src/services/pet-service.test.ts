@@ -9,7 +9,7 @@ import { ErrorCode } from '../utils/error.js';
 
 // 使用 vi.hoisted 提升 mock，确保 vi.mock 工厂能引用
 const mocks = vi.hoisted(() => ({
-  // pool.query：宠物列表查询、buyPet 中 pets 查询（注意源码用 pool 而非 client）
+  // pool.query：宠物列表查询（buyPet 的 pets 查询已修正为事务内 client.query）
   queryMock: vi.fn(),
   // 事务客户端的 query：BEGIN/UPDATE/INSERT/COMMIT/ROLLBACK
   clientQueryMock: vi.fn(),
@@ -113,8 +113,9 @@ describe('pet-service 宠物服务', () => {
 
   describe('buyPet 购买宠物', () => {
     it('宠物不存在抛 NOT_FOUND', async () => {
-      mocks.queryMock.mockResolvedValueOnce({ rows: [] }); // pool.query 查 pets 空
-      mocks.clientQueryMock.mockResolvedValueOnce({ rows: [] }); // BEGIN
+      mocks.clientQueryMock
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }); // client.query 查 pets 空（事务内）
 
       await expect(buyPet('u1', 99)).rejects.toMatchObject({
         code: ErrorCode.NOT_FOUND,
@@ -125,11 +126,9 @@ describe('pet-service 宠物服务', () => {
     });
 
     it('已拥有宠物抛 CONFLICT', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ id: 1, name: '小猫', unlock_cost_gold: 100 }],
-      }); // pool.query 查 pets
       mocks.clientQueryMock
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 1, name: '小猫', unlock_cost_gold: 100 }] }) // client.query 查 pets
         .mockResolvedValueOnce({ rows: [{ id: 1 }] }); // SELECT user_pets 已拥有
 
       await expect(buyPet('u1', 1)).rejects.toMatchObject({
@@ -140,11 +139,9 @@ describe('pet-service 宠物服务', () => {
     });
 
     it('金币不足抛 FORBIDDEN', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ id: 1, name: '小猫', unlock_cost_gold: 500 }],
-      });
       mocks.clientQueryMock
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 1, name: '小猫', unlock_cost_gold: 500 }] }) // client.query 查 pets
         .mockResolvedValueOnce({ rows: [] }) // SELECT user_pets 未拥有
         .mockResolvedValueOnce({ rows: [{ gold: 100 }] }); // SELECT users 金币不足
 
@@ -156,11 +153,9 @@ describe('pet-service 宠物服务', () => {
     });
 
     it('购买成功执行扣金币 + INSERT user_pets + COMMIT', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ id: 2, name: '小狗', unlock_cost_gold: 200 }],
-      }); // pool.query 查 pets
       mocks.clientQueryMock
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 2, name: '小狗', unlock_cost_gold: 200 }] }) // client.query 查 pets
         .mockResolvedValueOnce({ rows: [] }) // SELECT user_pets 未拥有
         .mockResolvedValueOnce({ rows: [{ gold: 500 }] }) // SELECT users 金币充足
         .mockResolvedValueOnce({ rows: [] }) // UPDATE 扣金币
@@ -184,12 +179,10 @@ describe('pet-service 宠物服务', () => {
     });
 
     it('事务失败时 ROLLBACK + release + 透传错误', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ id: 1, name: '小猫', unlock_cost_gold: 100 }],
-      });
       const error = new Error('INSERT 失败');
       mocks.clientQueryMock
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 1, name: '小猫', unlock_cost_gold: 100 }] }) // client.query 查 pets
         .mockResolvedValueOnce({ rows: [] }) // SELECT user_pets 未拥有
         .mockResolvedValueOnce({ rows: [{ gold: 500 }] }) // SELECT users
         .mockResolvedValueOnce({ rows: [] }) // UPDATE 扣金币

@@ -158,7 +158,7 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
             {ranking.map((entry, idx) => (
               <div
                 key={entry.userId}
-                className={`border-2 p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger ${getRowStyle(entry.rank, entry.userId === user?.id)}`}
+                className={`border-2 p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger ${getRowStyle(entry.rank, String(entry.userId) === String(user?.id))}`}
                 style={{ animationDelay: `${idx * 40}ms` }}
               >
                 <div className="flex items-center gap-3">
@@ -172,7 +172,7 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
                   <div className="flex-1">
                     <p className="font-cn text-ink font-bold">
                       {entry.nickname}
-                      {entry.userId === user?.id && (
+                      {String(entry.userId) === String(user?.id) && (
                         <span className="ml-2 text-xs text-pink bg-pink/10 px-1.5 py-0.5 rounded">(我)</span>
                       )}
                     </p>

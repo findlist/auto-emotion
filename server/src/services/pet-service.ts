@@ -75,8 +75,10 @@ export async function buyPet(userId: string, petId: number) {
   try {
     await client.query('BEGIN');
 
-    // 获取宠物信息
-    const petResult = await pool.query(
+    // 获取宠物信息：必须走 client.query 而非 pool.query
+    // 设计原因：此处已在 BEGIN 事务内，pool.query 会从连接池另取独立连接，
+    // 破坏事务隔离性，并发修改宠物数据时可能读到脏数据
+    const petResult = await client.query(
       `SELECT * FROM pets WHERE id = $1`,
       [petId]
     );
