@@ -464,9 +464,13 @@ export class SpeedGame {
   }
 
   private updateHUD() {
-    this.scoreText.text = `分数: ${this.score}`;
-    this.comboText.text = `连击: ${this.combo} x${this.multiplier}`;
-    this.timeText.text = `时间: ${Math.ceil(this.timeRemaining)}`;
+    // PixiJS Text 赋值会触发文本纹理重新生成，仅在内容变化时赋值避免每帧无谓重绘（L-04 优化）
+    const scoreStr = `分数: ${this.score}`;
+    const comboStr = `连击: ${this.combo} x${this.multiplier}`;
+    const timeStr = `时间: ${Math.ceil(this.timeRemaining)}`;
+    if (this.scoreText.text !== scoreStr) this.scoreText.text = scoreStr;
+    if (this.comboText.text !== comboStr) this.comboText.text = comboStr;
+    if (this.timeText.text !== timeStr) this.timeText.text = timeStr;
   }
 
   private handlePointerDown(e: FederatedPointerEvent): void {
