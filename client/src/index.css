@@ -222,3 +222,189 @@ body::before {
     scroll-behavior: auto !important;
   }
 }
+
+/* ============ 样式优化扩展（视觉表现力增强工具类） ============ */
+
+/* 关键帧：交错入场（从下淡入） */
+@keyframes staggerIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 关键帧：从左淡入（适合水平列表） */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* 关键帧：弹窗放大淡入 */
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.92); }
+  60% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* 关键帧：进度条流光（从左向右滑动的高光条） */
+@keyframes progressShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* 关键帧：徽章脉冲（用于 Top1/未领取奖励提示） */
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 217, 61, 0.6); }
+  50% { box-shadow: 0 0 0 6px rgba(255, 217, 61, 0); }
+}
+
+/* 关键帧：缓慢旋转（用于装饰元素） */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 交错延迟工具类：配合 .animate-stagger 使用，让兄弟元素依次入场
+   设计原因：游戏 UI 多为列表/网格，统一交错入场比逐个写 animation-delay 更可维护 */
+@layer utilities {
+  .animate-stagger { animation: staggerIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-pop { animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .animate-slide-left { animation: slideInLeft 0.3s ease-out both; }
+  .animate-spin-slow { animation: spinSlow 12s linear infinite; }
+  .animate-badge-pulse { animation: badgePulse 2s ease-in-out infinite; }
+
+  .delay-50 { animation-delay: 50ms; }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+  .delay-700 { animation-delay: 700ms; }
+}
+
+/* 卡片悬停轻浮效果：列表/网格卡片统一交互反馈
+   设计原因：原卡片 hover 无任何视觉反馈，用户难以感知可交互区域；
+   负向位移让卡片"浮起"扩大阴影，符合 Neo-brutalism 的硬阴影层次 */
+@layer components {
+  .card-hover {
+    transition: transform var(--duration-normal) cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow var(--duration-normal) cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .card-hover:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 0 var(--color-ink);
+  }
+  .card-hover:active {
+    transform: translate(1px, 1px);
+    box-shadow: 3px 3px 0 0 var(--color-ink);
+  }
+}
+
+/* 进度条流光覆盖层：在进度条内层 div 上叠加 ::after 实现高光滑动
+   用法：父级 .progress-track > 子级 .progress-fill
+   设计原因：纯色进度条缺乏"进行中"的动感，流光暗示进度仍在累积 */
+@layer components {
+  .progress-fill {
+    position: relative;
+    overflow: hidden;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.45),
+      transparent
+    );
+    animation: progressShimmer 2s ease-in-out infinite;
+  }
+}
+
+/* 装饰背景：对角条纹（用于强调区块，如赛季通行证/排行榜头部） */
+@layer utilities {
+  .bg-stripes {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(26, 26, 26, 0.06) 0,
+      rgba(26, 26, 26, 0.06) 2px,
+      transparent 2px,
+      transparent 10px
+    );
+  }
+  /* 装饰背景：圆点网格（用于表单页氛围） */
+  .bg-dots {
+    background-image: radial-gradient(rgba(255, 248, 231, 0.12) 1.5px, transparent 1.5px);
+    background-size: 22px 22px;
+  }
+  /* 装饰背景：左上角光晕（用于深色页面增加深度） */
+  .bg-glow-pink {
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(255, 61, 127, 0.18), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(61, 217, 181, 0.14), transparent 50%);
+  }
+}
+
+/* 排行榜奖牌差异化：Top1/2/3 的徽章光环
+   设计原因：原 getRankStyle 仅以底色区分，Top1 缺乏"冠军"的视觉重量；
+   通过 ring + 内阴影增加金属质感，rank=1 加缓慢脉冲突出当前位置 */
+@layer components {
+  .medal-gold {
+    background: linear-gradient(135deg, #ffe566 0%, #ffd93d 50%, #f5a623 100%);
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 255, 255, 0.4),
+      0 0 0 3px var(--color-ink),
+      2px 2px 0 0 var(--color-ink);
+  }
+  .medal-silver {
+    background: linear-gradient(135deg, #f0f0f0 0%, #d4d4d4 50%, #a8a8a8 100%);
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 255, 255, 0.5),
+      0 0 0 3px var(--color-ink),
+      2px 2px 0 0 var(--color-ink);
+  }
+  .medal-bronze {
+    background: linear-gradient(135deg, #e8a87c 0%, #c97b4a 50%, #8b4513 100%);
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 255, 255, 0.3),
+      0 0 0 3px var(--color-ink),
+      2px 2px 0 0 var(--color-ink);
+  }
+}
+
+/* HUD 信息条：战斗页覆盖层增加可读性
+   设计原因：原 bg-ink/80 矩形无层次，加 backdrop-blur 让 HUD 浮于画面之上更现代；
+   border 描边符合 Neo-brutalism 风格，避免 HUD 与画布内容粘连 */
+@layer components {
+  .hud-chip {
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    background: rgba(26, 26, 26, 0.72);
+    border: 2px solid var(--color-cream);
+    box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* 自定义滚动条：游戏 UI 列表滚动时更精致
+   设计原因：默认浏览器滚动条与 Neo-brutalism 风格冲突，统一为方形硬边样式 */
+@layer utilities {
+  .scrollbar-brutal {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink) transparent;
+  }
+  .scrollbar-brutal::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scrollbar-brutal::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-brutal::-webkit-scrollbar-thumb {
+    background: var(--color-ink);
+    border-radius: 0;
+  }
+  .scrollbar-brutal::-webkit-scrollbar-thumb:hover {
+    background: var(--color-pink);
+  }
+}

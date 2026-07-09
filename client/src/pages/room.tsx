@@ -89,71 +89,71 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-8">
-      {/* 头部 */}
-      <div className="w-full max-w-lg mb-6">
+    <div className="min-h-screen flex flex-col items-center p-8 scrollbar-brutal">
+      {/* 头部：交错入场 */}
+      <div className="w-full max-w-lg mb-6 animate-stagger">
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={handleLeaveRoom}
-            className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-colors"
+            className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
           >
             ← 离开房间
           </button>
-          <div className="bg-yellow text-ink px-4 py-2 font-mono text-sm font-bold">
+          <div className="bg-yellow text-ink px-4 py-2 font-mono text-sm font-bold shadow-[3px_3px_0_#1a1a1a]">
             房间号: {roomStore.roomId}
           </div>
         </div>
 
         <div className="text-center">
-          <h2 className="font-cn text-3xl text-ink">游戏房间</h2>
+          <h2 className="font-cn text-3xl text-ink drop-shadow-[3px_3px_0_rgba(255,61,127,0.2)]">游戏房间</h2>
           <p className="text-ink/60 font-mono text-sm mt-1">
-            状态: <span className="text-pink">{roomStore.status}</span>
+            状态: <span className="text-pink font-bold">{roomStore.status}</span>
           </p>
         </div>
       </div>
 
-      {/* 玩家列表 */}
-      <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] w-full max-w-lg mb-6">
+      {/* 玩家列表：交错入场，每行玩家卡加 card-hover */}
+      <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] w-full max-w-lg mb-6 animate-stagger delay-100">
         <h3 className="font-mono text-sm font-bold text-ink mb-3">玩家列表 ({roomStore.players.length}/8)</h3>
         <div className="space-y-2">
           {roomStore.players.map((player) => (
             <div
               key={player.userId}
-              className={`flex items-center justify-between px-3 py-2 border-2 ${
+              className={`flex items-center justify-between px-3 py-2 border-2 transition-all card-hover ${
                 player.userId === roomStore.hostId ? 'border-yellow' : 'border-ink'
               } ${player.userId === user?.id.toString() ? 'bg-yellow/20' : 'bg-cream'}`}
             >
               <div className="flex items-center gap-2">
                 <span className="font-mono text-sm text-ink">{player.nickname}</span>
                 {player.userId === roomStore.hostId && (
-                  <span className="bg-yellow text-ink text-xs px-1 font-bold">房主</span>
+                  <span className="bg-yellow text-ink text-xs px-1 font-bold shadow-[1px_1px_0_#1a1a1a]">房主</span>
                 )}
                 {player.userId === user?.id.toString() && (
                   <span className="text-ink/60 text-xs">(你)</span>
                 )}
               </div>
               <span
-                className={`font-mono text-sm ${player.isReady ? 'text-green-600' : 'text-red-500'}`}
+                className={`font-mono text-sm font-bold ${player.isReady ? 'text-mint' : 'text-pink'}`}
               >
-                {player.isReady ? '已准备' : '未准备'}
+                {player.isReady ? '✓ 已准备' : '未准备'}
               </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 房主操作区 */}
+      {/* 房主操作区：交错入场 */}
       {isHost && roomStore.status === 'waiting' && (
-        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] w-full max-w-lg mb-6">
+        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] w-full max-w-lg mb-6 animate-stagger delay-200">
           <h3 className="font-mono text-sm font-bold text-ink mb-3">房主设置</h3>
           <div className="flex gap-2 flex-wrap">
             {GAME_MODES.map((m) => (
               <button
                 key={m.value}
                 onClick={() => handleSetMode(m.value)}
-                className={`px-4 py-2 font-mono text-sm border-2 transition-colors ${
+                className={`px-4 py-2 font-mono text-sm border-2 transition-all ${
                   selectedMode === m.value
-                    ? 'bg-ink text-cream border-ink'
+                    ? 'bg-ink text-cream border-ink shadow-[2px_2px_0_#ff3d7f]'
                     : 'bg-cream text-ink border-ink hover:bg-ink hover:text-cream'
                 }`}
               >
@@ -164,9 +164,9 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
         </div>
       )}
 
-      {/* 压力源输入 */}
+      {/* 压力源输入：交错入场 */}
       {roomStore.status === 'waiting' && (
-        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] w-full max-w-lg mb-6">
+        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] w-full max-w-lg mb-6 animate-stagger delay-300">
           <h3 className="font-mono text-sm font-bold text-ink mb-3">压力源</h3>
           <div className="flex gap-2">
             <input
@@ -175,7 +175,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
               onChange={(e) => setStressInput(e.target.value)}
               placeholder="描述你的压力来源..."
               aria-label="压力来源描述"
-              className="flex-1 px-3 py-2 border-2 border-ink font-mono text-sm"
+              className="flex-1 px-3 py-2 border-2 border-ink font-mono text-sm focus:outline-none focus:ring-2 focus:ring-pink/30 focus:border-pink transition-all"
             />
             <button
               onClick={handleSubmitStress}
@@ -194,14 +194,14 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
       )}
 
       {/* 操作按钮 */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 animate-stagger delay-400">
         {!isHost && roomStore.status === 'waiting' && (
           <button
             onClick={handleToggleReady}
-            className={`px-8 py-3 font-mono text-sm font-bold tracking-wider transition-colors shadow-[4px_4px_0_#1a1a1a] ${
+            className={`px-8 py-3 font-mono text-sm font-bold tracking-wider transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none ${
               isReady
                 ? 'bg-red-500 text-cream hover:bg-red-600'
-                : 'bg-green-500 text-cream hover:bg-green-600'
+                : 'bg-mint text-ink hover:bg-ink hover:text-mint'
             }`}
           >
             {isReady ? '取消准备' : '准备'}
@@ -212,7 +212,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
           <button
             onClick={handleStartGame}
             disabled={roomStore.players.length < 1}
-            className="bg-pink text-cream px-8 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-colors shadow-[4px_4px_0_#1a1a1a] disabled:opacity-50"
+            className="bg-pink text-cream px-8 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a]"
           >
             开始游戏
           </button>
@@ -221,7 +221,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
 
       {/* 错误提示：role=alert 强制屏幕阅读器立即朗读，确保房间操作失败时视障用户即时感知 */}
       {roomStore.error && (
-        <div role="alert" className="mt-4 bg-red-100 border-2 border-red-500 px-4 py-2">
+        <div role="alert" className="mt-4 bg-red-100 border-2 border-red-500 px-4 py-2 animate-shake">
           <p className="text-red-600 font-mono text-sm">{roomStore.error}</p>
         </div>
       )}

@@ -30,19 +30,27 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-ink">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-ink bg-glow-pink relative overflow-hidden">
+      {/* 装饰几何元素：四角小色块 + 缓慢旋转的圆环，增加游戏氛围 */}
+      <div className="absolute top-8 left-8 w-6 h-6 bg-pink rotate-45 animate-pulse-slow" aria-hidden="true" />
+      <div className="absolute top-12 right-12 w-4 h-4 bg-mint rounded-full animate-bounce-slow" aria-hidden="true" />
+      <div className="absolute bottom-12 left-16 w-5 h-5 bg-yellow rounded-full animate-pulse-slow" aria-hidden="true" />
+      <div className="absolute bottom-8 right-8 w-6 h-6 border-3 border-cream/30 rounded-full animate-spin-slow" aria-hidden="true" />
+
+      <div className="w-full max-w-md relative z-10">
         {/* 标题 */}
-        <div className="text-center mb-8">
-          <span className="inline-block bg-pink text-cream px-3 py-1 text-xs font-bold tracking-widest mb-4">
+        <div className="text-center mb-8 animate-stagger">
+          <span className="inline-block bg-pink text-cream px-3 py-1 text-xs font-bold tracking-widest mb-4 shadow-[3px_3px_0_#1a1a1a]">
             情绪爆破局
           </span>
-          <h1 className="font-cn text-4xl text-cream mb-2">欢迎回来</h1>
+          <h1 className="font-cn text-4xl text-cream mb-2 drop-shadow-[3px_3px_0_rgba(255,61,127,0.4)]">
+            欢迎回来
+          </h1>
           <p className="text-cream/60 font-mono text-sm">登录以继续游戏</p>
         </div>
 
         {/* 表单卡片 */}
-        <div className="bg-cream border-4 border-cream shadow-[8px_8px_0_#1a1a1a] p-6">
+        <div className="bg-cream border-4 border-cream shadow-[8px_8px_0_#1a1a1a] p-6 animate-stagger delay-200">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {/* 手机号 */}
             <div>
@@ -55,7 +63,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
                 placeholder="请输入手机号"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-pink"
+                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-pink focus:ring-2 focus:ring-pink/30 focus:outline-none transition-all"
                 required
                 minLength={11}
                 maxLength={20}
@@ -73,7 +81,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
                 placeholder="请输入密码"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-pink"
+                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-pink focus:ring-2 focus:ring-pink/30 focus:outline-none transition-all"
                 required
                 minLength={6}
                 maxLength={50}
@@ -82,7 +90,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
 
             {/* 错误提示：role=alert 强制屏幕阅读器立即朗读，确保登录失败时视障用户即时感知 */}
             {error && (
-              <div id={errorId} role="alert" className="bg-pink/10 border border-pink text-pink px-4 py-2 font-mono text-sm">
+              <div id={errorId} role="alert" className="bg-pink/10 border-2 border-pink text-pink px-4 py-2 font-mono text-sm animate-shake">
                 {error}
               </div>
             )}
@@ -91,7 +99,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
             <button
               type="submit"
               disabled={loading}
-              className="bg-pink text-cream px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-colors shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-pink text-cream px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a]"
             >
               {loading ? '登录中...' : '登录'}
             </button>
@@ -102,7 +110,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
             <span className="text-ink/60 font-mono text-sm">还没有账号？</span>
             <button
               onClick={onNavigateToRegister}
-              className="text-pink font-mono text-sm font-bold ml-2 hover:underline"
+              className="text-pink font-mono text-sm font-bold ml-2 hover:underline decoration-2 underline-offset-2"
             >
               立即注册
             </button>

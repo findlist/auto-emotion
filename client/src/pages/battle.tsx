@@ -350,13 +350,13 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8">
-        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a]">
+      <div className="min-h-screen flex items-center justify-center p-8 bg-cream">
+        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] animate-pop">
           {/* role=alert 强制屏幕阅读器立即朗读对战错误原因,视障用户即时感知连接/房间异常 */}
           <p className="font-mono text-sm text-ink" role="alert">{error}</p>
           <button
             onClick={onBack}
-            className="mt-4 bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-colors"
+            className="mt-4 bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
           >
             返回首页
           </button>
@@ -374,27 +374,35 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-4">
-      <div className="flex items-center gap-4">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-4 scrollbar-brutal">
+      <div className="flex items-center gap-4 animate-stagger">
         {/* aria-label 覆盖"← 返回"文本,避免屏幕阅读器朗读"左箭头 返回" */}
         <button
           onClick={onBack}
           aria-label="返回"
-          className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-colors"
+          className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
         >
           ← 返回
         </button>
-        <h2 className="font-cn text-xl sm:text-3xl text-ink">情绪爆破局 · {MODE_LABEL[mode]}</h2>
-        <div className={`px-3 py-1 font-mono text-sm ${connected ? 'bg-green text-cream' : 'bg-red text-cream'}`}>
-          {connected ? '已连接' : '未连接'}
+        <h2 className="font-cn text-xl sm:text-3xl text-ink drop-shadow-[3px_3px_0_rgba(255,61,127,0.25)]">
+          情绪爆破局 · {MODE_LABEL[mode]}
+        </h2>
+        <div className={`px-3 py-1 font-mono text-sm shadow-[2px_2px_0_#1a1a1a] ${connected ? 'bg-mint text-ink' : 'bg-pink text-cream'}`}>
+          {connected ? '● 已连接' : '○ 未连接'}
         </div>
       </div>
 
-      {/* 玩家列表 */}
+      {/* 玩家列表：每个玩家 chip 交错入场，hud-chip 提升可读性 */}
       <div className="flex gap-4 flex-wrap justify-center">
-        {players.map((p) => (
-          <div key={p.userId} className="bg-ink/80 text-cream px-3 py-1 font-mono text-sm">
-            {p.nickname}: {p.score} 分
+        {players.map((p, idx) => (
+          <div
+            key={p.userId}
+            className="hud-chip text-cream px-3 py-1.5 font-mono text-sm rounded animate-stagger"
+            style={{ animationDelay: `${100 + idx * 60}ms` }}
+          >
+            <span className="text-cream/70">{p.nickname}:</span>{' '}
+            <span className="text-yellow font-bold">{p.score}</span>
+            <span className="text-cream/70"> 分</span>
           </div>
         ))}
       </div>
@@ -407,7 +415,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       <div
         ref={containerRef}
         onContextMenu={handleContextMenu}
-        className="relative mx-auto"
+        className="relative mx-auto animate-stagger delay-200"
         style={{
           // 响应式自适应：宽度取三者最小值，确保画布在视口内完整可见且保持 4:3 比例
           // 1. 100%：不超过父容器宽度（移动端撑满，桌面端受 max-w-2xl 限制）
@@ -417,38 +425,38 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
           aspectRatio: '4 / 3',
         }}
       >
-        {/* AI 生成的怪兽信息 */}
+        {/* AI 生成的怪兽信息：用 hud-chip 替代 bg-ink/80 */}
         {levelData && (
-          <div className="absolute top-4 left-4 right-4 bg-ink/80 text-cream p-3 rounded-lg z-10">
+          <div className="absolute top-4 left-4 right-4 hud-chip text-cream p-3 rounded-lg z-10">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-cn text-lg">{levelData.monster.name}</p>
-                <p className="font-mono text-xs text-cream/60">情绪: {levelData.monster.emotion}</p>
+                <p className="font-mono text-xs text-cream/70">情绪: {levelData.monster.emotion}</p>
               </div>
               <div className="text-right">
-                <p className="font-mono text-sm">HP: {levelData.monster.hp}</p>
-                <p className="font-mono text-xs text-cream/60">攻击: {levelData.monster.attack}</p>
+                <p className="font-mono text-sm">HP: <span className="text-yellow font-bold">{levelData.monster.hp}</span></p>
+                <p className="font-mono text-xs text-cream/70">攻击: {levelData.monster.attack}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* HUD 覆盖层 */}
-        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-none">
-          <div className="bg-ink/80 text-cream px-3 py-1 font-mono text-sm">
-            分数: <span className="text-yellow">{localScore}</span>
+        {/* HUD 覆盖层：统一 hud-chip 风格 */}
+        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1.5 pointer-events-none">
+          <div className="hud-chip text-cream px-3 py-1 font-mono text-sm rounded">
+            分数: <span className="text-yellow font-bold">{localScore}</span>
           </div>
-          <div className="bg-ink/80 text-cream px-3 py-1 font-mono text-sm">
-            档位: <span className="text-mint">{TIER_LABEL[tier]}</span>
+          <div className="hud-chip text-cream px-3 py-1 font-mono text-sm rounded">
+            档位: <span className="text-mint font-bold">{TIER_LABEL[tier]}</span>
           </div>
           {cooldown > 0 && (
-            <div className="bg-ink/80 text-cream px-3 py-1 font-mono text-sm">
-              技能: <span className="text-orange">冷却 {cooldownSeconds}s</span>
+            <div className="hud-chip text-cream px-3 py-1 font-mono text-sm rounded">
+              技能: <span className="text-orange font-bold">冷却 {cooldownSeconds}s</span>
             </div>
           )}
           {timeRemaining !== null && (
-            <div className="bg-ink/80 text-cream px-3 py-1 font-mono text-sm">
-              时间: <span className="text-yellow">{timeRemaining}s</span>
+            <div className="hud-chip text-cream px-3 py-1 font-mono text-sm rounded">
+              时间: <span className="text-yellow font-bold">{timeRemaining}s</span>
             </div>
           )}
         </div>
@@ -456,12 +464,12 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
         {/* 等待开始提示 */}
         {!gameStarted && (
           <div className="absolute inset-0 flex items-center justify-center z-20">
-            <div className="bg-ink/80 text-cream px-6 py-4 font-cn text-xl text-center">
+            <div className="hud-chip text-cream px-6 py-4 font-cn text-xl text-center rounded-lg animate-pop">
               <p>等待其他玩家加入...</p>
-              <p className="text-sm mt-2 text-cream/70">房间: {roomId}</p>
+              <p className="text-sm mt-2 text-cream/70 font-mono">房间: {roomId}</p>
               <button
                 onClick={handleStartGame}
-                className="mt-4 bg-mint text-ink px-6 py-2 font-mono hover:bg-yellow transition-colors"
+                className="mt-4 bg-mint text-ink px-6 py-2 font-mono font-bold hover:bg-yellow transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
               >
                 开始游戏
               </button>
@@ -474,8 +482,8 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
             半透明遮罩保留底层画面（重连成功后可平滑继续），同时阻断误操作，
             z-30 高于等待开始遮罩(z-20)，低于结算弹窗(z-50)避免遮挡结算结果 */}
         {!connected && gameStarted && !settlement.show && (
-          <div className="absolute inset-0 bg-ink/60 flex items-center justify-center z-30">
-            <div className="bg-cream border-4 border-pink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] text-center">
+          <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm flex items-center justify-center z-30">
+            <div className="bg-cream border-4 border-pink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] text-center animate-pop">
               <p className="font-cn text-lg text-ink">连接已断开</p>
               <p className="font-mono text-xs text-ink/70 mt-1">正在尝试重连，请稍候...</p>
             </div>
@@ -484,7 +492,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       </div>
 
       {/* 操作提示 */}
-      <div className="bg-ink/80 text-cream px-3 py-1 font-mono text-xs">
+      <div className="hud-chip text-cream px-3 py-1 font-mono text-xs rounded animate-stagger delay-300">
         左键射击 · 右键技能 · 1/2/3 切换特效档位
       </div>
 
@@ -504,33 +512,48 @@ function SettlementPopup({ settlement, onBack }: { settlement: SettlementData; o
   // MVP 取分数最高者（原逻辑依赖后端下发的 mvpPlayerId，现由前端按分数计算）
   const mvp = sorted[0];
 
+  // 前三名奖牌色：与排行榜保持一致的金/银/铜
+  const medalClass = (idx: number) => {
+    if (idx === 0) return 'text-yellow';
+    if (idx === 1) return 'text-gray-400';
+    if (idx === 2) return 'text-amber-700';
+    return 'text-ink';
+  };
+
   return (
-    <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-cream border-4 border-ink p-6 shadow-[8px_8px_0_#1a1a1a] min-w-[300px]">
-        <h2 className="font-cn text-2xl text-ink mb-4 text-center">游戏结束</h2>
+    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
+      <div className="bg-cream border-4 border-ink p-6 shadow-[8px_8px_0_#1a1a1a] min-w-[300px] animate-pop">
+        <h2 className="font-cn text-2xl text-ink mb-4 text-center drop-shadow-[2px_2px_0_rgba(255,61,127,0.25)]">
+          游戏结束
+        </h2>
 
         {mvp && (
-          <div className="text-center mb-4">
-            <div className="text-yellow text-sm">MVP</div>
-            <div className="font-bold text-lg">{mvp.nickname}</div>
-            <div className="text-2xl font-mono text-ink">{mvp.score} 分</div>
+          <div className="text-center mb-4 bg-gradient-to-r from-yellow/30 to-pink/20 border-2 border-yellow px-4 py-3">
+            <div className="text-yellow font-cn text-sm tracking-widest">★ MVP ★</div>
+            <div className="font-bold text-lg font-cn text-ink">{mvp.nickname}</div>
+            <div className="text-2xl font-mono text-pink font-bold">{mvp.score} 分</div>
           </div>
         )}
 
         <div className="space-y-2 mb-4">
           {sorted.map((p, idx) => (
-            <div key={p.userId} className="flex justify-between items-center px-2">
-              <span className={idx === 0 ? 'text-yellow font-bold' : 'text-ink'}>
+            <div
+              key={p.userId}
+              className={`flex justify-between items-center px-3 py-1.5 border-2 ${
+                idx === 0 ? 'border-yellow bg-yellow/10' : 'border-ink/20'
+              }`}
+            >
+              <span className={`font-cn ${medalClass(idx)} ${idx === 0 ? 'font-bold' : ''}`}>
                 {idx + 1}. {p.nickname}
               </span>
-              <span className="font-mono">{p.score} 分</span>
+              <span className="font-mono font-bold">{p.score} 分</span>
             </div>
           ))}
         </div>
 
         <button
           onClick={onBack}
-          className="w-full bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-colors"
+          className="w-full bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
         >
           返回大厅
         </button>

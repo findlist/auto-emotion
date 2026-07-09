@@ -67,7 +67,9 @@ describe('AchievementsPage 成就页', () => {
       expect(screen.getByText('0/0')).toBeInTheDocument();
     });
     // 已完成/已领取计数均为 0
-    expect(screen.getByText('已完成 0 个 | 已领取 0 个奖励')).toBeInTheDocument();
+    // 样式精修将数字用 <span> 包裹加色，getByText 无法匹配跨子元素文本，改用 body.textContent 检查
+    expect(document.body.textContent).toContain('已完成 0 个');
+    expect(document.body.textContent).toContain('已领取 0 个奖励');
   });
 
   it('已完成未领取成就显示"领取"按钮，进行中成就不显示', async () => {

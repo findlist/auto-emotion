@@ -44,7 +44,8 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
       expect(screen.getByText('战力王者')).toBeInTheDocument();
     });
     // 个人排名区块渲染（"第 3 名"）
-    expect(screen.getByText(/第 3 名/)).toBeInTheDocument();
+    // 样式精修将数字用 <span> 包裹加色，getByText 无法匹配跨子元素文本，改用 body.textContent 检查
+    expect(document.body.textContent).toContain('第 3 名');
   });
 
   it('快速切换 tab 时旧请求后返回不覆盖新数据（竞态守卫）', async () => {
@@ -97,7 +98,8 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
     });
     expect(screen.queryByText('战力王者')).not.toBeInTheDocument();
     // 个人排名应为 battle 的 rank=5
-    expect(screen.getByText(/第 5 名/)).toBeInTheDocument();
+    // 样式精修将数字用 <span> 包裹加色，getByText 无法匹配跨子元素文本，改用 body.textContent 检查
+    expect(document.body.textContent).toContain('第 5 名');
     // power 的 getUserRank 未被调用（守卫在 getUserRank 调用前已 return）
     expect(leaderboardApiMock.getUserRank).toHaveBeenCalledTimes(1);
     expect(leaderboardApiMock.getUserRank).toHaveBeenCalledWith('battle');

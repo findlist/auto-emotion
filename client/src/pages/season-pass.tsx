@@ -87,8 +87,9 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
 
   if (!seasonPass) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <p className="font-cn text-ink/70">加载中...</p>
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-4 border-ink border-t-pink rounded-full animate-spin" />
+        <p className="font-mono text-sm text-ink/60">加载赛季通行证中...</p>
       </div>
     );
   }
@@ -97,19 +98,23 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
 
   return (
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
-      {/* 顶部导航 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4">
-        <button onClick={onBack} aria-label="返回" className="text-cream hover:text-yellow transition-colors">
+      {/* 顶部导航：bg-glow-pink 增加深色头部氛围层次 */}
+      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
+        <button
+          onClick={onBack}
+          aria-label="返回"
+          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
+        >
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold">赛季通行证</h1>
+        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">赛季通行证</h1>
       </header>
 
-      {/* 赛季信息 */}
-      <div className="bg-gradient-to-r from-pink to-mint text-cream px-4 py-4">
+      {/* 赛季信息：叠加 bg-stripes 对角条纹增强氛围层次 */}
+      <div className="bg-gradient-to-r from-pink to-mint text-cream px-4 py-4 bg-stripes border-b-2 border-ink">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-cn text-xl font-bold">{seasonPass.seasonName}</h2>
-          <span className="font-mono text-sm">
+          <h2 className="font-cn text-xl font-bold drop-shadow-[2px_2px_0_rgba(26,26,26,0.3)]">{seasonPass.seasonName}</h2>
+          <span className="font-mono text-sm bg-ink/30 px-2 py-1 rounded">
             {formatDate(seasonPass.seasonStartedAt)} - {formatDate(seasonPass.seasonEndsAt)}
           </span>
         </div>
@@ -117,8 +122,8 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
         {/* 等级进度 */}
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-cn text-sm">等级 {seasonPass.level}/{maxLevel}</span>
-            <span className="font-mono text-sm">{seasonPass.exp} 经验</span>
+            <span className="font-cn text-sm">等级 <span className="font-bold text-yellow text-lg">{seasonPass.level}</span>/{maxLevel}</span>
+            <span className="font-mono text-sm"><span className="font-bold text-yellow">{seasonPass.exp}</span> 经验</span>
           </div>
           {/* 进度条加 progressbar 语义，让屏幕阅读器可朗读赛季等级进度 */}
           <div
@@ -130,7 +135,7 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
             aria-valuemax={maxLevel}
           >
             <div
-              className="h-full bg-yellow rounded-full transition-all"
+              className="h-full bg-yellow rounded-full transition-all progress-fill"
               style={{ width: `${(seasonPass.level / maxLevel) * 100}%` }}
             />
           </div>
@@ -138,28 +143,28 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
 
         {/* 通行证状态 */}
         {seasonPass.isPremium ? (
-          <div className="flex items-center gap-2 bg-ink/30 px-3 py-2 rounded">
+          <div className="flex items-center gap-2 bg-ink/40 px-3 py-2 rounded-lg border border-yellow/40 shadow-[2px_2px_0_rgba(26,26,26,0.3)]">
             {/* 装饰性 emoji 与后跟"高级通行证"文字语义重复 */}
-            <span className="text-yellow text-xl" aria-hidden="true">👑</span>
+            <span className="text-yellow text-xl animate-bounce-slow" aria-hidden="true">👑</span>
             <span className="font-cn font-bold">高级通行证</span>
           </div>
         ) : (
           <button
             onClick={handleBuy}
             disabled={loading}
-            className="w-full bg-yellow text-ink px-4 py-3 font-cn font-bold text-lg hover:bg-ink hover:text-yellow transition-colors disabled:opacity-50"
+            className="w-full bg-yellow text-ink px-4 py-3 font-cn font-bold text-lg shadow-[4px_4px_0_#1a1a1a] hover:bg-ink hover:text-yellow transition-colors active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[4px_4px_0_#1a1a1a] disabled:opacity-50"
           >
             购买高级通行证
           </button>
         )}
       </div>
 
-      {/* 奖励列表 */}
-      <main className="flex-1 p-4 overflow-auto">
-        <h3 className="font-cn text-ink font-bold mb-3">等级奖励</h3>
+      {/* 奖励列表：scrollbar-brutal 统一滚动条风格 */}
+      <main className="flex-1 p-4 overflow-auto scrollbar-brutal">
+        <h3 className="font-cn text-ink font-bold mb-3 text-lg drop-shadow-[1px_1px_0_rgba(255,107,53,0.2)]">等级奖励</h3>
 
         <div className="space-y-3">
-          {seasonPass.rewards.filter(r => r.level <= 10 || r.level % 5 === 0).map((reward) => {
+          {seasonPass.rewards.filter(r => r.level <= 10 || r.level % 5 === 0).map((reward, idx) => {
             const isUnlocked = seasonPass.level >= reward.level;
 
             return (
@@ -167,12 +172,13 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                 key={reward.level}
                 className={`bg-cream border-2 ${
                   isUnlocked ? 'border-mint' : 'border-ink/30'
-                } p-4 shadow-[3px_3px_0_#1a1a1a] ${!isUnlocked ? 'opacity-60' : ''}`}
+                } p-4 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger ${!isUnlocked ? 'opacity-60' : ''}`}
+                style={{ animationDelay: `${idx * 50}ms` }}
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div
                     className={`w-12 h-12 rounded-full flex items-center justify-center font-mono font-bold ${
-                      isUnlocked ? 'bg-mint text-ink' : 'bg-ink/20 text-ink/50'
+                      isUnlocked ? 'bg-mint text-ink shadow-[2px_2px_0_#1a1a1a]' : 'bg-ink/20 text-ink/50'
                     }`}
                   >
                     {reward.level}
@@ -187,10 +193,10 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                   </div>
                 </div>
 
-                {/* 奖励展示 */}
+                {/* 奖励展示：加 border 增强免费/高级两栏的视觉分隔 */}
                 <div className="flex gap-4">
                   {/* 免费奖励 */}
-                  <div className={`flex-1 p-2 rounded ${reward.freeClaimed ? 'bg-green-500/20' : 'bg-ink/10'}`}>
+                  <div className={`flex-1 p-2 rounded border ${reward.freeClaimed ? 'bg-green-500/20 border-green-500/40' : 'bg-ink/5 border-ink/20'}`}>
                     <p className="font-mono text-xs text-ink/70 mb-1">免费</p>
                     <p className="font-cn text-sm text-ink">
                       {REWARD_TYPE_LABELS[reward.free_reward_type] || reward.free_reward_type}
@@ -200,18 +206,18 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                       <button
                         onClick={() => handleClaim(reward.level, false)}
                         disabled={loading}
-                        className="mt-2 w-full bg-mint text-ink px-2 py-1 font-cn text-xs font-bold hover:bg-ink hover:text-cream transition-colors disabled:opacity-50"
+                        className="mt-2 w-full bg-mint text-ink px-2 py-1 font-cn text-xs font-bold shadow-[2px_2px_0_#1a1a1a] hover:bg-ink hover:text-cream transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[2px_2px_0_#1a1a1a] disabled:opacity-50"
                       >
                         领取
                       </button>
                     )}
                     {reward.freeClaimed && (
-                      <p className="mt-2 font-mono text-xs text-green-600 font-bold">✓ 已领取</p>
+                      <p className="mt-2 font-mono text-xs text-green-600 font-bold bg-green-500/10 px-2 py-1 rounded inline-block shadow-[1px_1px_0_#1a1a1a]">✓ 已领取</p>
                     )}
                   </div>
 
                   {/* 高级奖励 */}
-                  <div className={`flex-1 p-2 rounded ${reward.premiumClaimed ? 'bg-green-500/20' : 'bg-yellow/20'}`}>
+                  <div className={`flex-1 p-2 rounded border ${reward.premiumClaimed ? 'bg-green-500/20 border-green-500/40' : 'bg-yellow/20 border-yellow/40'}`}>
                     <p className="font-mono text-xs text-ink/70 mb-1 flex items-center gap-1">
                       {/* 装饰性 emoji 与后跟"高级"文字语义重复 */}
                       <span className="text-yellow" aria-hidden="true">👑</span> 高级
@@ -223,13 +229,13 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                       <button
                         onClick={() => handleClaim(reward.level, true)}
                         disabled={loading}
-                        className="mt-2 w-full bg-yellow text-ink px-2 py-1 font-cn text-xs font-bold hover:bg-ink hover:text-yellow transition-colors disabled:opacity-50"
+                        className="mt-2 w-full bg-yellow text-ink px-2 py-1 font-cn text-xs font-bold shadow-[2px_2px_0_#1a1a1a] hover:bg-ink hover:text-yellow transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[2px_2px_0_#1a1a1a] disabled:opacity-50"
                       >
                         领取
                       </button>
                     )}
                     {reward.premiumClaimed && (
-                      <p className="mt-2 font-mono text-xs text-green-600 font-bold">✓ 已领取</p>
+                      <p className="mt-2 font-mono text-xs text-green-600 font-bold bg-green-500/10 px-2 py-1 rounded inline-block shadow-[1px_1px_0_#1a1a1a]">✓ 已领取</p>
                     )}
                     {!seasonPass.isPremium && (
                       <p className="mt-2 font-mono text-xs text-ink/50">需高级通行证</p>

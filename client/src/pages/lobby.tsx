@@ -117,16 +117,23 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8">
-      <div className="text-center mb-8">
-        <h1 className="font-cn text-5xl text-ink mb-2">游戏大厅</h1>
-        <p className="text-ink/70">选择一个模式开始游戏</p>
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 scrollbar-brutal">
+      {/* 标题：交错入场，添加副标徽章 */}
+      <div className="text-center mb-8 animate-stagger">
+        <span className="inline-block bg-ink text-cream px-3 py-1 text-xs font-bold tracking-widest mb-3 shadow-[3px_3px_0_#ff3d7f]">
+          BATTLE LOBBY
+        </span>
+        <h1 className="font-cn text-5xl text-ink mb-2 drop-shadow-[4px_4px_0_rgba(255,107,53,0.3)]">
+          游戏大厅
+        </h1>
+        <p className="text-ink/70 font-mono text-sm">选择一个模式开始游戏</p>
       </div>
 
-      {/* 角色信息卡 */}
+      {/* 角色信息卡：交错入场，加左侧色条装饰 */}
       {user && (
-        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] mb-8 w-80">
-          <div className="text-left space-y-2 font-mono text-sm">
+        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] mb-8 w-80 animate-stagger delay-100 relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-pink" aria-hidden="true" />
+          <div className="text-left space-y-2 font-mono text-sm pl-2">
             <p className="text-ink">
               <span className="text-ink/60">昵称:</span> {user.nickname}
             </p>
@@ -134,22 +141,22 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
               <span className="text-ink/60">等级:</span> Lv.{user.level}
             </p>
             <p className="text-ink">
-              <span className="text-ink/60">金币:</span> {user.coins}
+              <span className="text-ink/60">金币:</span> <span className="text-yellow font-bold">{user.coins}</span>
             </p>
             <p className="text-ink">
-              <span className="text-ink/60">战力:</span> {user.power}
+              <span className="text-ink/60">战力:</span> <span className="text-mint font-bold">{user.power}</span>
             </p>
           </div>
         </div>
       )}
 
-      {/* 操作按钮区 */}
-      <div className="flex flex-col gap-4 w-64">
+      {/* 操作按钮区：整体交错入场，每个按钮加 active 按下 */}
+      <div className="flex flex-col gap-4 w-64 animate-stagger delay-200">
         {/* 创建房间 */}
         <button
           onClick={handleCreateRoom}
           disabled={loading}
-          className="bg-yellow text-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-yellow transition-colors shadow-[4px_4px_0_#1a1a1a] disabled:opacity-50"
+          className="bg-yellow text-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-yellow transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a] disabled:hover:bg-yellow disabled:hover:text-ink"
         >
           创建房间
         </button>
@@ -158,7 +165,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
         <button
           onClick={handleQuickMatch}
           disabled={matching}
-          className="bg-pink text-cream px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-colors shadow-[4px_4px_0_#1a1a1a] disabled:opacity-50"
+          className="bg-pink text-cream px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a] disabled:hover:bg-pink disabled:hover:text-cream"
         >
           {matching ? '匹配中...' : '快速匹配'}
         </button>
@@ -167,12 +174,12 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
         {!showJoinInput ? (
           <button
             onClick={() => setShowJoinInput(true)}
-            className="bg-cream text-ink border-2 border-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-cream transition-colors"
+            className="bg-cream text-ink border-2 border-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-cream transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
           >
             加入房间
           </button>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex gap-2 animate-slide-left">
             <input
               type="text"
               value={roomCode}
@@ -180,7 +187,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
               placeholder="房间号"
               aria-label="房间号"
               maxLength={6}
-              className="flex-1 px-3 py-2 border-2 border-ink font-mono text-sm uppercase tracking-widest text-center"
+              className="flex-1 px-3 py-2 border-2 border-ink font-mono text-sm uppercase tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-pink/30 focus:border-pink transition-all"
             />
             <button
               onClick={handleJoinRoom}
@@ -205,7 +212,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
 
       {/* 错误提示：role=alert 强制屏幕阅读器立即朗读，确保操作失败时视障用户即时感知 */}
       {error && (
-        <div role="alert" className="mt-4 bg-red-100 border-2 border-red-500 px-4 py-2">
+        <div role="alert" className="mt-4 bg-red-100 border-2 border-red-500 px-4 py-2 animate-shake">
           <p className="text-red-600 font-mono text-sm">{error}</p>
         </div>
       )}

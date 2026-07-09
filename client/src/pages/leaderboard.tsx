@@ -71,29 +71,40 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
     loadData();
   }, [loadData]);
 
+  // Top3 返回对应 medal 类名，其余返回普通底色
   function getRankStyle(rank: number) {
-    if (rank === 1) return 'bg-yellow text-ink';
-    if (rank === 2) return 'bg-gray-300 text-ink';
-    if (rank === 3) return 'bg-amber-700 text-cream';
+    if (rank === 1) return 'medal-gold text-ink';
+    if (rank === 2) return 'medal-silver text-ink';
+    if (rank === 3) return 'medal-bronze text-cream';
     return 'bg-cream text-ink';
+  }
+
+  // Top3 行加差异化背景色，突出前三名视觉层次
+  function getRowStyle(rank: number, isMe: boolean) {
+    if (isMe) return 'bg-yellow/20 border-yellow';
+    if (rank === 1) return 'bg-yellow/10 border-yellow';
+    if (rank === 2) return 'bg-gray-100 border-gray-400';
+    if (rank === 3) return 'bg-amber-50 border-amber-600';
+    return 'bg-cream border-ink';
   }
 
   return (
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
-      {/* 顶部导航 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4">
-        {/* 返回按钮仅含箭头符号，aria-label 提供语义避免屏幕阅读器朗读"左箭头" */}
-        <button onClick={onBack} aria-label="返回" className="text-cream hover:text-yellow transition-colors">
+      {/* 顶部导航：bg-glow-pink 增加深色头部氛围层次 */}
+      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
+        {/* 返回按钮放大并加 hover 背景区块 */}
+        <button
+          onClick={onBack}
+          aria-label="返回"
+          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
+        >
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold">排行榜</h1>
+        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">排行榜</h1>
       </header>
 
-      {/* Tab 切换：WAI-ARIA tab 语义让屏幕阅读器正确识别为标签页界面
-          设计原因：role=tablist/tab/tabpanel + aria-selected/controls/labelled
-          构成完整 tab 语义。保留所有 tab 的默认 button 可聚焦性（不加 roving
-          tabindex），避免引入箭头键导航的复杂度，是安全增量改进 */}
-      <div role="tablist" aria-label="排行榜类型" className="flex border-b-2 border-ink overflow-x-auto">
+      {/* Tab 切换：WAI-ARIA tab 语义，border-b-3 + 激活态阴影增强层次 */}
+      <div role="tablist" aria-label="排行榜类型" className="flex border-b-3 border-ink overflow-x-auto scrollbar-brutal">
         {TAB_CONFIG.map((tab) => (
           <button
             key={tab.key}
@@ -102,8 +113,10 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
             aria-controls="leaderboard-panel"
             id={`leaderboard-tab-${tab.key}`}
             onClick={() => { setActiveTab(tab.key); setPage(1); }}
-            className={`flex-1 min-w-[80px] py-3 px-2 font-cn font-bold transition-colors flex flex-col items-center gap-1 ${
-              activeTab === tab.key ? 'bg-mint text-ink' : 'bg-cream text-ink/70'
+            className={`flex-1 min-w-[80px] py-3 px-2 font-cn font-bold transition-all flex flex-col items-center gap-1 ${
+              activeTab === tab.key
+                ? 'bg-mint text-ink -mb-[3px] border-b-3 border-ink shadow-[2px_2px_0_#1a1a1a]'
+                : 'bg-cream text-ink/70 hover:bg-mint/20'
             }`}
           >
             {/* Tab emoji 与后跟 tab.label 文字语义重复，aria-hidden 屏蔽装饰图标 */}
@@ -113,43 +126,46 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
         ))}
       </div>
 
-      {/* 个人排名 */}
+      {/* 个人排名：加 border-b 增强分隔层次，数值加色加粗 */}
       {userRank && (
-        <div className="bg-pink text-cream px-4 py-3 flex items-center justify-between">
+        <div className="bg-pink text-cream px-4 py-3 flex items-center justify-between border-b-2 border-ink">
           <span className="font-cn">我的排名</span>
           <div className="flex items-center gap-4">
-            <span className="font-mono">第 {userRank.rank} 名</span>
-            <span className="font-mono">{userRank.score} 分</span>
+            <span className="font-mono font-bold">第 <span className="text-yellow text-lg">{userRank.rank}</span> 名</span>
+            <span className="font-mono font-bold"><span className="text-yellow text-lg">{userRank.score}</span> 分</span>
           </div>
         </div>
       )}
 
       {/* 排行榜：role=tabpanel 关联当前激活的 tab，屏幕阅读器切换 tab 时自动定位内容区 */}
-      <main role="tabpanel" id="leaderboard-panel" aria-labelledby={`leaderboard-tab-${activeTab}`} className="flex-1 p-4 overflow-auto">
+      <main role="tabpanel" id="leaderboard-panel" aria-labelledby={`leaderboard-tab-${activeTab}`} className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
-          <div className="text-center py-8">
-            <p className="font-cn text-ink/70">加载中...</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-10">
+            <div className="w-10 h-10 border-4 border-ink border-t-pink rounded-full animate-spin" />
+            <p className="font-mono text-sm text-ink/60">加载排名中...</p>
           </div>
         ) : ranking.length === 0 ? (
-          <div className="text-center py-8">
+          <div className="flex flex-col items-center justify-center gap-4 py-12">
             {/* 装饰性 emoji 与后跟文字语义重复，aria-hidden 屏蔽避免冗余朗读 */}
-            <p className="text-4xl mb-4"><span aria-hidden="true">🏆</span></p>
-            <p className="font-cn text-ink/70">暂无数据</p>
+            <span className="text-5xl animate-bounce-slow" aria-hidden="true">🏆</span>
+            <div className="text-center">
+              <p className="font-cn text-lg text-ink">暂无数据</p>
+              <p className="font-mono text-sm text-ink/50 mt-1">排行榜还在统计中，稍后再来看看吧</p>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">
-            {ranking.map((entry) => (
+            {ranking.map((entry, idx) => (
               <div
                 key={entry.userId}
-                className={`border-2 border-ink p-3 shadow-[3px_3px_0_#1a1a1a] ${
-                  entry.userId === user?.id ? 'bg-yellow/20' : 'bg-cream'
-                }`}
+                className={`border-2 p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger ${getRowStyle(entry.rank, entry.userId === user?.id)}`}
+                style={{ animationDelay: `${idx * 40}ms` }}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold ${getRankStyle(
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm ${getRankStyle(
                       entry.rank
-                    )}`}
+                    )} ${entry.rank === 1 ? 'animate-badge-pulse' : ''}`}
                   >
                     {entry.rank}
                   </div>
@@ -157,35 +173,35 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
                     <p className="font-cn text-ink font-bold">
                       {entry.nickname}
                       {entry.userId === user?.id && (
-                        <span className="ml-2 text-xs text-pink">(我)</span>
+                        <span className="ml-2 text-xs text-pink bg-pink/10 px-1.5 py-0.5 rounded">(我)</span>
                       )}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono text-ink font-bold">{entry.score}</p>
+                    <p className="font-mono text-ink font-bold text-lg">{entry.score}</p>
                     <p className="font-mono text-xs text-ink/60">分</p>
                   </div>
                 </div>
               </div>
             ))}
 
-            {/* 分页 */}
+            {/* 分页：按钮加阴影与按下效果 */}
             {total > pageSize && (
-              <div className="flex justify-center gap-4 pt-4">
+              <div className="flex justify-center items-center gap-4 pt-4">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="bg-ink text-cream px-4 py-2 font-cn disabled:opacity-50 hover:bg-pink transition-colors"
+                  className="bg-ink text-cream px-4 py-2 font-cn shadow-[3px_3px_0_#1a1a1a] hover:bg-pink transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[3px_3px_0_#1a1a1a] disabled:opacity-50"
                 >
                   上一页
                 </button>
-                <span className="py-2 font-mono text-ink">
+                <span className="py-2 font-mono text-ink bg-cream border-2 border-ink px-3 shadow-[2px_2px_0_#1a1a1a]">
                   {page} / {Math.ceil(total / pageSize)}
                 </span>
                 <button
                   onClick={() => setPage((p) => p + 1)}
                   disabled={page >= Math.ceil(total / pageSize)}
-                  className="bg-ink text-cream px-4 py-2 font-cn disabled:opacity-50 hover:bg-pink transition-colors"
+                  className="bg-ink text-cream px-4 py-2 font-cn shadow-[3px_3px_0_#1a1a1a] hover:bg-pink transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[3px_3px_0_#1a1a1a] disabled:opacity-50"
                 >
                   下一页
                 </button>

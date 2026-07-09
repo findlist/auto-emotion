@@ -100,7 +100,7 @@ export default function TasksPage({ onBack }: TasksPageProps) {
           </div>
         ) : (
           <div className="space-y-4">
-            {tasks.map((task) => {
+            {tasks.map((task, idx) => {
               const status = getTaskStatus(task);
               const typeInfo = TASK_TYPE_LABELS[task.type] || { label: '其他', emoji: '❓' };
               const progressPercent = getProgressPercent(task);
@@ -144,7 +144,7 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                     aria-valuemax={task.target}
                   >
                     <div
-                      className={`h-full rounded-full transition-all ${
+                      className={`h-full rounded-full transition-all progress-fill ${
                         status === 'claimed'
                           ? 'bg-green-500'
                           : status === 'completed'
@@ -155,10 +155,10 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                     />
                   </div>
 
-                  {/* 状态标签 */}
+                  {/* 状态标签：加阴影增强 Neo-brutalism 层次 */}
                   <div className="flex items-center justify-between">
                     <span
-                      className={`font-mono text-xs px-2 py-1 ${
+                      className={`font-mono text-xs px-2 py-1 shadow-[1px_1px_0_#1a1a1a] ${
                         status === 'claimed'
                           ? 'bg-green-500 text-cream'
                           : status === 'completed'
@@ -173,7 +173,7 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                       <button
                         onClick={() => handleClaim(task)}
                         disabled={loading}
-                        className="bg-mint text-ink px-4 py-1 font-cn font-bold hover:bg-ink hover:text-cream transition-colors disabled:opacity-50"
+                        className="bg-mint text-ink px-4 py-1 font-cn font-bold shadow-[2px_2px_0_#1a1a1a] hover:bg-ink hover:text-cream transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[2px_2px_0_#1a1a1a] disabled:opacity-50"
                       >
                         领取
                       </button>

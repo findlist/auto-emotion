@@ -44,8 +44,9 @@ describe('SeasonPassPage 赛季通行证页', () => {
 
     render(<SeasonPassPage onBack={() => {}} />);
 
-    // seasonPass 初始为 null 时显示"加载中..."，加载完成后渲染赛季名
-    expect(screen.getByText('加载中...')).toBeInTheDocument();
+    // seasonPass 初始为 null 时显示"加载赛季通行证中..."，加载完成后渲染赛季名
+    // 文案随样式精修调整（原"加载中..."改为更具体的"加载赛季通行证中..."）
+    expect(screen.getByText('加载赛季通行证中...')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('测试赛季')).toBeInTheDocument();
     });

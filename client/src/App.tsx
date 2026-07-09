@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useUserStore } from '@/stores/user-store';
 import { useRoomStore } from '@/stores/room-store';
 import { useShallow } from 'zustand/react/shallow';
@@ -94,6 +94,20 @@ function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // 路由切换后将焦点移至主内容区
+  // 设计原因：键盘用户切换页面后焦点仍停留在原触发元素，需多次 Tab 才能到达新内容。
+  // 监听 page 变化统一 focus #main-content（tabIndex=-1 可编程聚焦），键盘用户切页后直达主内容，
+  // 鼠标用户无感知。覆盖 navigateTo 主动跳转与 popstate 浏览器返回两种场景。
+  // 首次渲染跳过：保留 skip-link 作为首个可聚焦元素，遵循 WAI-ARIA skip link 模式。
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    document.getElementById('main-content')?.focus();
+  }, [page]);
 
   const navigateTo = useCallback((newPage: Page) => {
     setPage(newPage);

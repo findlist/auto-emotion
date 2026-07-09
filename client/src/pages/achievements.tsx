@@ -88,42 +88,50 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
 
   return (
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
-      {/* 顶部导航 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4">
-        {/* 返回按钮仅含箭头符号，aria-label 提供语义避免屏幕阅读器朗读"左箭头" */}
-        <button onClick={onBack} aria-label="返回" className="text-cream hover:text-yellow transition-colors">
+      {/* 顶部导航：bg-glow-pink 增加深色头部氛围层次 */}
+      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
+        {/* 返回按钮放大并加 hover 背景区块，提升点击友好度 */}
+        <button
+          onClick={onBack}
+          aria-label="返回"
+          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
+        >
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold">成就</h1>
-        <span className="ml-auto font-mono text-sm">
+        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">成就</h1>
+        <span className="ml-auto font-mono text-sm bg-cream/10 px-3 py-1 rounded-full border border-cream/20">
           {completedCount}/{achievements.length}
         </span>
       </header>
 
-      {/* 成就统计 */}
-      <div className="bg-pink text-cream px-4 py-3">
+      {/* 成就统计：加 border-b 增强与列表的分隔层次 */}
+      <div className="bg-pink text-cream px-4 py-3 border-b-2 border-ink">
         <p className="font-cn text-sm">
-          已完成 {completedCount} 个 | 已领取 {claimedCount} 个奖励
+          已完成 <span className="font-bold text-yellow">{completedCount}</span> 个 | 已领取 <span className="font-bold text-yellow">{claimedCount}</span> 个奖励
         </p>
       </div>
 
-      {/* 成就列表 */}
-      <main className="flex-1 p-4 overflow-auto">
+      {/* 成就列表：scrollbar-brutal 统一滚动条风格 */}
+      <main className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
-          <div className="text-center py-8">
-            <p className="font-cn text-ink/70">加载中...</p>
+          <div className="flex flex-col items-center justify-center gap-3 py-10">
+            <div className="w-10 h-10 border-4 border-ink border-t-pink rounded-full animate-spin" />
+            <p className="font-mono text-sm text-ink/60">加载成就中...</p>
           </div>
         ) : (
           <div className="space-y-6">
             {Object.entries(groupedAchievements).map(([typeName, typeAchievements]) => (
-              <div key={typeName}>
-                <h3 className="font-cn text-ink font-bold mb-3 flex items-center gap-2">
+              <div key={typeName} className="animate-stagger">
+                <h3 className="font-cn text-ink font-bold mb-3 flex items-center gap-2 text-lg drop-shadow-[1px_1px_0_rgba(255,107,53,0.2)]">
                   {/* 分组类型 emoji 与后跟类型名语义重复，aria-hidden 屏蔽装饰图标 */}
                   <span aria-hidden="true">{TYPE_LABELS[typeAchievements[0]?.type]?.emoji || '❓'}</span>
                   {typeName}
+                  <span className="ml-1 font-mono text-xs text-ink/50 font-normal">
+                    ({typeAchievements.length})
+                  </span>
                 </h3>
                 <div className="space-y-3">
-                  {typeAchievements.map((achievement) => {
+                  {typeAchievements.map((achievement, idx) => {
                     const progressPercent = getProgressPercent(achievement);
                     const rewardLabel = REWARD_TYPE_LABELS[achievement.reward_type] || achievement.reward_type;
 
@@ -136,7 +144,8 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                             : achievement.completed
                             ? 'border-mint'
                             : 'border-ink'
-                        } p-4 shadow-[3px_3px_0_#1a1a1a]`}
+                        } p-4 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger`}
+                        style={{ animationDelay: `${idx * 50}ms` }}
                       >
                         <div className="flex items-start gap-3 mb-2">
                           {/* 成就状态 emoji（完成/未完成）为装饰性视觉标识，状态通过边框色、进度条、领取按钮多渠道传达，aria-hidden 屏蔽避免冗余朗读 */}
@@ -151,9 +160,12 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                           </div>
                         </div>
 
-                        <p className="text-sm text-ink/70 mb-2">
-                          奖励: {rewardLabel}
-                        </p>
+                        {/* 奖励标签：用胶囊包裹增强视觉层次 */}
+                        <div className="inline-block bg-yellow/20 border border-yellow/40 rounded-full px-3 py-0.5 mb-2">
+                          <p className="font-mono text-xs text-ink/70">
+                            奖励: {rewardLabel}
+                          </p>
+                        </div>
 
                         {/* 进度条：role="progressbar" + aria 属性让屏幕阅读器可朗读成就进度 */}
                         <div
@@ -165,7 +177,7 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                           aria-valuemax={achievement.target}
                         >
                           <div
-                            className={`h-full rounded-full transition-all ${
+                            className={`h-full rounded-full transition-all progress-fill ${
                               achievement.claimed
                                 ? 'bg-green-500'
                                 : achievement.completed
@@ -185,14 +197,14 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                             <button
                               onClick={() => handleClaim(achievement)}
                               disabled={loading}
-                              className="bg-mint text-ink px-3 py-1 font-cn font-bold text-sm hover:bg-ink hover:text-cream transition-colors disabled:opacity-50"
+                              className="bg-mint text-ink px-3 py-1 font-cn font-bold text-sm shadow-[2px_2px_0_#1a1a1a] hover:bg-ink hover:text-cream transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[2px_2px_0_#1a1a1a] disabled:opacity-50"
                             >
                               领取
                             </button>
                           )}
 
                           {achievement.claimed && (
-                            <span className="font-mono text-xs text-green-500 font-bold">
+                            <span className="font-mono text-xs text-green-600 font-bold bg-green-500/10 px-2 py-1 rounded shadow-[1px_1px_0_#1a1a1a]">
                               ✓ 已领取
                             </span>
                           )}
