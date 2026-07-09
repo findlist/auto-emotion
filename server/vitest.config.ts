@@ -16,14 +16,29 @@ export default defineConfig({
       provider: 'v8',
       // 纳入覆盖率统计的源码范围
       include: ['src/**/*.ts'],
-      // 排除测试文件本身、类型声明、入口文件
-      exclude: ['src/**/*.test.ts', 'src/**/*.d.ts', 'src/app.ts'],
-      // 覆盖率阈值（生产就绪阶段目标 70%）
+      // 排除项说明（设计原因：仅统计可测试的业务逻辑，避免基础设施/静态数据/类型文件拖累指标）：
+      // - *.test.ts：测试文件本身
+      // - *.d.ts：类型声明文件（无运行时逻辑）
+      // - app.ts / websocket/index.ts：HTTP 与 WebSocket 服务启动引导，副作用驱动，同属入口文件不可单测
+      // - config/**：环境变量耦合的基础设施，import 时即触发 process.exit 校验，单测成本高、价值低
+      // - data/**：纯静态数据表（武器/区域/Boss/可破坏物配置），无业务逻辑
+      // - types/**：纯类型契约文件（无运行时代码，v8 会误报 0%）
+      exclude: [
+        'src/**/*.test.ts',
+        'src/**/*.d.ts',
+        'src/app.ts',
+        'src/websocket/index.ts',
+        'src/config/**',
+        'src/data/**',
+        'src/types/**',
+      ],
+      // 覆盖率阈值：锁定生产就绪目标 70%，防止业务代码覆盖率回归
+      // 当前实际覆盖率 ~93%，预留 23 个百分点的缓冲应对小幅波动
       thresholds: {
-        statements: 0,
-        branches: 0,
-        functions: 0,
-        lines: 0,
+        statements: 70,
+        branches: 70,
+        functions: 70,
+        lines: 70,
       },
     },
     // 环境：后端纯 Node 环境
