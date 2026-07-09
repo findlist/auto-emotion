@@ -10,6 +10,7 @@ import { config } from './index.js';
 const redisOptions: RedisOptions = {
   host: config.redis.host,
   port: config.redis.port,
+  db: config.redis.db,                 // 共享 Redis 实例：情绪用 DB 1
   lazyConnect: true,
   retryStrategy: (times: number) => (times <= 5 ? Math.min(times * 200, 2000) : null),
   maxRetriesPerRequest: 3,
@@ -27,7 +28,7 @@ redis.on('error', (err: Error) => {
 
 redis.on('connect', () => {
   const auth = config.redis.password ? '（已启用密码认证）' : '（未启用密码）';
-  console.log(`Redis 已连接: ${config.redis.host}:${config.redis.port} ${auth}`);
+  console.log(`Redis 已连接: ${config.redis.host}:${config.redis.port} db=${config.redis.db} ${auth}`);
 });
 
 export default redis;

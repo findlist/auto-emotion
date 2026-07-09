@@ -17,6 +17,7 @@ interface RedisConfig {
   host: string;
   port: number;
   password?: string;
+  db: number;                 // 共享 Redis 实例时区分项目：情绪用 1
 }
 
 interface AiConfig {
@@ -57,7 +58,8 @@ function assertRequired(name: string, value: string | undefined): string {
 // 启动校验：三个必填变量
 assertRequired('JWT_SECRET', process.env.JWT_SECRET);
 assertRequired('DB_PASSWORD', process.env.DB_PASSWORD);
-assertRequired('AI_API_KEY', process.env.AI_API_KEY);
+// AI_API_KEY 暂未配置，跳过校验
+if (!process.env.AI_API_KEY) console.warn('AI_API_KEY missing, AI disabled');
 
 export const config: Config = {
   port: toInt(process.env.PORT, 3000),
@@ -74,6 +76,7 @@ export const config: Config = {
     host: process.env.REDIS_HOST ?? 'redis',
     port: toInt(process.env.REDIS_PORT, 6379),
     password: process.env.REDIS_PASSWORD || undefined,
+    db: toInt(process.env.REDIS_DB, 1),    // 默认 DB 1（共享实例时与社区隔离）
   },
   ai: {
     apiKey: process.env.AI_API_KEY as string,
