@@ -137,7 +137,12 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
     await client.query('COMMIT');
     return { success: true, recordId, rewards };
   } catch (err) {
-    await client.query('ROLLBACK');
+    // ROLLBACK 本身可能因连接断开抛错，若不保护会掩盖原始业务错误，导致前端收到误导性错误
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackErr) {
+      console.error('事务 ROLLBACK 失败，原始错误可能被掩盖:', (rollbackErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
