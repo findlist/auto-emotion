@@ -321,11 +321,13 @@ function IdlePage({ onBack }: IdlePageProps) {
   async function handleUpgrade(field: UpgradeField) {
     if (!userId) return;
     // 属性升级消耗金币，需二次确认
+    // 费用公式与后端 idle-engine.upgradeCharacter 保持一致：50 * 角色等级^2
     const fieldInfo = UPGRADE_FIELDS.find((f) => f.key === field);
+    const upgradeCost = 50 * (status?.level ?? 1) * (status?.level ?? 1);
     const ok = await showConfirm({
       type: 'warning',
       title: '升级属性',
-      message: `确认升级「${fieldInfo?.label ?? field}」？`,
+      message: `确认花费 ${upgradeCost} 金币升级「${fieldInfo?.label ?? field}」？`,
       confirmText: '升级',
     });
     if (!ok) return;
