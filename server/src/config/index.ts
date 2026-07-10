@@ -67,8 +67,10 @@ export const config: Config = {
   port: toInt(process.env.PORT, 3000),
   nodeEnv: process.env.NODE_ENV ?? 'development',
   jwtSecret: process.env.JWT_SECRET as string,
-  // 生产环境通过 CORS_ORIGIN 配置具体前端域名（如 https://example.com），未配置时降级为 * 保证开发可用
-  corsOrigin: process.env.CORS_ORIGIN ?? '*',
+  // 生产环境通过 CORS_ORIGIN 配置具体前端域名（如 https://example.com），未配置或为空时降级为 * 保证开发可用
+  // 用 trim() || '*' 而非 ?? '*'：?? 仅处理 null/undefined，用户 cp .env.example .env 后
+  // CORS_ORIGIN 为空字符串（falsy），?? 不会触发 fallback 导致 corsOrigin=''，Socket.IO 会拒绝所有跨域握手
+  corsOrigin: process.env.CORS_ORIGIN?.trim() || '*',
   db: {
     host: process.env.DB_HOST ?? 'postgres',
     port: toInt(process.env.DB_PORT, 5432),
