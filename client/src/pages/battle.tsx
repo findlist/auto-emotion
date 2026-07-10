@@ -563,8 +563,11 @@ function SettlementPopup({ settlement, onBack }: { settlement: SettlementData; o
 
   return (
     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-      <div className="bg-cream border-4 border-ink p-6 shadow-[8px_8px_0_#1a1a1a] min-w-[300px] animate-pop">
-        <h2 className="font-cn text-2xl text-ink mb-4 text-center drop-shadow-[2px_2px_0_rgba(255,61,127,0.25)]">
+      {/* role=alertdialog + aria-modal：对战结束属于需要用户立即关注的结果通知，
+          alertdialog 语义让屏幕阅读器立即播报结算内容（含 MVP 与排名），无需用户手动定位；
+          aria-labelledby 指向标题"游戏结束"让阅读器朗读完整语义而非随机内容 */}
+      <div role="alertdialog" aria-modal="true" aria-labelledby="settlement-title" className="bg-cream border-4 border-ink p-6 shadow-[8px_8px_0_#1a1a1a] min-w-[300px] animate-pop">
+        <h2 id="settlement-title" className="font-cn text-2xl text-ink mb-4 text-center drop-shadow-[2px_2px_0_rgba(255,61,127,0.25)]">
           游戏结束
         </h2>
 
