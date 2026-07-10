@@ -140,7 +140,7 @@ describe('room 房间路由', () => {
       expect(roomManager.joinRoom).toHaveBeenCalledWith('r2', 'u1', 's1', '玩家1');
     });
 
-    it('createRoom 抛错时 fail 返回 400 + 错误消息（创建失败降级码）', async () => {
+    it('createRoom 抛非 AppError 错误时 fail 返回 500 + 错误消息（服务端异常）', async () => {
       (roomManager.createRoom as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Redis 不可用')
       );
@@ -152,14 +152,14 @@ describe('room 房间路由', () => {
       });
       const body = await res.json();
 
-      // room 路由异常路径固定 fail(res, 400, msg)
-      expect(res.status).toBe(400);
+      // 非 AppError 错误视为服务端异常返回 500，AppError 则按 ErrorCode 映射 HTTP 状态码
+      expect(res.status).toBe(500);
       expect(body.message).toBe('Redis 不可用');
       // createRoom 抛错后不应继续调用 joinRoom
       expect(roomManager.joinRoom).not.toHaveBeenCalled();
     });
 
-    it('joinRoom 抛错时 fail 返回 400 + 错误消息', async () => {
+    it('joinRoom 抛非 AppError 错误时 fail 返回 500 + 错误消息', async () => {
       (roomManager.createRoom as ReturnType<typeof vi.fn>).mockResolvedValue({
         id: 'r3',
         hostId: 'u1',
@@ -176,11 +176,11 @@ describe('room 房间路由', () => {
       });
       const body = await res.json();
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(500);
       expect(body.message).toBe('房间已满');
     });
 
-    it('createRoom 抛非 Error 值时 fail 返回 400 + 兜底文案', async () => {
+    it('createRoom 抛非 Error 值时 fail 返回 500 + 兜底文案', async () => {
       // 覆盖 catch 块三元 false 分支：reject 非 Error 值时使用兜底文案
       (roomManager.createRoom as ReturnType<typeof vi.fn>).mockRejectedValue('连接池耗尽');
 
@@ -191,7 +191,7 @@ describe('room 房间路由', () => {
       });
       const body = await res.json();
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(500);
       expect(body.message).toBe('创建房间失败');
       // createRoom 抛错后不应继续调用 joinRoom
       expect(roomManager.joinRoom).not.toHaveBeenCalled();

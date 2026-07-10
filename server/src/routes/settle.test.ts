@@ -190,7 +190,7 @@ describe('settle 结算路由', () => {
     expect(body.data).toEqual(mockResult);
   });
 
-  it('service 抛错时 fail 返回 400 + 错误消息（结算失败降级码）', async () => {
+  it('service 抛非 AppError 错误时 fail 返回 500 + 错误消息（服务端异常）', async () => {
     (settleService.settleGame as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error('结算锁冲突')
     );
@@ -206,12 +206,12 @@ describe('settle 结算路由', () => {
     });
     const body = await res.json();
 
-    // settle 路由异常路径固定 fail(res, 400, msg)
-    expect(res.status).toBe(400);
+    // 非 AppError 错误视为服务端异常返回 500，AppError 则按 ErrorCode 映射 HTTP 状态码
+    expect(res.status).toBe(500);
     expect(body.message).toBe('结算锁冲突');
   });
 
-  it('service 抛非 Error 值时 fail 返回 400 + 兜底文案', async () => {
+  it('service 抛非 Error 值时 fail 返回 500 + 兜底文案', async () => {
     // 覆盖 catch 块三元 false 分支：reject 非 Error 值时使用兜底文案
     (settleService.settleGame as ReturnType<typeof vi.fn>).mockRejectedValue('事务回滚');
 
@@ -226,7 +226,7 @@ describe('settle 结算路由', () => {
     });
     const body = await res.json();
 
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(500);
     expect(body.message).toBe('结算失败');
   });
 });

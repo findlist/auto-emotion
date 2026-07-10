@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { settleGame } from '../services/settle-service.js';
 import { success, fail } from '../utils/response.js';
+import { AppError } from '../utils/error.js';
 import type { GameMode } from '../types/game.js';
 
 const router = Router();
@@ -55,8 +56,13 @@ router.post('/', async (req: Request, res: Response) => {
 
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '结算失败';
-    fail(res, 400, msg);
+    // AppError 按其 ErrorCode 语义映射 HTTP 状态码（如 CONFLICT→409），其余按 500 处理
+    if (err instanceof AppError) {
+      fail(res, err.code, err.message);
+    } else {
+      const msg = err instanceof Error ? err.message : '结算失败';
+      fail(res, 500, msg);
+    }
   }
 });
 

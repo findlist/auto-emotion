@@ -154,7 +154,14 @@ export async function logout(token: string, refreshToken?: string) {
 }
 
 export async function refreshToken(token: string) {
-  const payload = jwt.verify(token, JWT_SECRET) as { userId: string; type: string };
+  // jwt.verify 对过期/篡改令牌抛 JsonWebTokenError/TokenExpiredError，需捕获转为 AppError，
+  // 否则 errorHandler 会按未知错误返回 500 而非 401，与 API 声明不符
+  let payload: { userId: string; type: string };
+  try {
+    payload = jwt.verify(token, JWT_SECRET) as { userId: string; type: string };
+  } catch {
+    throw new AppError(ErrorCode.UNAUTHORIZED, '无效的刷新令牌');
+  }
   if (payload.type !== 'refresh') {
     throw new AppError(ErrorCode.UNAUTHORIZED, '无效的刷新令牌');
   }

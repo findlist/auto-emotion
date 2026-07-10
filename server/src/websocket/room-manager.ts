@@ -130,7 +130,9 @@ export const roomManager = {
     if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
 
     const player = room.players.find((p) => p.userId === userId);
-    if (player) player.isReady = isReady;
+    // 非房间成员调用 setReady 会错误聚合状态（如其他人已就绪时把房间置为 ready），需拒绝
+    if (!player) throw new AppError(ErrorCode.FORBIDDEN, '不在房间内');
+    player.isReady = isReady;
 
     // 所有玩家都准备好了？
     if (room.players.every((p) => p.isReady) && room.players.length >= 1) {
