@@ -40,7 +40,7 @@
 - **健康校验**：后端 `cd server && npx tsc --noEmit && npx vitest run`，前端 `cd client && npm run build`，校验不通过禁止新功能开发
 - **全局优先级**：收尾补全 → 项目健康故障修复 → 技术债清理 → 样式精修 → 测试补全
 - **阶段锁定**：品质优化收尾未全部验收通过前，禁止启动后续阶段的完整功能开发
-- **当前 P0 收尾**：关键操作确认弹窗、WebSocket 断线重连、对战画布响应式
+- **当前阶段**：P0 收尾已全部验收通过，进入 P2 测试补全 / P3 体验优化阶段
 - **Git 规范**：每个最小修改单元通过后立即 `git add`（仅本次文件）→ `git commit` → `git push origin HEAD`，提交信息使用中文，禁止 force push、reset --hard 等破坏性命令
 - **资源白名单**：仅可使用 `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image` 生成装饰/占位图，核心游戏资源优先 SVG / CSS / PixiJS 原生绘制
 - **降级规则**：大模型 API Key 缺失时先完成业务框架 + 本地 mock；Redis 异常时核心逻辑走内存兜底；Socket.IO 异常时先完成前端 UI 与单机逻辑，预留事件接入点
@@ -283,9 +283,9 @@ cd client && npm ci && npm run build                     # 前端 dist/ 交由 N
 - 项目根路径：e:\work\auto-emotion（Monorepo 架构，所有操作仅限该目录）
 - 进度记忆路径：e:\work\auto-emotion\memory\，读取最近日期目录的 topics.md，写入当天日期目录
 - 单次调度总时长上限：4 小时；
-- 当前基线进度：品质优化专项完成 95%，仅剩 3 项 P0 收尾任务：关键操作确认弹窗、WebSocket 断线重连、对战画布响应式；所有已完成功能不得重复开发
-- 全局优先级强制排序：收尾补全 > 项目健康故障修复 > 技术债清理 > 样式精修 > 测试补全
-- 阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段的完整功能开发
+- 当前基线进度：品质优化专项 100% 完成（P0 三项收尾任务已于 2026-07-09 验收通过）；后端覆盖率 97% 达标，P2 技术债清理完成；当前推进 P2 测试补全（剩余未测页面：achievements/battle/friends/home/idle/season-pass）与 P3 体验优化（Token 无感刷新、PixiJS 资源懒加载、无障碍深化）；所有已完成功能不得重复开发
+- 全局优先级强制排序：项目健康故障修复 > 技术债清理 > 测试补全 > 样式精修 > P3 体验优化
+- 阶段锁定规则：品质优化收尾已全部验收通过，阶段锁定解除；当前允许推进 P2 测试补全与 P3 体验优化任务
 
 二、核心执行要点
 1. 技术栈：前端 React 19+Vite+TS+PixiJS 8+Zustand，后端 Express 5+TS+Socket.IO 4，数据层 PostgreSQL+Redis

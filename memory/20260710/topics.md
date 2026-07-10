@@ -465,7 +465,46 @@
 - 项目接近生产就绪，可启动上线验收标准（规范第十一条）逐项核对
 - 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
 
-[session_id: auto | topic_summary_time: 2026-07-10 03:00:00]
+[session_id: auto | topic_summary_time: 2026-07-10 03:05:00]
+本次完成任务：bug-check 健康故障修复（M-09 task-service 并发 INSERT 兜底 + M-15 syncPlayers currentMode null 兜底修复）
+- 健康预检全绿：后端 tsc 零错误、vitest 623/623；前端 build 零错误零警告（861 modules, 1.06s）
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 用户指令基线"P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"（当前最高优先级）
+- 最小单元1（M-09）：task-service updateTaskProgress 首次 INSERT 分支在并发请求同时进入时，第二个 INSERT 会触发 UNIQUE(user_id, task_id, date) 约束报错导致接口 500。改用 INSERT ... ON CONFLICT (user_id, task_id, date) DO UPDATE SET progress = user_daily_tasks.progress + $3，将并发 unique violation 转为累加更新，保证并发请求都能成功并正确累加进度。测试断言更新为验证 ON CONFLICT 语句存在
+- 最小单元2（M-15）：battle-scene syncPlayers 第 343 行原用 this.currentMode ?? 'brawl' 兜底，currentMode 为 null 时会把玩家错加到 brawlGame 实例。前序评估认为"init 同步调用，currentMode null 窗口极小"有误——init 在 await engine.init 之后才调用，socket room:state 事件可能在 init 前到达（网络往返期间），currentMode null 场景真实存在。改为 if(this.currentMode) 包裹新增循环，null 时仅更新 remotePlayers 列表，由 init 完成后 addRemotePlayers 统一注入正确实例。新增测试覆盖 init 前调用 syncPlayers 不触发 addPlayer
+- L-01 评估：schema 默认 level=1，所有 INSERT（buyWeapon/unlockSkill）显式写 level=1，level=0 场景不实际存在，确认为伪问题不修复
+- M-10 评估：record-service.ts 第 47 行已 parseInt(count, 10)，上轮已修复，不重复
+
+修改文件清单：
+- server/src/services/task-service.ts（INSERT 改 ON CONFLICT DO UPDATE 累加进度）
+- server/src/services/task-service.test.ts（断言验证 ON CONFLICT 语句）
+- client/src/game/scenes/battle-scene.ts（syncPlayers 新增循环用 if(currentMode) 包裹，移除 'brawl' 兜底）
+- client/src/game/scenes/battle-scene.test.ts（新增 init 前调用 syncPlayers 不触发 addPlayer 测试）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误
+- 后端 vitest run（task-service）✅ 13/13 通过
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.06s）
+- 前端 vitest run（battle-scene）✅ 18/18 通过（原 17 + 新增 1）
+- Git commit bfbddc1（M-09）、4d058bc（M-15）已推送 origin/main
+
+动态计划调整：
+- 本轮完成 2 个最小单元（M-09 + M-15），达成单轮产出下限（2-3 个），触发终止条件
+- bug-check Medium 已修复 9 个（M-02/M-03/M-09/M-11/M-12/M-13/M-15/M-19 + H-05），剩余 M-01/M-04~M-10/M-14/M-16~M-18
+- bug-check Low 已修复 5 个（L-04/L-05/L-09/L-11 + M-10 技术债），剩余 L-01（伪问题不修）/L-02/L-03/L-06~L-10
+- M-15 修复纠正了前序评估"currentMode null 窗口极小"的误判：init 在 await engine.init 后才调用，socket room:state 可能在 init 前到达
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-04 room-manager Redis 竞态（高风险重构，建议先补并发测试再实施 WATCH/MULTI/EXEC 或 SET NX EX 锁）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- Medium 级继续：M-01 app.ts 启动顺序未 await（需重构 websocket/index.ts 启动流程）、M-14 scene-manager destroy 不销毁非当前场景（影响有限）、M-16 多页面 useEffect 空依赖（无实际 bug，低价值）
+- Low 级继续：L-02 可破坏物纹理缓存、L-03 async init 无异步操作、L-07 ai/client 重试机制、L-08 idempotency Redis 降级（当前仅一处调用，过早抽象）
+- P3 无障碍继续：aria-live/aria-busy 全局缺失、可交互卡片键盘支持
+- 项目接近生产就绪，可启动上线验收标准（规范第十一条）逐项核对
+- 工作区仍有 README.md/docs/auto-iteration-spec.md/docs/project-spec.md 未提交（前序质量保障 Agent 遗留，非本轮产出）
 本次完成任务：bug-check 健康故障修复与技术债清理（M-13 engine.ts destroy 资源泄漏 + L-05 ErrorBoundary 日志语义）
 - 健康预检全绿：后端 tsc 零错误、vitest 623/623；前端 build 零错误零警告（861 modules, 955ms）、vitest 224/224
 - P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
