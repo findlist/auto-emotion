@@ -37,7 +37,7 @@ jobs:
         run: npx vitest run --coverage
 
   frontend:
-    name: 前端校验（build + vitest）
+    name: 前端校验（lint + build + vitest）
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,6 +55,9 @@ jobs:
 
       - name: 安装依赖
         run: npm ci
+
+      - name: 代码检查（eslint）
+        run: npm run lint
 
       - name: 生产构建（tsc -b + vite build）
         run: npm run build
