@@ -124,9 +124,14 @@ function App() {
   };
 
   const handleLogout = async () => {
-    await logout();
-    // 退出后刷新页面，触发自动游客重新登录
-    window.location.reload();
+    try {
+      await logout();
+    } finally {
+      // 无论登出过程是否异常，都刷新页面触发自动游客重新登录
+      // 设计原因：logout 内部已 try/finally 清理本地 token，但 disconnectSocket 等操作
+      // 可能抛错，不加保护会导致 reload 不执行，用户卡在当前状态无法恢复
+      window.location.reload();
+    }
   };
 
   // 进入对战：从 room-store 同步房间信息到 battleState 并跳转
