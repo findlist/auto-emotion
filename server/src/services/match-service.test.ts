@@ -300,15 +300,28 @@ describe('match-service 快速匹配服务', () => {
   });
 
   describe('getMatchStatus 匹配状态查询', () => {
-    it('在队列中时返回 inQueue=true 与 queueCount', async () => {
+    it('队列包含自己时 queueCount 等于队列人数（不多算）', async () => {
       mocks.exists.mockResolvedValue(1);
       const now = Date.now();
-      // 队列中已有 2 人
+      // 队列包含自己（'me'），模拟 joinQuickMatch 先入队再设状态的真实路径
+      script = [queue(['me', 'meNick', 'meSock', now], ['u2', 'n2', 's2', now])];
+
+      const status = await getMatchStatus('me');
+
+      // players.length=2 已包含自己，queueCount 应为 2 而非 3（原 bug 多算 1）
+      expect(status).toEqual({ inQueue: true, queueCount: 2 });
+      expect(mocks.exists).toHaveBeenCalledWith('match:status:me');
+    });
+
+    it('队列不含自己但状态仍存在时（边缘情况）queueCount 补偿 +1', async () => {
+      mocks.exists.mockResolvedValue(1);
+      const now = Date.now();
+      // 队列中只有其他玩家（自己被 cleanup 移除但状态未清）
       script = [queue(['u1', 'n1', 's1', now], ['u2', 'n2', 's2', now])];
 
       const status = await getMatchStatus('me');
 
-      // queueCount = 当前队列人数 + 1（包含自己）
+      // players 不含自己，补偿 +1 代表自己仍在匹配中
       expect(status).toEqual({ inQueue: true, queueCount: 3 });
       expect(mocks.exists).toHaveBeenCalledWith('match:status:me');
     });

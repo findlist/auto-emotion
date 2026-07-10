@@ -170,14 +170,19 @@ export async function joinQuickMatch(
   // 设计原因：原 setTimeout 未保存返回值，玩家离开或匹配成功后 30 秒仍执行无意义 Redis 查询；
   // 多次加入离开会累积 timer 导致泄漏。Map 保存句柄后可在适当时机 clearTimeout 释放
   const timer = setTimeout(async () => {
-    // 回调执行后无论是否清理成功，都先删除 Map 条目，避免 Map 无限增长
-    matchTimers.delete(userId);
-    const currentPlayers = await getQueuePlayers();
-    const player = currentPlayers.find(p => p.userId === userId);
+    try {
+      // 回调执行后无论是否清理成功，都先删除 Map 条目，避免 Map 无限增长
+      matchTimers.delete(userId);
+      const currentPlayers = await getQueuePlayers();
+      const player = currentPlayers.find(p => p.userId === userId);
 
-    if (player) {
-      await removeFromQueue(userId);
-      await redis.del(`${MATCH_STATUS_KEY_PREFIX}${userId}`);
+      if (player) {
+        await removeFromQueue(userId);
+        await redis.del(`${MATCH_STATUS_KEY_PREFIX}${userId}`);
+      }
+    } catch {
+      // timer 回调无调用方可传递错误，静默失败即可：
+      // 最坏情况下 match:status 会随 setex 30 秒自然过期，不会永久残留
     }
   }, MATCH_TIMEOUT_MS);
   matchTimers.set(userId, timer);
@@ -205,12 +210,16 @@ export async function leaveQuickMatch(userId: string): Promise<void> {
  */
 export async function getMatchStatus(userId: string): Promise<{ inQueue: boolean; queueCount?: number }> {
   const inQueue = await redis.exists(`${MATCH_STATUS_KEY_PREFIX}${userId}`);
-  
+
   if (inQueue) {
     const players = await getQueuePlayers();
-    return { inQueue: true, queueCount: players.length + 1 };
+    // joinQuickMatch 先 rpush 入队再 setex 设状态，正常情况下队列已包含自己，players.length 即正确人数；
+    // 边缘情况：被其他路径（如 cleanupTimeoutPlayers）移除出队列但状态未清时，players 不含自己，需 +1 补偿。
+    // 统一检查是否包含自己，避免正常路径多算 1
+    const meInQueue = players.some(p => p.userId === userId);
+    return { inQueue: true, queueCount: meInQueue ? players.length : players.length + 1 };
   }
-  
+
   return { inQueue: false };
 }
 
