@@ -16,7 +16,7 @@ export function handleTabKeyDown(
   const currentIndex = tabKeys.indexOf(activeKey);
   if (currentIndex === -1) return;
 
-  let nextIndex: number | null = null;
+  let nextIndex: number;
   switch (e.key) {
     case 'ArrowRight':
       nextIndex = (currentIndex + 1) % tabKeys.length;

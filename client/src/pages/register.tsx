@@ -64,8 +64,8 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
           <p className="text-cream/60 font-mono text-sm">开始你的冒险之旅</p>
         </div>
 
-        {/* 表单卡片 */}
-        <div className="bg-cream border-4 border-cream shadow-[8px_8px_0_#1a1a1a] p-6 animate-stagger delay-200">
+        {/* 表单卡片：border-ink 让 Neo-brutalism 硬边框可见（原 border-cream 与背景同色导致边框隐形） */}
+        <div className="bg-cream border-4 border-ink shadow-[8px_8px_0_#1a1a1a] p-6 animate-stagger delay-200">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {/* 手机号 */}
             <div>

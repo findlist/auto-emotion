@@ -151,10 +151,10 @@ export class BrawlGame {
 
     // 创建可破坏物
     for (const d of levelData.destructibles ?? []) {
-      const tex = this.app.renderer.generateTexture({
-        target: new Graphics().rect(0, 0, d.width, d.width).fill({ color: d.color }),
-        antialias: true,
-      });
+      // generateTexture 后及时销毁临时 Graphics，避免每个可破坏物泄漏一个 Graphics 对象
+      const destGfx = new Graphics().rect(0, 0, d.width, d.width).fill({ color: d.color });
+      const tex = this.app.renderer.generateTexture({ target: destGfx, antialias: true });
+      destGfx.destroy();
       const dest = new Destructible(tex, d.x, d.y, d.width, d.width, d.color, d.hp, d.reward, () =>
         this.onDestructibleDestroyed(dest),
       );
@@ -254,6 +254,8 @@ export class BrawlGame {
   private onDestructibleDestroyed(dest: Destructible): void {
     this.world.removeChild(dest.container);
     this.destructibles = this.destructibles.filter((d) => d !== dest);
+    // 销毁可破坏物的 Container 与 Sprite，避免破碎后资源残留导致内存泄漏
+    dest.destroy();
 
     this.particles.spawn(dest.x, dest.y, dest.colorValue, 'mid');
     this.screenShake.shake('low');

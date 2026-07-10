@@ -189,11 +189,12 @@ export class BossGame {
 
     // 创建可破坏物
     for (const d of levelData.destructibles ?? []) {
+      // generateTexture 后及时销毁临时 Graphics，避免每个可破坏物泄漏一个 Graphics 对象
+      const destGfx = new Graphics().rect(0, 0, d.width, d.width).fill({ color: 0xffffff });
+      const destTex = this.app.renderer.generateTexture({ target: destGfx, antialias: true });
+      destGfx.destroy();
       const dest = new Destructible(
-        this.app.renderer.generateTexture({
-          target: new Graphics().rect(0, 0, d.width, d.width).fill({ color: 0xffffff }),
-          antialias: true,
-        }),
+        destTex,
         d.x,
         d.y,
         d.width,
@@ -273,6 +274,8 @@ export class BossGame {
   private onDestructibleDestroyed(dest: Destructible): void {
     this.world.removeChild(dest.container);
     this.destructibles = this.destructibles.filter((d) => d !== dest);
+    // 销毁可破坏物的 Container 与 Sprite，避免破碎后资源残留导致内存泄漏
+    dest.destroy();
 
     // 粒子效果
     this.particles.spawn(dest.x, dest.y, dest.colorValue, 'low');

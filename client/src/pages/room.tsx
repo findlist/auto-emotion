@@ -200,7 +200,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
             onClick={handleToggleReady}
             className={`px-8 py-3 font-mono text-sm font-bold tracking-wider transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none ${
               isReady
-                ? 'bg-red-500 text-cream hover:bg-red-600'
+                ? 'bg-orange text-cream hover:bg-ink'
                 : 'bg-mint text-ink hover:bg-ink hover:text-mint'
             }`}
           >
@@ -219,10 +219,11 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
         )}
       </div>
 
-      {/* 错误提示：role=alert 强制屏幕阅读器立即朗读，确保房间操作失败时视障用户即时感知 */}
+      {/* 错误提示：role=alert 强制屏幕阅读器立即朗读，确保房间操作失败时视障用户即时感知
+          使用 pink 系配色与 Neo-brutalism 调色板一致（原 red 系脱离设计系统） */}
       {roomStore.error && (
-        <div role="alert" className="mt-4 bg-red-100 border-2 border-red-500 px-4 py-2 animate-shake">
-          <p className="text-red-600 font-mono text-sm">{roomStore.error}</p>
+        <div role="alert" className="mt-4 bg-pink/10 border-2 border-pink px-4 py-2 animate-shake shadow-[3px_3px_0_#1a1a1a]">
+          <p className="text-pink font-mono text-sm">{roomStore.error}</p>
         </div>
       )}
     </div>

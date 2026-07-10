@@ -186,7 +186,7 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
             onClick={() => handleTabClick(item.key)}
             className={`flex flex-col items-center gap-1 px-3 py-1 rounded-md transition-all ${
               activeTab === item.key
-                ? 'bg-pink text-cream shadow-[2px_2px_0_#1a1a1a] -translate-y-[1px]'
+                ? 'bg-pink text-cream shadow-[2px_2px_0_#ffd93d] -translate-y-[1px]'
                 : 'text-cream/60 hover:text-cream hover:bg-cream/10'
             }`}
           >
