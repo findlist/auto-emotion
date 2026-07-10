@@ -476,3 +476,35 @@ Git commit c609942 已推送 origin/main
 - 9 处 set-state-in-effect 警告（P2 性能优化，需逐个评估 async/sync 模式后谨慎修复，或引入数据获取库统一解决）
 - docker-compose redis 安全加固（端口暴露 + 密码配置，需综合评估本地开发与生产环境需求）
 - 项目已基本达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-11 03:30:30]
+本次完成任务：项目健康故障修复 1 项（docker-compose redis/postgres 端口暴露安全加固）
+- 健康预检全绿：后端 tsc 零错误、vitest 647/647；前端 build 零错误零警告（861 modules, 1.07s）、前端 vitest 225/225
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 10 次指数退避 + reconnect 自动 rejoin + Toast + battle.tsx 断线遮罩、battle.tsx min(100%,800px,calc(75vh*4/3)) + aspectRatio 4/3，全部在位完整，未重复开发
+- 用户指令基线"品质优化专项 95%、P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"（当前最高优先级）
+- 最小单元1（docker-compose 安全加固）：原 docker-compose.yml 中 postgres 端口 5432、redis 端口 6379 均绑定 0.0.0.0 对外网暴露，redis 无密码保护（未授权访问是 Redis 最常见安全事件）。修复：① postgres/redis 端口均改为 127.0.0.1:端口:端口 绑定，仅本机可访问，容器间通信走 docker 内部网络不受影响；② redis 新增 REDIS_PASSWORD 可选密码认证，command 用 sh -c 条件判断：设置密码时 `redis-server --requirepass "$REDIS_PASSWORD"`，未设置时 `redis-server` 兼容无密码开发环境；③ redis healthcheck 适配有无密码场景，用 shell 参数扩展 `$${REDIS_PASSWORD:+-a $${REDIS_PASSWORD} --no-auth-warning}`，设置密码时带 -a 认证 + --no-auth-warning 抑制命令行传密码警告；④ environment 注入 REDIS_PASSWORD 从 .env 读取。config/redis.ts 与 .env.example 前序已支持 REDIS_PASSWORD，本单元仅补全 docker-compose 编排层
+
+修改文件清单：
+- docker-compose.yml（postgres/redis 端口绑定 127.0.0.1 + redis 可选密码认证 command + environment + healthcheck 适配）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（本轮无后端代码改动，docker-compose 编排配置不影响编译）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.12s）
+- 前端 vitest run ✅ 225/225 通过（健康预检已绿，无回归）
+- Git commit 5506072 已推送 origin/main
+
+动态计划调整：
+- 本轮完成 1 个最小单元（docker-compose 安全加固），达成单轮产出下限，触发终止条件
+- set-state-in-effect 9 处警告评估完成：React 19 eslint 规则对 async 函数静态分析保守，useEffect 内调用任何含 setState 的 async 函数（如 loadXxx）即触发警告，即使所有 setState 都在 await 后（异步）。试点修复 achievements.tsx/tasks.tsx（loading 初始 true + 移除 loadXxx 内 setLoading(true)）测试通过但警告未消除（eslint 仍标记 useEffect 内 loadXxx() 调用行），已回滚保持原状。彻底消除需架构调整（useEffectEvent 实验性 API / Suspense + 数据获取库 / eslint-disable），风险高价值低（warn 不阻塞 CI），留待后续统一处理
+- 上线验收标准第 7 项"无高危技术债"进一步巩固：Redis 未授权访问风险已消除
+- redis 密码为可选项，开发环境无密码仍可用，生产环境通过 .env 设置 REDIS_PASSWORD 启用认证
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 9 处 set-state-in-effect 警告（P2 性能优化，需逐个评估 async/sync 模式后谨慎修复）
+- 项目已基本达到生产就绪，可进行最终全场景终验与部署测试
