@@ -42,9 +42,67 @@ const DESTRUCTIBLE_COUNTS: Record<number, [number, number]> = {
   5: [30, 40],
 };
 
+// 游戏画布尺寸，用于校验 AI 返回坐标合法性
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
+// 可破坏物合法类型集合
+const VALID_DESTRUCTIBLE_TYPES = new Set(['box', 'bottle', 'glass', 'balloon']);
+
 // 随机整数 [min, max]
 function randInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// 判断是否为有限数字，排除 NaN/Infinity/非数字类型
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
+/**
+ * 校验单个可破坏物字段类型与范围
+ * 设计原因：AI 返回数据可能缺字段、类型错乱或数值越界（负 hp、超画布坐标），
+ * 直接透传会导致前端 PixiJS 渲染异常或游戏逻辑崩溃，故逐项严格校验
+ */
+function isValidDestructible(d: unknown): d is DestructibleItem {
+  if (!d || typeof d !== 'object') return false;
+  const item = d as Record<string, unknown>;
+  return (
+    typeof item.id === 'string' && item.id.length > 0 &&
+    typeof item.type === 'string' && VALID_DESTRUCTIBLE_TYPES.has(item.type) &&
+    isFiniteNumber(item.x) && item.x >= 0 && item.x <= CANVAS_WIDTH &&
+    isFiniteNumber(item.y) && item.y >= 0 && item.y <= CANVAS_HEIGHT &&
+    isFiniteNumber(item.width) && item.width > 0 && item.width <= CANVAS_WIDTH &&
+    isFiniteNumber(item.height) && item.height > 0 && item.height <= CANVAS_HEIGHT &&
+    isFiniteNumber(item.hp) && item.hp > 0 &&
+    isFiniteNumber(item.reward) && item.reward >= 0
+  );
+}
+
+// 校验出生点坐标在画布范围内
+function isValidSpawnPoint(p: unknown): p is SpawnPoint {
+  if (!p || typeof p !== 'object') return false;
+  const item = p as Record<string, unknown>;
+  return (
+    isFiniteNumber(item.x) && item.x >= 0 && item.x <= CANVAS_WIDTH &&
+    isFiniteNumber(item.y) && item.y >= 0 && item.y <= CANVAS_HEIGHT
+  );
+}
+
+/**
+ * 校验 AI 返回的关卡布局整体结构
+ * @returns 合法则返回强类型布局，非法返回 null 由调用方走规则兜底
+ */
+function validateLevelLayout(data: unknown): LevelLayout | null {
+  if (!data || typeof data !== 'object') return null;
+  const obj = data as Record<string, unknown>;
+  // destructibles / spawnPoints 必须为非空数组且每项合法
+  if (!Array.isArray(obj.destructibles) || obj.destructibles.length === 0) return null;
+  if (!Array.isArray(obj.spawnPoints) || obj.spawnPoints.length === 0) return null;
+  if (!obj.destructibles.every(isValidDestructible)) return null;
+  if (!obj.spawnPoints.every(isValidSpawnPoint)) return null;
+  // bossSpawn 可选，存在时必须合法
+  if (obj.bossSpawn !== undefined && !isValidSpawnPoint(obj.bossSpawn)) return null;
+  return obj as unknown as LevelLayout;
 }
 
 /**
@@ -64,10 +122,11 @@ export async function generateLevel(
     try {
       const prompt = buildPrompt(mode, difficulty, stressSources);
       const result = await chat(prompt);
-      const parsed = JSON.parse(result) as LevelLayout;
-      // 简单的校验，确保返回结构合理
-      if (parsed.destructibles && parsed.spawnPoints) {
-        return parsed;
+      const parsed = JSON.parse(result);
+      // 严格校验 AI 返回的字段类型与范围，非法数据回退规则兜底
+      const validated = validateLevelLayout(parsed);
+      if (validated) {
+        return validated;
       }
     } catch {
       // AI 失败，fallback 到规则化生成

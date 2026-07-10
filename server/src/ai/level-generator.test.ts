@@ -182,5 +182,116 @@ describe('level-generator 关卡生成器', () => {
       expect(result.destructibles).toHaveLength(10);
       expect(result.mode).toBe('boss');
     });
+
+    it('AI 返回空 destructibles 数组时回退到规则兜底', async () => {
+      // 结构合法但数组为空，无法构成有效关卡，应回退
+      mocks.chatMock.mockResolvedValue(
+        JSON.stringify({ mode: 'boss', difficulty: 1, destructibles: [], spawnPoints: [{ x: 100, y: 100 }] }),
+      );
+
+      const result = await generateLevel('boss', 1, []);
+
+      expect(result.destructibles).toHaveLength(10);
+    });
+
+    it('AI 返回非法 type 的可破坏物时回退到规则兜底', async () => {
+      // type 不在 box/bottle/glass/balloon 枚举内
+      mocks.chatMock.mockResolvedValue(
+        JSON.stringify({
+          mode: 'boss',
+          difficulty: 1,
+          destructibles: [{ id: 'd1', type: 'rock', x: 100, y: 100, width: 60, height: 60, hp: 50, reward: 30 }],
+          spawnPoints: [{ x: 100, y: 100 }],
+        }),
+      );
+
+      const result = await generateLevel('boss', 1, []);
+
+      // 兜底路径首项 type 为 box
+      expect(result.destructibles[0].type).toBe('box');
+    });
+
+    it('AI 返回负数 hp 的可破坏物时回退到规则兜底', async () => {
+      mocks.chatMock.mockResolvedValue(
+        JSON.stringify({
+          mode: 'boss',
+          difficulty: 1,
+          destructibles: [{ id: 'd1', type: 'box', x: 100, y: 100, width: 60, height: 60, hp: -10, reward: 30 }],
+          spawnPoints: [{ x: 100, y: 100 }],
+        }),
+      );
+
+      const result = await generateLevel('boss', 1, []);
+
+      // 兜底路径 hp = baseHp(15) + randInt(-5,5) = 10
+      expect(result.destructibles[0].hp).toBe(10);
+    });
+
+    it('AI 返回超出画布范围的坐标时回退到规则兜底', async () => {
+      // x=9999 超出 800 画布宽度
+      mocks.chatMock.mockResolvedValue(
+        JSON.stringify({
+          mode: 'boss',
+          difficulty: 1,
+          destructibles: [{ id: 'd1', type: 'box', x: 9999, y: 100, width: 60, height: 60, hp: 50, reward: 30 }],
+          spawnPoints: [{ x: 100, y: 100 }],
+        }),
+      );
+
+      const result = await generateLevel('boss', 1, []);
+
+      // 兜底路径首项 x=100
+      expect(result.destructibles[0].x).toBe(100);
+    });
+
+    it('AI 返回缺字段的可破坏物时回退到规则兜底', async () => {
+      // 缺 reward 字段
+      mocks.chatMock.mockResolvedValue(
+        JSON.stringify({
+          mode: 'boss',
+          difficulty: 1,
+          destructibles: [{ id: 'd1', type: 'box', x: 100, y: 100, width: 60, height: 60, hp: 50 }],
+          spawnPoints: [{ x: 100, y: 100 }],
+        }),
+      );
+
+      const result = await generateLevel('boss', 1, []);
+
+      expect(result.destructibles).toHaveLength(10);
+    });
+
+    it('AI 返回非法 bossSpawn 时回退到规则兜底', async () => {
+      // bossSpawn 坐标越界，整体校验失败
+      mocks.chatMock.mockResolvedValue(
+        JSON.stringify({
+          mode: 'boss',
+          difficulty: 1,
+          destructibles: [{ id: 'd1', type: 'box', x: 100, y: 100, width: 60, height: 60, hp: 50, reward: 30 }],
+          spawnPoints: [{ x: 100, y: 100 }],
+          bossSpawn: { x: -50, y: 9999 },
+        }),
+      );
+
+      const result = await generateLevel('boss', 1, []);
+
+      // 回退兜底，bossSpawn 为固定 { x: 400, y: 150 }
+      expect(result.bossSpawn).toEqual({ x: 400, y: 150 });
+    });
+
+    it('AI 返回合法数据且无 bossSpawn 时直接返回（非 boss 模式）', async () => {
+      const aiLayout: LevelLayout = {
+        mode: 'brawl',
+        difficulty: 2,
+        destructibles: [
+          { id: 'ai_1', type: 'bottle', x: 200, y: 300, width: 40, height: 40, hp: 20, reward: 15 },
+        ],
+        spawnPoints: [{ x: 400, y: 500 }],
+      };
+      mocks.chatMock.mockResolvedValue(JSON.stringify(aiLayout));
+
+      const result = await generateLevel('brawl', 2, []);
+
+      expect(result).toEqual(aiLayout);
+    });
   });
 });
