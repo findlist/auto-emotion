@@ -73,6 +73,9 @@ export class BrawlGame {
   private projectileTexture: Texture | null = null;
   private playerTexture: Texture | null = null;
   private playerIndicatorTexture: Texture | null = null;
+  // 可破坏物纹理缓存：同色同尺寸的可破坏物复用同一纹理，避免 init 时逐个 generateTexture 产生 GPU 开销
+  // key 为 `${color}-${width}`，Destructible.destroy 不销毁纹理故共享安全，destroy() 时统一释放
+  private destructibleTextureCache: Map<string, Texture> = new Map();
   private localPlayerId: string;
   private scores: Map<string, number> = new Map();
   private isRunning: boolean = false;
@@ -152,10 +155,16 @@ export class BrawlGame {
 
     // 创建可破坏物
     for (const d of levelData.destructibles ?? []) {
-      // generateTexture 后及时销毁临时 Graphics，避免每个可破坏物泄漏一个 Graphics 对象
-      const destGfx = new Graphics().rect(0, 0, d.width, d.width).fill({ color: d.color });
-      const tex = this.app.renderer.generateTexture({ target: destGfx, antialias: true });
-      destGfx.destroy();
+      // 纹理缓存：同色同尺寸的可破坏物复用纹理，避免逐个 generateTexture 产生 GPU 开销
+      const cacheKey = `${d.color}-${d.width}`;
+      let tex = this.destructibleTextureCache.get(cacheKey);
+      if (!tex) {
+        // generateTexture 后及时销毁临时 Graphics，避免每个可破坏物泄漏一个 Graphics 对象
+        const destGfx = new Graphics().rect(0, 0, d.width, d.width).fill({ color: d.color });
+        tex = this.app.renderer.generateTexture({ target: destGfx, antialias: true });
+        destGfx.destroy();
+        this.destructibleTextureCache.set(cacheKey, tex);
+      }
       const dest = new Destructible(tex, d.x, d.y, d.width, d.width, d.color, d.hp, d.reward, () =>
         this.onDestructibleDestroyed(dest),
       );
@@ -529,5 +538,8 @@ export class BrawlGame {
     this.projectileTexture = null;
     this.playerTexture = null;
     this.playerIndicatorTexture = null;
+    // 销毁可破坏物纹理缓存释放 GPU 资源，cleanup 不清理缓存（跨 init 复用），仅 destroy 释放
+    this.destructibleTextureCache.forEach((t) => t.destroy(true));
+    this.destructibleTextureCache.clear();
   }
 }
