@@ -341,8 +341,11 @@ export class BrawlGame {
       }
 
       // 玩家间碰撞
+      // 设计原因：otherId <= id 字典序守卫确保每对无序玩家组合仅处理一次。
+      // 若不守卫，id=A 时处理 A↔B，id=B 时又处理 B↔A，checkPlayerCollision
+      // 会对同一对施加二次分离与击飞，导致碰撞响应翻倍、玩家被弹飞过远。
       for (const [otherId, otherData] of this.players) {
-        if (otherId === id || !otherData.alive) continue;
+        if (otherId <= id || !otherData.alive) continue;
         this.checkPlayerCollision(id, data, otherId, otherData);
       }
     }
