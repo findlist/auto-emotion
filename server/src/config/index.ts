@@ -29,6 +29,8 @@ interface Config {
   port: number;
   nodeEnv: string;
   jwtSecret: string;
+  // WebSocket CORS 允许来源：生产环境应配置具体域名，开发环境默认 * 便于本地调试
+  corsOrigin: string;
   db: DbConfig;
   redis: RedisConfig;
   ai: AiConfig;
@@ -65,6 +67,8 @@ export const config: Config = {
   port: toInt(process.env.PORT, 3000),
   nodeEnv: process.env.NODE_ENV ?? 'development',
   jwtSecret: process.env.JWT_SECRET as string,
+  // 生产环境通过 CORS_ORIGIN 配置具体前端域名（如 https://example.com），未配置时降级为 * 保证开发可用
+  corsOrigin: process.env.CORS_ORIGIN ?? '*',
   db: {
     host: process.env.DB_HOST ?? 'postgres',
     port: toInt(process.env.DB_PORT, 5432),

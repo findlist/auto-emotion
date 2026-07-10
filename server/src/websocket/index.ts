@@ -43,7 +43,8 @@ let io: Server;
  */
 export function initWebSocket(server: HttpServer): void {
   io = new Server(server, {
-    cors: { origin: '*', methods: ['GET', 'POST'] },
+    // CORS 来源由 CORS_ORIGIN 环境变量控制，生产环境应收紧为具体域名避免跨域滥用
+    cors: { origin: config.corsOrigin, methods: ['GET', 'POST'] },
   });
 
   /**
