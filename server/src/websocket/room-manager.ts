@@ -59,6 +59,30 @@ function deserializeRoom(data: string): Room {
 }
 
 export const roomManager = {
+  /**
+   * 房间更新锁：包装 read-modify-write 操作，防止并发修改丢失
+   * 设计原因：原 joinRoom/setReady 等方法先 getRoom 读取再 setex 写回，
+   * 两个并发请求都读到同一房间状态，各自修改后第二个写回覆盖第一个，导致丢失更新。
+   * SET NX EX 是单命令原子操作，获取锁失败的请求短暂等待后重试一次；
+   * TTL 5 秒兜底防止持锁进程崩溃导致死锁。
+   */
+  async withRoomLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {
+    const lockKey = `room:lock:update:${roomId}`;
+    // 尝试获取锁，失败则短暂等待后重试一次，避免高频并发时直接抛错影响体验
+    let acquired = await redis.set(lockKey, '1', 'EX', 5, 'NX');
+    if (!acquired) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      acquired = await redis.set(lockKey, '1', 'EX', 5, 'NX');
+      if (!acquired) throw new AppError(ErrorCode.CONFLICT, '房间正忙，请稍后重试');
+    }
+    try {
+      return await fn();
+    } finally {
+      // 释放锁，忽略释放错误（TTL 兜底）
+      redis.del(lockKey).catch(() => {});
+    }
+  },
+
   /** 创建房间 */
   async createRoom(hostId: string, hostSocketId: string, hostNickname: string): Promise<Room> {
     const room: Room = {
@@ -83,89 +107,99 @@ export const roomManager = {
 
   /** 加入房间（支持断线重连：玩家已在房间时更新 socketId 并返回当前状态） */
   async joinRoom(roomId: string, userId: string, socketId: string, nickname: string): Promise<Room> {
-    const room = await this.getRoom(roomId);
-    if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+    return this.withRoomLock(roomId, async () => {
+      const room = await this.getRoom(roomId);
+      if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
 
-    // 重连场景：玩家已在房间，刷新 socketId 与昵称后直接返回当前房间状态
-    const existingPlayer = room.players.find((p) => p.userId === userId);
-    if (existingPlayer) {
-      existingPlayer.socketId = socketId;
-      existingPlayer.nickname = nickname;
+      // 重连场景：玩家已在房间，刷新 socketId 与昵称后直接返回当前房间状态
+      const existingPlayer = room.players.find((p) => p.userId === userId);
+      if (existingPlayer) {
+        existingPlayer.socketId = socketId;
+        existingPlayer.nickname = nickname;
+        await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
+        return room;
+      }
+
+      // 新玩家加入：仅 waiting 状态允许
+      if (room.status !== 'waiting') throw new AppError(ErrorCode.BAD_REQUEST, '房间已开始，无法加入');
+      if (room.players.length >= 8) throw new AppError(ErrorCode.BAD_REQUEST, '房间已满');
+
+      room.players.push({ userId, nickname, socketId, isReady: false });
       await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
       return room;
-    }
-
-    // 新玩家加入：仅 waiting 状态允许
-    if (room.status !== 'waiting') throw new AppError(ErrorCode.BAD_REQUEST, '房间已开始，无法加入');
-    if (room.players.length >= 8) throw new AppError(ErrorCode.BAD_REQUEST, '房间已满');
-
-    room.players.push({ userId, nickname, socketId, isReady: false });
-    await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
-    return room;
+    });
   },
 
   /** 离开房间 */
   async leaveRoom(roomId: string, userId: string): Promise<Room | null> {
-    const room = await this.getRoom(roomId);
-    if (!room) return null;
+    return this.withRoomLock(roomId, async () => {
+      const room = await this.getRoom(roomId);
+      if (!room) return null;
 
-    room.players = room.players.filter((p) => p.userId !== userId);
-    delete room.stressSources[userId];
+      room.players = room.players.filter((p) => p.userId !== userId);
+      delete room.stressSources[userId];
 
-    // 房主离开，转移给第一个玩家
-    if (room.hostId === userId && room.players.length > 0) {
-      room.hostId = room.players[0].userId;
-    }
+      // 房主离开，转移给第一个玩家
+      if (room.hostId === userId && room.players.length > 0) {
+        room.hostId = room.players[0].userId;
+      }
 
-    if (room.players.length === 0) {
-      await redis.del(`room:${roomId}`);
-      return null;
-    }
+      if (room.players.length === 0) {
+        await redis.del(`room:${roomId}`);
+        return null;
+      }
 
-    await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
-    return room;
+      await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
+      return room;
+    });
   },
 
   /** 设置准备状态 */
   async setReady(roomId: string, userId: string, isReady: boolean): Promise<Room> {
-    const room = await this.getRoom(roomId);
-    if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+    return this.withRoomLock(roomId, async () => {
+      const room = await this.getRoom(roomId);
+      if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
 
-    const player = room.players.find((p) => p.userId === userId);
-    // 非房间成员调用 setReady 会错误聚合状态（如其他人已就绪时把房间置为 ready），需拒绝
-    if (!player) throw new AppError(ErrorCode.FORBIDDEN, '不在房间内');
-    player.isReady = isReady;
+      const player = room.players.find((p) => p.userId === userId);
+      // 非房间成员调用 setReady 会错误聚合状态（如其他人已就绪时把房间置为 ready），需拒绝
+      if (!player) throw new AppError(ErrorCode.FORBIDDEN, '不在房间内');
+      player.isReady = isReady;
 
-    // 所有玩家都准备好了？
-    if (room.players.every((p) => p.isReady) && room.players.length >= 1) {
-      room.status = 'ready';
-    } else {
-      room.status = 'waiting';
-    }
+      // 所有玩家都准备好了？
+      if (room.players.every((p) => p.isReady) && room.players.length >= 1) {
+        room.status = 'ready';
+      } else {
+        room.status = 'waiting';
+      }
 
-    await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
-    return room;
+      await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
+      return room;
+    });
   },
 
   /** 设置游戏模式（仅房主） */
   async setMode(roomId: string, userId: string, mode: GameMode): Promise<Room> {
-    const room = await this.getRoom(roomId);
-    if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
-    if (room.hostId !== userId) throw new AppError(ErrorCode.FORBIDDEN, '只有房主可以设置模式');
+    return this.withRoomLock(roomId, async () => {
+      const room = await this.getRoom(roomId);
+      if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+      if (room.hostId !== userId) throw new AppError(ErrorCode.FORBIDDEN, '只有房主可以设置模式');
 
-    room.mode = mode;
-    await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
-    return room;
+      room.mode = mode;
+      await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
+      return room;
+    });
   },
 
   /** 提交压力源 */
   async submitStress(roomId: string, userId: string, stressSource: string): Promise<Room> {
-    const room = await this.getRoom(roomId);
-    if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+    return this.withRoomLock(roomId, async () => {
+      const room = await this.getRoom(roomId);
+      if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
 
-    room.stressSources[userId] = stressSource;
-    await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
-    return room;
+      room.stressSources[userId] = stressSource;
+      await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
+      return room;
+    });
   },
 
   /** 开始游戏（仅房主）：触发 AI 关卡生成 */

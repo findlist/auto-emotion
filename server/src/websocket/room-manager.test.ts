@@ -60,6 +60,9 @@ describe('room-manager 房间管理器', () => {
     mocks.toMock.mockReturnValue({ emit: mocks.toEmitMock });
     // del 默认返回 Promise，避免 startGame 的 .finally 释放锁链式 .catch 报 undefined
     mocks.delMock.mockResolvedValue(1);
+    // set 默认返回 'OK' 模拟 SET NX EX 获取锁成功，避免每个用例重复设置
+    // startGame 的"重复开始"用例会显式覆盖为 null 模拟锁已被持有
+    mocks.setMock.mockResolvedValue('OK');
   });
 
   describe('createRoom 创建房间', () => {
@@ -595,6 +598,82 @@ describe('room-manager 房间管理器', () => {
 
       expect(mocks.toMock).toHaveBeenCalledWith('R1');
       expect(mocks.toEmitMock).toHaveBeenCalledWith('game:start', { foo: 'bar' });
+    });
+  });
+
+  describe('withRoomLock 房间更新锁', () => {
+    it('joinRoom 获取更新锁后再读写房间，完成后释放锁', async () => {
+      // 验证锁的生命周期：set 获取 → 业务读写 → del 释放
+      const existing: Room = {
+        id: 'R1', hostId: 'u1', status: 'waiting', mode: 'boss',
+        players: [{ userId: 'u1', nickname: '玩家1', socketId: 's1', isReady: false }],
+        stressSources: {},
+      };
+      mocks.getMock.mockResolvedValue(JSON.stringify(existing));
+
+      await roomManager.joinRoom('R1', 'u2', 's2', '玩家2');
+
+      // 验证获取了更新锁：set(room:lock:update:R1, '1', 'EX', 5, 'NX')
+      expect(mocks.setMock).toHaveBeenCalledWith('room:lock:update:R1', '1', 'EX', 5, 'NX');
+      // 验证释放了锁：del(room:lock:update:R1)
+      expect(mocks.delMock).toHaveBeenCalledWith('room:lock:update:R1');
+    });
+
+    it('锁被持有时重试一次仍失败则抛 CONFLICT，不读写房间数据', async () => {
+      // 模拟锁已被持有，SET NX EX 两次都返回 null
+      mocks.setMock.mockResolvedValue(null);
+      mocks.getMock.mockResolvedValue(JSON.stringify({
+        id: 'R1', hostId: 'u1', status: 'waiting', mode: 'boss',
+        players: [{ userId: 'u1', nickname: '玩家1', socketId: 's1', isReady: false }],
+        stressSources: {},
+      }));
+
+      await expect(roomManager.joinRoom('R1', 'u2', 's2', '玩家2'))
+        .rejects.toMatchObject({ code: ErrorCode.CONFLICT, message: '房间正忙，请稍后重试' });
+      // 锁获取失败时不应读取或写入房间数据
+      expect(mocks.getMock).not.toHaveBeenCalled();
+      expect(mocks.setexMock).not.toHaveBeenCalled();
+    });
+
+    it('并发加入房间：锁串行化两次 joinRoom，两个玩家都成功加入不丢失', async () => {
+      // 设计原因：无锁时两个并发 joinRoom 都读到同一初始房间，各自 push 玩家后写回，
+      // 第二个写回覆盖第一个，导致先加入的玩家丢失。锁串行化后第二次读到的房间已包含第一个玩家。
+      const initialRoom: Room = {
+        id: 'R1', hostId: 'u1', status: 'waiting', mode: 'boss',
+        players: [{ userId: 'u1', nickname: '玩家1', socketId: 's1', isReady: false }],
+        stressSources: {},
+      };
+
+      // 模拟锁状态：首次 set NX 返回 OK 持有锁，del 后释放允许下一次获取
+      let lockHeld = false;
+      mocks.setMock.mockImplementation(() => {
+        if (!lockHeld) {
+          lockHeld = true;
+          return Promise.resolve('OK');
+        }
+        return Promise.resolve(null);
+      });
+      mocks.delMock.mockImplementation((key: string) => {
+        if (key === 'room:lock:update:R1') lockHeld = false;
+        return Promise.resolve(1);
+      });
+      // getMock 每次返回当前房间状态（setex 写入后更新）
+      let currentRoom = { ...initialRoom };
+      mocks.getMock.mockImplementation(() => Promise.resolve(JSON.stringify(currentRoom)));
+      mocks.setexMock.mockImplementation((_key: string, _ttl: number, value: string) => {
+        currentRoom = JSON.parse(value);
+        return Promise.resolve('OK');
+      });
+
+      // 并发调用两次 joinRoom：第二次首次获取锁失败，50ms 后重试时第一次已释放锁
+      const [, r2] = await Promise.all([
+        roomManager.joinRoom('R1', 'u2', 's2', '玩家2'),
+        roomManager.joinRoom('R1', 'u3', 's3', '玩家3'),
+      ]);
+
+      // 两个玩家都成功加入（无锁时第二个会覆盖第一个，最终只有 u3 加入）
+      expect(r2.players).toHaveLength(3);
+      expect(r2.players.map((p) => p.userId)).toEqual(expect.arrayContaining(['u1', 'u2', 'u3']));
     });
   });
 });
