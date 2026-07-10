@@ -98,8 +98,14 @@ export function generateEvents(
   startTime: number = 30,
   interval: number = 20,
 ): GameEvent[] {
-  // Fisher-Yates 洗牌
-  const shuffled = [...PRESET_EVENTS].sort(() => Math.random() - 0.5);
+  // Fisher-Yates 洗牌：从后往前遍历与随机位置交换，保证均匀分布
+  // 设计原因：原 .sort(() => Math.random() - 0.5) 依赖排序引擎比较结果，
+  // 分布有偏（某些元素停留在原位的概率更高），非真正的 Fisher-Yates
+  const shuffled = [...PRESET_EVENTS];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
   const selected = shuffled.slice(0, count);
 
   return selected.map((event, i) => ({
