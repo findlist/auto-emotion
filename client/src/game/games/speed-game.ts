@@ -337,6 +337,10 @@ export class SpeedGame {
     this.currentMiniGame = type;
     this.miniGameTimer = 0;
 
+    // 清理旧小游戏的延迟移除定时器，防止定时器触发时操作已销毁的目标抛 PixiJS 错误
+    this.pendingTimers.forEach(clearTimeout);
+    this.pendingTimers.clear();
+
     // 清除旧目标
     for (const t of this.targets) {
       t.destroy();
