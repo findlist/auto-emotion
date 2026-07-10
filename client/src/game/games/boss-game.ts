@@ -416,18 +416,22 @@ export class BossGame {
 
       // 碰撞检测：投射物 vs 可破坏物
       // 玩家投射物传 ownerId 记录命中者；Boss 投射物不传（lastHitBy 保持 null，不计玩家得分）
+      let hitDestructible = false;
       if (proj.isAlive) {
         for (const dest of this.destructibles) {
           if (!dest.isAlive) continue;
           if (this.circleRectHit(proj.x, proj.y, proj.radiusValue, dest.x, dest.y, dest.halfWidth, dest.halfHeight)) {
             dest.takeDamage(1, projData.ownerId !== 'boss' ? projData.ownerId : undefined);
             proj.destroy();
+            hitDestructible = true;
             break;
           }
         }
       }
+      // 已击中可破坏物并销毁投射物，跳过出界检测避免对已销毁 sprite 二次 destroy
+      if (hitDestructible) continue;
 
-      // 投射物出界
+      // 投射物出界（proj.isAlive 为 false 表示 update 内已标记越界，需 destroy 释放 sprite）
       if (!proj.isAlive || proj.x < -10 || proj.x > this.bounds.width + 10 || proj.y < -10 || proj.y > this.bounds.height + 10) {
         proj.destroy();
         continue;
