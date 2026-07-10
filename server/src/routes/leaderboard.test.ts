@@ -39,12 +39,14 @@ import * as leaderboardService from '../services/leaderboard-service.js';
 let server: Server;
 let baseURL: string;
 
-beforeAll(() => {
+beforeAll(async () => {
   const app = express();
   app.use(express.json());
   app.use('/api/leaderboard', router);
   // /friends /:type/me 由 mock authMiddleware 鉴权，/power /battle /speed 公开无需鉴权
   server = app.listen(0);
+  // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
+  await new Promise<void>(resolve => server.once('listening', resolve));
   const port = (server.address() as { port: number }).port;
   baseURL = `http://localhost:${port}/api/leaderboard`;
 });

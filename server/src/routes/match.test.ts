@@ -33,13 +33,15 @@ function controllableAuth(req: Request, _res: Response, next: NextFunction): voi
 let server: Server;
 let baseURL: string;
 
-beforeAll(() => {
+beforeAll(async () => {
   const app = express();
   app.use(express.json());
   app.use(controllableAuth);
   app.use('/api/match', router);
   // match 路由内部已 try/catch + fail 自处理错误，无需额外 errorHandler
   server = app.listen(0);
+  // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
+  await new Promise<void>(resolve => server.once('listening', resolve));
   const port = (server.address() as { port: number }).port;
   baseURL = `http://localhost:${port}/api/match`;
 });

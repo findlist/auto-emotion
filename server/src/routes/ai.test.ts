@@ -19,12 +19,14 @@ import { generate } from '../ai/monster-generator.js';
 let server: Server;
 let baseURL: string;
 
-beforeAll(() => {
+beforeAll(async () => {
   const app = express();
   app.use(express.json());
   app.use('/api/ai', router);
   // ai 路由为同步处理，无 try/catch，但内部逻辑不会抛错（safeParse + 条件返回）
   server = app.listen(0);
+  // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
+  await new Promise<void>(resolve => server.once('listening', resolve));
   const port = (server.address() as { port: number }).port;
   baseURL = `http://localhost:${port}/api/ai`;
 });

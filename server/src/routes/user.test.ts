@@ -33,13 +33,15 @@ import { AppError, ErrorCode } from '../utils/error.js';
 let server: Server;
 let baseURL: string;
 
-beforeAll(() => {
+beforeAll(async () => {
   const app = express();
   app.use(express.json());
   app.use('/api/users', router);
   // 挂载全局错误处理，验证 route 抛出的 AppError（含 validate 校验失败）能正确冒泡
   app.use(errorHandler);
   server = app.listen(0);
+  // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
+  await new Promise<void>(resolve => server.once('listening', resolve));
   const port = (server.address() as { port: number }).port;
   baseURL = `http://localhost:${port}/api/users`;
 });
