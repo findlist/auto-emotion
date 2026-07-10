@@ -2,6 +2,7 @@
 // 房间状态机管理：waiting→ready→generating→playing→settling→closed
 // 使用 Redis 存储房间数据
 
+import { randomBytes } from 'crypto';
 import { io } from './index.js';
 import { GameEvents, RoomEvents, type LevelReadyPayload } from './events.js';
 import type { GameMode } from '../types/game.js';
@@ -42,7 +43,8 @@ const ROOM_TTL = 5 * 60; // 5分钟 TTL
 
 /** 生成6位房间号 */
 function generateRoomId(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+  // 使用 crypto.randomBytes 替代 Math.random，降低房间 ID 碰撞概率与可预测性
+  return randomBytes(8).readBigUInt64BE().toString(36).slice(0, 6).toUpperCase();
 }
 
 /** 将 Room 序列化时转换 Map 为对象 */
