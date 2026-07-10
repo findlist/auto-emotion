@@ -85,3 +85,34 @@
 - M-14 scene-manager destroy 不销毁非当前场景
 - P3 无障碍：aria-live/aria-busy 全局缺失、可交互卡片键盘支持
 - 项目接近生产就绪，可启动上线验收标准（规范第十一条）逐项核对：CI/CD 流水线、数据库索引/事务/并发机制、全场景适配终验
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-11 01:10:00]
+本次完成任务：L-01 角色属性升级费用显示修复 + room/settle 路由 AppError 错误码语义恢复
+- 健康预检全绿：后端 tsc 零错误、vitest 631/631；前端 build 零错误零警告（861 modules, 1.07s）、前端 vitest 225/225
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面、websocket reconnection 指数退避+rejoin+Toast+battle.tsx 断线遮罩、battle.tsx 响应式容器，全部在位完整，未重复开发
+- 用户指令基线"品质优化专项 95%、P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 验收通过，按"不得重复开发"红线未重做，转而推进"项目健康故障修复"
+- 最小单元1（L-01）：idle.tsx handleUpgrade 的 showConfirm 确认弹窗原仅显示"确认升级「HP」？"，不显示费用。后端 idle-engine.upgradeCharacter 费用为 50 * char.level^2，前端未展示导致用户无法预知消耗。修复：添加 upgradeCost = 50 * (status?.level ?? 1)^2，message 改为"确认花费 ${upgradeCost} 金币升级「${fieldInfo?.label}」？"
+- 最小单元2（room/settle 错误码恢复）：前序 Agent 遗留的未提交修改将 room.ts/settle.ts catch 块从 AppError 语义映射降级为统一 400，不符合规范 6.2 错误码语义。恢复 HEAD 版本的 AppError 分支 + 非 AppError 返回 500
+- M-14 评估：scene-manager destroy 只 removeChild 不 destroy container，但 battle.tsx/demo.tsx 均只注册一个场景，不存在"非当前场景"泄漏，不修
+
+修改文件清单：
+- client/src/pages/idle.tsx（handleUpgrade showConfirm 添加 upgradeCost 费用显示）
+- server/src/routes/room.ts、settle.ts、room.test.ts、settle.test.ts（恢复 HEAD 版本，无 diff）
+
+验证结果：后端 tsc ✅、vitest 631/631 ✅、前端 build ✅（861 modules, 1.07s）、前端 vitest 225/225 ✅
+Git commit c609942 已推送 origin/main
+
+动态计划调整：
+- 本轮完成 2 个最小单元（L-01 修复 + room/settle 恢复），达成单轮产出目标
+- room/settle 恢复无 diff 无新 commit，前序降级修改已回退
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-04 room-manager Redis 竞态（高风险重构，建议先补并发测试再实施 WATCH/MULTI/EXEC 或 SET NX EX 锁）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计）
+- P3 无障碍继续：aria-live/aria-busy 全局缺失、可交互卡片键盘支持
+- 项目接近生产就绪，可启动上线验收标准（规范第十一条）逐项核对
