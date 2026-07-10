@@ -1,5 +1,6 @@
 import express from 'express';
 import type { Request, Response } from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
@@ -12,6 +13,10 @@ import redis from './config/redis.js';
 import { authMiddleware } from './middleware/auth.js';
 // 引入全局错误处理中间件（按 AppError 的 ErrorCode 映射 HTTP 状态码，替代原统一降级 500）
 import { errorHandler } from './middleware/error-handler.js';
+// 引入 WebSocket 初始化函数（io 实例在 initWebSocket 内创建，gracefulShutdown 通过 live binding 获取）
+import { initWebSocket, io } from './websocket/index.js';
+// 引入数据库连接池（gracefulShutdown 释放资源时使用）
+import pool from './config/database.js';
 // 引入挂机路由
 import idleRouter from './routes/idle.js';
 // 引入 AI 路由
@@ -20,8 +25,6 @@ import aiRouter from './routes/ai.js';
 import matchRouter from './routes/match.js';
 // 引入房间路由
 import roomRouter from './routes/room.js';
-// 引入 WebSocket（启动 HTTP + WS 服务器）
-import './websocket/index.js';
 // 引入认证路由
 import authRouter from './routes/auth.js';
 // 引入用户路由
@@ -150,5 +153,50 @@ app.use('/api/room', authMiddleware, roomRouter);
 // 故 authMiddleware/rateLimit 抛出的 AppError 可被正确映射（如 UNAUTHORIZED → 401）。
 app.use(errorHandler);
 
-// 注意：HTTP 服务器已在 websocket/index.ts 中启动（通过 httpServer.listen）
-// 此处不再调用 app.listen，避免端口冲突
+// 创建 HTTP 服务器并传入 express app 作为请求处理器
+// 设计原因：原 websocket/index.ts 独立 createServer() 未传 app，生产环境 HTTP API 请求无 handler。
+// 此处 createServer(app) 确保 Express 路由处理普通 HTTP 请求，Socket.IO 附加到同一服务器处理 WebSocket 升级。
+const httpServer = createServer(app);
+
+// 初始化 WebSocket 服务器：附加到 httpServer，与 Express 共享端口
+initWebSocket(httpServer);
+
+// 启动 HTTP + WebSocket 服务器
+httpServer.listen(config.port, () => {
+  console.log(
+    JSON.stringify({
+      level: 'info',
+      message: 'Server started',
+      timestamp: new Date().toISOString(),
+      port: config.port,
+    }),
+  );
+});
+
+/**
+ * 优雅关闭：收到终止信号时按序释放资源
+ * 设计原因：生产环境容器编排（Docker/K8s）发送 SIGTERM 后会有宽限期，
+ * 顺序关闭 io → httpServer → pool → redis，可让房间内玩家收到 disconnect 通知，
+ * 未完成请求正常响应，避免连接粗暴断开导致脏数据。
+ */
+async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
+  console.log(`收到 ${signal}，开始优雅关闭...`);
+  // 1. 关闭 Socket.IO：停止接受新连接并断开现有（触发客户端 reconnect 逻辑）
+  io?.close();
+  // 2. 关闭 HTTP 服务器：停止监听端口
+  httpServer.close();
+  try {
+    // 3. 释放数据库连接池
+    await pool.end();
+    // 4. 断开 Redis
+    await redis.quit();
+  } catch (err) {
+    // 资源关闭异常不阻塞退出流程（部分资源可能已关闭）
+    console.error('优雅关闭资源释放异常:', (err as Error).message);
+  }
+  console.log('服务已关闭');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
