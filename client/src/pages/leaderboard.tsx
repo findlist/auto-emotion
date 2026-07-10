@@ -139,8 +139,10 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
         </div>
       )}
 
-      {/* 排行榜：role=tabpanel 关联当前激活的 tab，屏幕阅读器切换 tab 时自动定位内容区 */}
-      <main role="tabpanel" id="leaderboard-panel" aria-labelledby={`leaderboard-tab-${activeTab}`} className="flex-1 p-4 overflow-auto scrollbar-brutal">
+      {/* 排行榜：role=tabpanel 关联当前激活的 tab，屏幕阅读器切换 tab 时自动定位内容区
+          aria-live=polite + aria-atomic=true：切换 tab/翻页导致榜单整体替换时，
+          屏幕阅读器在空闲时播报完整新榜单，视障用户无需手动定位即可感知排名变化 */}
+      <main role="tabpanel" id="leaderboard-panel" aria-labelledby={`leaderboard-tab-${activeTab}`} aria-live="polite" aria-atomic="true" className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10">
             <div className="w-10 h-10 border-4 border-ink border-t-pink rounded-full animate-spin" />
