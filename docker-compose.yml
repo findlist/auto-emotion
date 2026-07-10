@@ -13,8 +13,10 @@ services:
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # 安全加固：端口仅绑定 127.0.0.1，避免数据库端口对外网暴露被扫描爆破
+    # 容器间通信（server → postgres）走 docker 内部网络，不依赖端口映射
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
@@ -26,10 +28,19 @@ services:
     image: redis:7-alpine
     container_name: emotion-redis
     restart: unless-stopped
+    # 安全加固：端口仅绑定 127.0.0.1，避免 Redis 端口对外网暴露被扫描利用（未授权访问是 Redis 最常见安全事件）
+    # 容器间通信（server → redis）走 docker 内部网络，不依赖端口映射
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
+    # 若设置了 REDIS_PASSWORD 则启用密码认证，未设置则无密码（兼容无密码开发环境）
+    # 用 sh -c 条件判断而非直接 --requirepass：避免无密码环境下 redis 启动失败
+    command: sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then redis-server --requirepass "$$REDIS_PASSWORD"; else redis-server; fi'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # 适配有无密码：REDIS_PASSWORD 设置时带 -a 认证，未设置时普通 ping
+      # --no-auth-warning 抑制命令行传密码的安全警告（容器内环境，警告无意义）
+      test: ["CMD-SHELL", "redis-cli $${REDIS_PASSWORD:+-a $${REDIS_PASSWORD} --no-auth-warning} ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
