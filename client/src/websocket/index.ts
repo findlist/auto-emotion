@@ -162,17 +162,17 @@ export function waitForConnection(timeoutMs = 5000): Promise<Socket> {
     const cleanup = (): void => {
       clearTimeout(timer);
       sock.off('connect', onConnect);
-      sock.off('connect_error', onError);
       sock.io.off('reconnect_failed', onFail);
     };
     const onConnect = (): void => {
       cleanup();
       resolve(sock);
     };
-    const onError = (err: Error): void => {
-      cleanup();
-      reject(new Error(`WebSocket 连接失败: ${err.message}`));
-    };
+    // 设计原因：不监听 connect_error 做 reject。Socket.IO v4 开启重连后，
+    // connect_error 在每次重连尝试失败时都会触发（非最终失败），首次失败即 reject
+    // 会导致 socket.io 仍在后台重连时调用方已收到失败（reject 过早）。
+    // connect_error 的日志由模块级 connect() 内的监听器统一处理，此处不重复监听。
+    // 仅以下两条路径 reject：reconnect_failed（达到最大重连次数彻底失败）、超时。
     const onFail = (): void => {
       cleanup();
       reject(new Error('WebSocket 重连失败，请检查网络后刷新页面'));
@@ -183,7 +183,6 @@ export function waitForConnection(timeoutMs = 5000): Promise<Socket> {
     }, timeoutMs);
 
     sock.on('connect', onConnect);
-    sock.on('connect_error', onError);
     sock.io.on('reconnect_failed', onFail);
   });
 }
