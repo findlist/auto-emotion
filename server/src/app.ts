@@ -52,11 +52,6 @@ import seasonPassRouter from './routes/season-pass.js';
 // 引入商城路由
 import shopRouter from './routes/shop.js';
 
-// 启动时验证数据库连接
-testConnection();
-// 启动时连接 Redis
-redis.connect();
-
 const app = express();
 // 端口从 config 读取（已在 config 中完成解析与默认值处理）
 
@@ -161,17 +156,34 @@ const httpServer = createServer(app);
 // 初始化 WebSocket 服务器：附加到 httpServer，与 Express 共享端口
 initWebSocket(httpServer);
 
-// 启动 HTTP + WebSocket 服务器
-httpServer.listen(config.port, () => {
-  console.log(
-    JSON.stringify({
-      level: 'info',
-      message: 'Server started',
-      timestamp: new Date().toISOString(),
-      port: config.port,
-    }),
-  );
-});
+/**
+ * 启动 HTTP + WebSocket 服务器
+ * 设计原因：生产环境需等待 DB/Redis 就绪后再 listen，避免首请求因依赖未就绪失败；
+ * 测试环境（VITEST=true）直接 listen，避免 await 真实 DB/Redis 连接超时拖慢测试。
+ */
+async function startServer(): Promise<void> {
+  // VITEST 由 vitest 运行时自动设置，测试环境跳过依赖连接
+  if (process.env.VITEST !== 'true') {
+    try {
+      await Promise.all([testConnection(), redis.connect()]);
+    } catch (err) {
+      console.error('依赖服务启动失败:', (err as Error).message);
+      process.exit(1);
+    }
+  }
+  httpServer.listen(config.port, () => {
+    console.log(
+      JSON.stringify({
+        level: 'info',
+        message: 'Server started',
+        timestamp: new Date().toISOString(),
+        port: config.port,
+      }),
+    );
+  });
+}
+
+void startServer();
 
 /**
  * 优雅关闭：收到终止信号时按序释放资源
