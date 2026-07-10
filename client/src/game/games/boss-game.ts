@@ -153,7 +153,8 @@ export class BossGame {
     return this.playerIndicatorTexture;
   }
 
-  async init(levelData: BossLevelData) {
+  // 非 async：内部仅同步初始化场景对象，无异步资源加载，保留 async 会造成"假异步"误导调用方
+  init(levelData: BossLevelData): void {
     this.cleanup();
 
     // 创建 Boss

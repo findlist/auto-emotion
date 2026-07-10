@@ -146,7 +146,8 @@ export class BrawlGame {
     return this.playerIndicatorTexture;
   }
 
-  async init(levelData: BrawlLevelData) {
+  // 非 async：内部仅同步初始化可破坏物与输入监听，无异步资源加载，保留 async 会造成"假异步"误导调用方
+  init(levelData: BrawlLevelData): void {
     this.cleanup();
 
     // 创建可破坏物
