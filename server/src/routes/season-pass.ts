@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { getCurrentSeason, buySeasonPass, claimSeasonReward } from '../services/season-pass-service.js';
 import { success, fail } from '../utils/response.js';
+import { checkIdempotency } from '../utils/idempotency.js';
+import { AppError } from '../utils/error.js';
 
 const router = Router();
 
@@ -29,6 +31,18 @@ router.post('/buy', async (req: Request, res: Response) => {
     return;
   }
 
+  // 幂等控制：5秒窗口防重复提交，避免高频调用重复扣款
+  try {
+    await checkIdempotency(`season-pass:buy:${user.userId}`);
+  } catch (err) {
+    // AppError(CONFLICT) 表示命中幂等拦截（重复请求），返回 409 拒绝
+    if (err instanceof AppError) {
+      fail(res, err.code, err.message);
+      return;
+    }
+    // 非 AppError 表示 Redis 连接异常，按降级规则放行不阻塞核心业务
+  }
+
   try {
     const result = await buySeasonPass(user.userId);
     success(res, result);
@@ -50,6 +64,19 @@ router.post('/claim', async (req: Request, res: Response) => {
   if (!level) {
     fail(res, 400, '缺少等级');
     return;
+  }
+
+  // 幂等控制：5秒窗口防重复提交，避免高频调用重复发放赛季奖励
+  // key 含 level 避免不同等级互相拦截
+  try {
+    await checkIdempotency(`season-pass:claim:${user.userId}:${level}`);
+  } catch (err) {
+    // AppError(CONFLICT) 表示命中幂等拦截（重复请求），返回 409 拒绝
+    if (err instanceof AppError) {
+      fail(res, err.code, err.message);
+      return;
+    }
+    // 非 AppError 表示 Redis 连接异常，按降级规则放行不阻塞核心业务
   }
 
   try {

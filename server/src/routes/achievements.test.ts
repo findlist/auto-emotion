@@ -15,8 +15,16 @@ vi.mock('../services/achievement-service.js', () => ({
   claimAchievementReward: vi.fn(),
 }));
 
+// mock 幂等控制：claim 路由用 checkIdempotency 防重复提交，
+// 默认放行（返回 true），单测按需 mockRejectedValueOnce 覆盖幂等拦截场景
+vi.mock('../utils/idempotency.js', () => ({
+  checkIdempotency: vi.fn().mockResolvedValue(true),
+}));
+
 import router from './achievements.js';
 import * as achievementService from '../services/achievement-service.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { checkIdempotency } from '../utils/idempotency.js';
 
 // 可控鉴权中间件：通过请求头 x-test-no-auth 模拟未授权场景
 function controllableAuth(req: Request, _res: Response, next: NextFunction): void {
@@ -125,6 +133,23 @@ describe('achievements 成就路由', () => {
       expect(res.status).toBe(400);
       expect(body.code).toBe(400);
       expect(body.message).toBe('无效的成就ID');
+      expect(achievementService.claimAchievementReward).not.toHaveBeenCalled();
+    });
+
+    it('幂等拦截命中（5秒内重复提交）时返回 409，不调用 claimAchievementReward', async () => {
+      // checkIdempotency 抛 AppError(CONFLICT) 模拟 Redis SET NX 返回 null（key 已存在）
+      (checkIdempotency as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new AppError(ErrorCode.CONFLICT, '请求已存在，请稍后重试')
+      );
+
+      const res = await fetch(`${baseURL}/3/claim`, { method: 'POST' });
+      const body = await res.json();
+
+      // CONFLICT 按 ErrorCode 语义映射为 HTTP 409
+      expect(res.status).toBe(409);
+      expect(body.code).toBe(ErrorCode.CONFLICT);
+      expect(body.message).toBe('请求已存在，请稍后重试');
+      // 幂等拦截命中时不应调用 claimAchievementReward 发奖
       expect(achievementService.claimAchievementReward).not.toHaveBeenCalled();
     });
 
