@@ -554,8 +554,9 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
 
 /** 结算弹窗：提取为独立组件，避免在 BattlePage 内联定义触发 React 19 static-components 规则
  *  设计原因：内联组件每次父组件重渲染都会创建新函数引用，React 会卸载旧组件并挂载新组件，
- *  导致组件内部 state 重置。虽当前 SettlementPopup 无 state，但遵循 React 19 严格模式规范提前规避隐患 */
-function SettlementPopup({ settlement, onBack }: { settlement: SettlementData; onBack: () => void }) {
+ *  导致组件内部 state 重置。虽当前 SettlementPopup 无 state，但遵循 React 19 严格模式规范提前规避隐患。
+ *  导出供单元测试直接验证排序/MVP/奖牌色渲染逻辑，无需 mock PixiJS 引擎 */
+export function SettlementPopup({ settlement, onBack }: { settlement: SettlementData; onBack: () => void }) {
   if (!settlement.show) return null;
 
   const sorted = [...settlement.finalScores].sort((a, b) => b.score - a.score);

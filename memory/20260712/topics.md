@@ -217,3 +217,36 @@
 下一轮迭代建议：
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
 - 项目已基本达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-12 01:35:00]
+本次完成任务：测试补全 1 项（battle.tsx 结算弹窗 SettlementPopup 导出并补 5 个渲染逻辑测试）
+- 健康预检全绿：后端 tsc 零错误、vitest 651/651（50 文件）；前端 build 零错误零警告（861 modules, 1.12s）、vitest 237/237（28 文件）、eslint 0 错误 0 警告
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面（achievements/friends/idle/season-pass/shop/tasks）、websocket reconnection 10 次指数退避 1-5s + reconnect 自动 rejoin + reconnect_failed 事件处理 + battle.tsx 断线遮罩、battle.tsx min(100%,800px,calc(75vh*4/3)) + aspectRatio 4/3，全部在位完整，未重复开发
+- 用户指令基线"品质优化专项 95%、P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进测试补全
+- 前序多轮评估认为 battle.tsx 测试"PixiJS 难测，已有 battle-scene.test.ts 18 用例覆盖核心逻辑"。本轮重新评估发现 SettlementPopup 是纯渲染组件（无 PixiJS 依赖），包含排序/MVP 计算/奖牌色逻辑，未被 battle-scene.test.ts 覆盖，是 battle.tsx 最后一个可补测的 UI 逻辑
+- 最小单元（SettlementPopup 测试补全）：参考 demo.test.tsx 提取 calculateSettlement 纯函数测试的先例，从 battle.tsx 导出 SettlementPopup 组件（添加 export 关键字，组件导出不触发 react-refresh/only-export-components 规则），创建 battle.test.tsx 5 个测试用例：①show=false 时不渲染；②单玩家显示 MVP 标志与排名信息（分数在 MVP 区与排名列表各显示一次）；③多玩家按分数降序排序；④第一名奖牌色 text-yellow 第二名非金色；⑤点击返回大厅按钮触发 onBack 回调。用 ComponentProps<typeof SettlementPopup> 获取 props 类型，避免导出接口。jsdom 下 getContext 返回 null 但 SettlementPopup 无 Canvas 依赖，测试正常运行
+
+修改文件清单：
+- client/src/pages/battle.tsx（SettlementPopup 添加 export 关键字 + 注释补充导出原因）
+- client/src/pages/battle.test.tsx（新建：5 个 SettlementPopup 渲染逻辑测试用例）
+
+验证结果：
+- 前端 vitest run ✅ 242/242 通过（原 237 + battle 新增 5，29 测试文件，无回归）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.16s）
+- 前端 npx eslint . ✅ 0 错误 0 警告
+- 后端本轮无改动，健康预检 651/651 已通过
+
+动态计划调整：
+- 本轮完成 1 个最小单元（SettlementPopup 测试补全），页面测试覆盖从 14/15 提升至 15/15（所有页面均有配套测试）
+- battle.tsx 测试覆盖：SettlementPopup 渲染逻辑（排序/MVP/奖牌色/返回）由本轮覆盖，BattleScene 核心游戏逻辑由 battle-scene.test.ts 18 用例覆盖，BattlePage 主组件（PixiJS 初始化/socket 交互）仍不可单测
+- 所有页面测试覆盖完成：home/idle/tasks/achievements/friends/season-pass/shop/leaderboard/records/login/register/lobby/room/demo/battle 均有配套测试
+- 剩余可推进项均为设计决策或低价值高风险项：C-05 handleDisconnect（设计决策）、app.ts/websocket/index.ts 测试（vitest.config 排除）、weapons.ts TODO（设计决策）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 项目已基本达到生产就绪，可进行最终全场景终验与部署测试
