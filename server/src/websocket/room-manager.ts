@@ -163,6 +163,13 @@ export const roomManager = {
       const player = room.players.find((p) => p.userId === userId);
       // 非房间成员调用 setReady 会错误聚合状态（如其他人已就绪时把房间置为 ready），需拒绝
       if (!player) throw new AppError(ErrorCode.FORBIDDEN, '不在房间内');
+      // 状态守卫：仅 waiting/ready 允许更改准备状态，防止 generating/playing 期间 setReady 覆盖房间状态
+      // 设计原因：generateLevelAndEvents 异步写回 room.status='playing'，若并发 setReady 把 status 改回
+      // waiting/ready，会导致房间状态机紊乱（UI 显示游戏中但后端 status=waiting）
+      // 保留 ready 态：玩家可在全部就绪后取消准备回到 waiting，与原测试用例语义一致
+      if (room.status !== 'waiting' && room.status !== 'ready') {
+        throw new AppError(ErrorCode.CONFLICT, '游戏进行中，无法更改准备状态');
+      }
       player.isReady = isReady;
 
       // 所有玩家都准备好了？
@@ -183,6 +190,10 @@ export const roomManager = {
       const room = await this.getRoom(roomId);
       if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
       if (room.hostId !== userId) throw new AppError(ErrorCode.FORBIDDEN, '只有房主可以设置模式');
+      // 状态守卫：仅等待中允许切换模式，与 UI 层 roomStore.status==='waiting' 显示条件一致
+      if (room.status !== 'waiting') {
+        throw new AppError(ErrorCode.CONFLICT, '游戏进行中，无法切换模式');
+      }
 
       room.mode = mode;
       await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
@@ -195,6 +206,10 @@ export const roomManager = {
     return this.withRoomLock(roomId, async () => {
       const room = await this.getRoom(roomId);
       if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+      // 状态守卫：仅等待中允许提交压力源，与 UI 层 roomStore.status==='waiting' 显示条件一致
+      if (room.status !== 'waiting') {
+        throw new AppError(ErrorCode.CONFLICT, '游戏进行中，无法提交压力源');
+      }
 
       room.stressSources[userId] = stressSource;
       await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));

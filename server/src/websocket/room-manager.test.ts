@@ -286,6 +286,31 @@ describe('room-manager 房间管理器', () => {
 
       expect(result.status).toBe('waiting');
     });
+
+    // 状态守卫：防止 generating/playing 期间 setReady 覆盖房间状态
+    it('generating 状态下抛 CONFLICT', async () => {
+      const existing: Room = {
+        id: 'R1', hostId: 'u1', status: 'generating', mode: 'boss',
+        players: [{ userId: 'u1', nickname: '玩家1', socketId: 's1', isReady: true }],
+        stressSources: {},
+      };
+      mocks.getMock.mockResolvedValue(JSON.stringify(existing));
+
+      await expect(roomManager.setReady('R1', 'u1', false))
+        .rejects.toMatchObject({ code: ErrorCode.CONFLICT });
+    });
+
+    it('playing 状态下抛 CONFLICT', async () => {
+      const existing: Room = {
+        id: 'R1', hostId: 'u1', status: 'playing', mode: 'boss',
+        players: [{ userId: 'u1', nickname: '玩家1', socketId: 's1', isReady: true }],
+        stressSources: {},
+      };
+      mocks.getMock.mockResolvedValue(JSON.stringify(existing));
+
+      await expect(roomManager.setReady('R1', 'u1', false))
+        .rejects.toMatchObject({ code: ErrorCode.CONFLICT });
+    });
   });
 
   describe('setMode 设置游戏模式', () => {
@@ -311,6 +336,18 @@ describe('room-manager 房间管理器', () => {
 
       expect(result.mode).toBe('brawl');
     });
+
+    // 状态守卫：仅 waiting 允许切换模式，与 UI 层 roomStore.status==='waiting' 显示条件一致
+    it('playing 状态下抛 CONFLICT', async () => {
+      const existing: Room = {
+        id: 'R1', hostId: 'u1', status: 'playing', mode: 'boss',
+        players: [], stressSources: {},
+      };
+      mocks.getMock.mockResolvedValue(JSON.stringify(existing));
+
+      await expect(roomManager.setMode('R1', 'u1', 'brawl'))
+        .rejects.toMatchObject({ code: ErrorCode.CONFLICT });
+    });
   });
 
   describe('submitStress 提交压力源', () => {
@@ -331,6 +368,18 @@ describe('room-manager 房间管理器', () => {
       const result = await roomManager.submitStress('R1', 'u1', '工作压力');
 
       expect(result.stressSources.u1).toBe('工作压力');
+    });
+
+    // 状态守卫：仅 waiting 允许提交压力源，与 UI 层 roomStore.status==='waiting' 显示条件一致
+    it('playing 状态下抛 CONFLICT', async () => {
+      const existing: Room = {
+        id: 'R1', hostId: 'u1', status: 'playing', mode: 'boss',
+        players: [], stressSources: {},
+      };
+      mocks.getMock.mockResolvedValue(JSON.stringify(existing));
+
+      await expect(roomManager.submitStress('R1', 'u1', '工作压力'))
+        .rejects.toMatchObject({ code: ErrorCode.CONFLICT });
     });
   });
 
