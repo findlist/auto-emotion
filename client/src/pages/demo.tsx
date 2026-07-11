@@ -33,6 +33,22 @@ interface SettlementData {
 }
 
 /**
+ * 计算单机演示结算数据
+ * 设计原因：将纯计算逻辑从组件中提取，便于单元测试验证奖励分档与 MVP 阈值，
+ * 遵循"函数只做一件事"原则，组件仅负责状态应用
+ * @param finalScore 本场最终得分
+ * @returns 结算数据（排名/奖励/MVP 标识）
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- 纯计算函数与组件共存便于单测，演示页 Fast Refresh 非关键路径，避免新建碎片化文件
+export function calculateSettlement(finalScore: number): SettlementData {
+  const expReward = Math.floor(finalScore * 1.5);
+  const goldReward = Math.floor(finalScore * 0.8);
+  const isMVP = finalScore > 100;
+  const rank = finalScore > 200 ? 1 : finalScore > 100 ? 2 : finalScore > 50 ? 3 : 4;
+  return { rank, score: finalScore, expReward, goldReward, isMVP };
+}
+
+/**
  * 单机演示页：挂载 PixiJS canvas，进入战斗场景
  * 显示分数、特效档位、技能冷却、结算弹窗
  */
@@ -46,14 +62,9 @@ function DemoPage({ onBack }: DemoPageProps) {
   const [settlement, setSettlement] = useState<SettlementData | null>(null);
   const settlementTriggeredRef = useRef(false);
 
-  // 触发结算
+  // 触发结算：复用纯函数计算，组件仅负责状态应用
   const triggerSettlement = useCallback((finalScore: number) => {
-    const expReward = Math.floor(finalScore * 1.5);
-    const goldReward = Math.floor(finalScore * 0.8);
-    const isMVP = finalScore > 100;
-    const rank = finalScore > 200 ? 1 : finalScore > 100 ? 2 : finalScore > 50 ? 3 : 4;
-
-    setSettlement({ rank, score: finalScore, expReward, goldReward, isMVP });
+    setSettlement(calculateSettlement(finalScore));
   }, []);
 
   // 重新开始
