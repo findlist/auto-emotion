@@ -69,6 +69,7 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
   }, [activeTab, page, pageSize]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadData 含请求序号守卫（requestIdRef）防竞态，依赖 activeTab/page 变化重载需保留同步 setLoading(true) 维护加载指示器 UX
     loadData();
   }, [loadData]);
 

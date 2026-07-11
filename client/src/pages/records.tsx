@@ -55,6 +55,7 @@ export default function RecordsPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadRecords 依赖 page 变化触发重载，需保留同步 setLoading(true) 维持分页切换时的加载指示器 UX；inline IIFE 会在每次翻页丢失 loading 状态
     void loadRecords();
     // loadRecords 依赖 page 与 pageSize，pageSize 为常量不变化，仅 page 触发重新加载
     // eslint-disable-next-line react-hooks/exhaustive-deps

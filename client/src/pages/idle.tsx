@@ -76,6 +76,7 @@ function IdlePage({ onBack }: IdlePageProps) {
 
   useEffect(() => {
     if (!userId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- loadData 为 useCallback 共享给 7 个升级处理器（handleUpgradeWeapon 等），内联 IIFE 会重复 6 个并行 API 调用；userId 变化罕发（仅登录切换），级联渲染影响可忽略
     void loadData();
   }, [userId, loadData]);
 

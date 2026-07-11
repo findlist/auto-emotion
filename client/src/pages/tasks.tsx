@@ -17,11 +17,13 @@ const TASK_TYPE_LABELS: Record<number, { label: string; emoji: string }> = {
 
 export default function TasksPage({ onBack }: TasksPageProps) {
   const [tasks, setTasks] = useState<DailyTask[]>([]);
-  const [loading, setLoading] = useState(false);
+  // 初始 true：挂载即开始加载，避免 useEffect 内同步 setLoading(true) 触发级联渲染
+  const [loading, setLoading] = useState(true);
 
+  // loadTasks 不再同步 setLoading(true)，仅由调用方或初始 true 控制
+  // handleClaim 单独管理 loading，避免与刷新逻辑耦合
   async function loadTasks() {
     try {
-      setLoading(true);
       const data = await taskApi.getDailyTasks();
       setTasks(data);
     } catch (err) {
@@ -31,8 +33,21 @@ export default function TasksPage({ onBack }: TasksPageProps) {
     }
   }
 
+  // 内联初始加载：避免 eslint 跨过程分析标记 loadTasks 调用
+  // cancelled 标志防止组件卸载后 setState（React 19 推荐模式）
   useEffect(() => {
-    loadTasks();
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await taskApi.getDailyTasks();
+        if (!cancelled) setTasks(data);
+      } catch (err) {
+        logger.error('加载任务失败', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   async function handleClaim(task: DailyTask) {

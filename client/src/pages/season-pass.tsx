@@ -19,11 +19,13 @@ const REWARD_TYPE_LABELS: Record<string, string> = {
 
 export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
   const [seasonPass, setSeasonPass] = useState<SeasonPass | null>(null);
-  const [loading, setLoading] = useState(false);
+  // 初始 true：挂载即开始加载，避免 useEffect 内同步 setLoading(true) 触发级联渲染
+  const [loading, setLoading] = useState(true);
 
+  // loadSeasonPass 不再同步 setLoading(true)，仅由调用方或初始 true 控制
+  // handleBuy/handleClaim 单独管理 loading，避免与刷新逻辑耦合
   async function loadSeasonPass() {
     try {
-      setLoading(true);
       const data = await seasonPassApi.get();
       setSeasonPass(data);
     } catch (err) {
@@ -33,8 +35,21 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
     }
   }
 
+  // 内联初始加载：避免 eslint 跨过程分析标记 loadSeasonPass 调用
+  // cancelled 标志防止组件卸载后 setState（React 19 推荐模式）
   useEffect(() => {
-    loadSeasonPass();
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await seasonPassApi.get();
+        if (!cancelled) setSeasonPass(data);
+      } catch (err) {
+        logger.error('加载赛季通行证失败', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   async function handleBuy() {

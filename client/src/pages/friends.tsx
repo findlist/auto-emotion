@@ -16,13 +16,15 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [addUserId, setAddUserId] = useState('');
 
-  // 加载数据
+  // 加载数据：不设置 loading（由调用方或初始 true 控制），仅 finally 清除
+  // 设计原因：原 setLoading(true) 在 useEffect 调用链中为同步 setState，
+  // 触发 react-hooks/set-state-in-effect 警告。初始 loading=true 覆盖挂载场景，
+  // handleAddFriend 等处理器自行管理 loading 状态
   async function loadData() {
     try {
-      setLoading(true);
       const [friendsData, requestsData] = await Promise.all([
         friendApi.getFriends().catch(() => []),
         friendApi.getRequests().catch(() => []),
@@ -36,8 +38,27 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
     }
   }
 
+  // 内联初始加载：避免 eslint 跨过程分析标记 loadData 调用
+  // cancelled 标志防止组件卸载后 setState（React 19 推荐模式）
   useEffect(() => {
-    loadData();
+    let cancelled = false;
+    (async () => {
+      try {
+        const [friendsData, requestsData] = await Promise.all([
+          friendApi.getFriends().catch(() => []),
+          friendApi.getRequests().catch(() => []),
+        ]);
+        if (!cancelled) {
+          setFriends(friendsData);
+          setRequests(requestsData);
+        }
+      } catch (err) {
+        logger.error('加载好友数据失败', err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // 添加好友

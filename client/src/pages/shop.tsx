@@ -72,6 +72,7 @@ export default function ShopPage({ onBack }: ShopPageProps) {
 
   useEffect(() => {
     if (activeTab === 'items') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loadItems 为 useCallback 共享给 handleBuy，含请求序号守卫防竞态；依赖 activeType 变化重载需保留 setLoading(true) 维护加载指示器
       loadItems();
     } else {
       loadInventory();
