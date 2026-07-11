@@ -93,7 +93,17 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
   // 用 setTimeout 延迟执行，effect 重新执行时取消定时器，仅真实卸载时才离开房间（H-13 修复）
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [connected, setConnected] = useState(false);
+  // 懒初始化：组件首次渲染时读取全局 socket 连接状态
+  // 设计原因：避免在 useEffect 内同步 setState 触发级联渲染（React 19 react-hooks/set-state-in-effect 规则）
+  // socket 在用户从大厅进入对战页时已由 lobby.tsx 创建，getSocket() 通常不会抛错；
+  // try/catch 兜底处理 socket 未创建的边缘场景（如直接 URL 访问 battle 页面），后续由 connect 事件更新
+  const [connected, setConnected] = useState(() => {
+    try {
+      return getSocket().connected;
+    } catch {
+      return false;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
   const [players, setPlayers] = useState<PlayerScore[]>([]);
   const [localScore, setLocalScore] = useState(0);
@@ -125,7 +135,6 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
     // 复用全局大厅 socket 实例，避免双 socket 导致后端房间内 socketId 混乱与事件路由错乱
     // 大厅 socket 已处理 connect/disconnect/reconnect 的 Toast 提示，此处只关心对战业务事件
     const socket = getSocket();
-    setConnected(socket.connected);
 
     // 大厅 socket 可能在进入对战页前已连接，此时主动 emit room:join 加入房间
     if (socket.connected) {
