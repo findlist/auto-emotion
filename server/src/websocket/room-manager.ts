@@ -342,14 +342,16 @@ export const roomManager = {
     this.broadcast(room.id, GameEvents.LEVEL_READY, levelReadyData);
   },
 
-  /** 更新房间状态 */
+  /** 更新房间状态：使用 withRoomLock 串行化读-改-写，防止与其他方法并发覆盖玩家/stressSources 数据 */
   async updateRoomStatus(roomId: string, status: RoomStatus): Promise<Room | null> {
-    const room = await this.getRoom(roomId);
-    if (!room) return null;
+    return this.withRoomLock(roomId, async () => {
+      const room = await this.getRoom(roomId);
+      if (!room) return null;
 
-    room.status = status;
-    await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
-    return room;
+      room.status = status;
+      await redis.setex(`room:${roomId}`, ROOM_TTL, serializeRoom(room));
+      return room;
+    });
   },
 
   /** 向房间内所有玩家广播事件 */
