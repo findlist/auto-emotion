@@ -61,3 +61,41 @@
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
 - 8 处 async 函数 set-state-in-effect 警告（需架构调整统一处理，风险高价值低，warn 不阻塞 CI）
 - 项目已基本达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-12 00:45:00]
+本次完成任务：工作区清理 2 组提交 + 项目健康故障修复 1 项（room-manager setReady/setMode/submitStress 补状态守卫）
+- 健康预检全绿：后端 tsc 零错误、vitest 647/647；前端 build 零错误零警告（861 modules, 1.22s）、lint 0 错误 8 警告、前端 vitest 228/228
+- P0 三项收尾任务代码核实：showConfirm 覆盖 6 页面（achievements/friends/idle/season-pass/shop/tasks）、websocket reconnection 10 次指数退避 1-5s + reconnect_failed 事件处理 + reconnect 自动 rejoin + Toast + battle.tsx 断线遮罩、battle.tsx min(100%,800px,calc(75vh*4/3)) + aspectRatio 4/3，全部在位完整，未重复开发
+- 用户指令基线"品质优化专项 95%、P0 三项待完成"与实际状态冲突：经代码+topics 核实 P0 三项已于 2026-07-09 11:36 验收通过，按"不得重复开发"红线未重做，转而推进工作区清理与健康故障修复
+- 最小单元1（工作区清理）：前序 Agent 遗留 8 个前端样式精修文件 + 2 个 docs 文件未提交。样式精修涉及 8 页面（battle 结算弹窗银铜牌、home 雷达副标、idle 属性框 padding、lobby 信息卡 grid、room 状态本地化+avatar、season-pass 徽章尺寸、shop 筛选对比度、tasks 进度条高度），docs 为 bug-check-2026-07-12 与 style-opt-2026-07-12 报告。前端 vitest 228/228 无回归，分 2 组提交推送
+- 最小单元2（room-manager 状态守卫）：bug-check-2026-07-12 报告指出 generateLevelAndEvents 未加 withRoomLock（设计决策：长时异步 AI 生成，加锁会阻塞 setReady 等操作数秒）。深入评估发现根本风险不在 generateLevelAndEvents 本身，而在 setReady/setMode/submitStress 三个方法缺少状态守卫——UI 层仅在 status==='waiting' 时显示操作按钮，但后端无对应守卫，客户端可通过 API 在 generating/playing 期间调用 setReady 把 status 改回 waiting/ready，与 generateLevelAndEvents 异步写回 status='playing' 形成竞态，导致房间状态机紊乱。修复：setReady 守卫 waiting/ready（保留 ready 态允许取消准备）、setMode/submitStress 守卫仅 waiting，与 UI 层显示条件一致。新增 4 个测试覆盖 generating/playing 状态守卫
+- bug-check 报告中 generateLevelAndEvents 竞态经本轮间接缓解：setReady/setMode/submitStress 在 generating/playing 下不再覆盖房间状态，竞态窗口大幅收窄
+
+修改文件清单：
+- client/src/pages/battle.tsx、home.tsx、idle.tsx、lobby.tsx、room.tsx、season-pass.tsx、shop.tsx、tasks.tsx（前序 Agent 遗留样式精修，本轮提交）
+- docs/bug-check/bug-check-2026-07-12.md、docs/style-optimization/style-opt-2026-07-12.md（前序 Agent 遗留报告，本轮提交）
+- server/src/websocket/room-manager.ts（setReady/setMode/submitStress 加状态守卫）
+- server/src/websocket/room-manager.test.ts（新增 4 个状态守卫测试用例）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误
+- 后端 vitest run ✅ 651/651 通过（原 647 + 新增 4 个状态守卫测试，无回归）
+- 前端 npm run build ✅ 零错误零警告（本轮无前端代码改动，健康预检已绿）
+- 前端 vitest run ✅ 228/228 通过（工作区清理验证无回归）
+- Git commit 1116b63（样式精修）、60f421c（docs）、b1ca269（状态守卫）已推送 origin/main
+
+动态计划调整：
+- 本轮累计完成 2 个最小单元（工作区清理 + room-manager 状态守卫修复），达成单轮产出下限（2-3 个），触发终止条件
+- bug-check 2026-07-12 报告中 P1 问题（updateRoomStatus 缺失 withRoomLock）已于 118cb4e 修复，本轮无新增 P0/P1 问题
+- generateLevelAndEvents 竞态经本轮间接缓解，剩余风险可接受（generating 状态下 setReady/setMode/submitStress 已被守卫拦截）
+- 剩余可推进项均为设计决策或需架构调整的高风险项：C-05 handleDisconnect（设计决策）、8 处 set-state-in-effect 警告（eslint 静态分析误报，需 useEffectEvent/Suspense 架构调整）、auth.ts middleware redis.get 未 try/catch（fail-closed 设计决策）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 8 处 async 函数 set-state-in-effect 警告（需架构调整统一处理，风险高价值低，warn 不阻塞 CI）
+- 项目已基本达到生产就绪，可进行最终全场景终验与部署测试
