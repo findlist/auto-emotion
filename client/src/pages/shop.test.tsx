@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+// 引入被 mock 的工具函数，用于在测试中设置返回值与断言调用
+import { showConfirm } from '@/utils/confirm';
+import { showToast } from '@/utils/toast';
+import { showApiError } from '@/utils/api-error';
 
 // vi.hoisted 让 mock 工厂引用的运行时可变状态在 vi.mock 提升后仍可访问。
 // getItems 在竞态测试中返回可控 Promise，手动控制 resolve 顺序模拟异步竞态。
@@ -85,5 +89,85 @@ describe('ShopPage 商城页与竞态守卫', () => {
       expect(screen.getByText('武器皮肤B')).toBeInTheDocument();
     });
     expect(screen.queryByText('全部商品A')).not.toBeInTheDocument();
+  });
+
+  it('确认购买后调用 buy 并显示成功提示与刷新列表', async () => {
+    // 覆盖购买完整流程：确认弹窗 → buy 调用 → 成功 Toast → 刷新 items/inventory
+    shopApiMock.getItems.mockResolvedValue(allItems);
+    shopApiMock.getInventory.mockResolvedValue([]);
+    shopApiMock.buy.mockResolvedValue(undefined);
+    vi.mocked(showConfirm).mockResolvedValue(true);
+
+    render(<ShopPage onBack={() => {}} />);
+
+    // 等待商品列表加载完成
+    await waitFor(() => {
+      expect(screen.getByText('全部商品A')).toBeInTheDocument();
+    });
+
+    // 点击购买按钮触发确认弹窗
+    await act(async () => {
+      fireEvent.click(screen.getByText('购买'));
+    });
+
+    // 验证确认弹窗参数含商品名与价格
+    expect(showConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '确认购买',
+        message: expect.stringContaining('全部商品A'),
+      }),
+    );
+    // 验证 buy 被调用且参数为商品 id
+    expect(shopApiMock.buy).toHaveBeenCalledWith(1);
+    // 验证成功 Toast 含商品名
+    expect(showToast).toHaveBeenCalledWith('success', expect.stringContaining('全部商品A'));
+    // 验证购买后刷新了商品列表与背包
+    expect(shopApiMock.getItems).toHaveBeenCalledTimes(2);
+    expect(shopApiMock.getInventory).toHaveBeenCalledTimes(1);
+  });
+
+  it('取消购买时不调用 buy', async () => {
+    // 覆盖取消购买分支：showConfirm 返回 false → 不调用 buy
+    shopApiMock.getItems.mockResolvedValue(allItems);
+    shopApiMock.getInventory.mockResolvedValue([]);
+    vi.mocked(showConfirm).mockResolvedValue(false);
+
+    render(<ShopPage onBack={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('全部商品A')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('购买'));
+    });
+
+    // 确认弹窗已弹出但 buy 未被调用
+    expect(showConfirm).toHaveBeenCalled();
+    expect(shopApiMock.buy).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it('购买失败时显示错误提示', async () => {
+    // 覆盖购买失败分支：buy 抛错 → showApiError 调用
+    shopApiMock.getItems.mockResolvedValue(allItems);
+    shopApiMock.getInventory.mockResolvedValue([]);
+    shopApiMock.buy.mockRejectedValue(new Error('金币不足'));
+    vi.mocked(showConfirm).mockResolvedValue(true);
+
+    render(<ShopPage onBack={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('全部商品A')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('购买'));
+    });
+
+    // 验证 buy 被调用但失败后走 showApiError 而非 showToast
+    expect(shopApiMock.buy).toHaveBeenCalledWith(1);
+    expect(showApiError).toHaveBeenCalledWith(expect.any(Error), '购买失败');
+    expect(showToast).not.toHaveBeenCalled();
   });
 });
