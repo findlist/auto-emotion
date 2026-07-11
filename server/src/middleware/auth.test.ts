@@ -91,6 +91,22 @@ describe('auth JWT 认证中间件', () => {
       expect(nextCalled).toBe(1);
       expect(req.user).toEqual({ userId: 'u1', phone: '13800000000' });
     });
+
+    it('Redis 故障时抛 INTERNAL_ERROR "认证服务暂时不可用"（fail-closed 不放行）', async () => {
+      // 设计原因：Redis 不可用时 fail-closed 拒绝请求，防止已登出 token 被放行；
+      // 包装为 AppError 使错误响应符合统一格式，且不继续校验 jwt 避免无效计算
+      (redis.get as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Connection refused'));
+      const req = createMockRequest('Bearer some-token');
+
+      await expect(
+        authMiddleware(req, {} as never, () => {})
+      ).rejects.toMatchObject({
+        code: ErrorCode.INTERNAL_ERROR,
+        message: '认证服务暂时不可用',
+      });
+      // Redis 故障时不应继续校验 jwt
+      expect(jwt.verify).not.toHaveBeenCalled();
+    });
   });
 
   describe('JWT 校验失败场景', () => {

@@ -28,7 +28,14 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
   const token = authHeader.slice(7);
 
   // 检查 Redis 黑名单
-  const blacklisted = await redis.get(`blacklist:${token}`);
+  // 设计原因：Redis 故障时保持 fail-closed（拒绝请求以防已登出 token 被错误放行），
+  // 但用 try/catch 包装为 AppError 使错误响应符合统一格式，避免原生 Error 泄露连接细节
+  let blacklisted: string | null;
+  try {
+    blacklisted = await redis.get(`blacklist:${token}`);
+  } catch {
+    throw new AppError(ErrorCode.INTERNAL_ERROR, '认证服务暂时不可用');
+  }
   if (blacklisted) {
     throw new AppError(ErrorCode.UNAUTHORIZED, '令牌已失效');
   }
