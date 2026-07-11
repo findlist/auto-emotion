@@ -177,8 +177,10 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center font-mono font-bold ${
-                      isUnlocked ? 'bg-mint text-ink shadow-[2px_2px_0_#1a1a1a]' : 'bg-ink/20 text-ink/50'
+                    className={`w-14 h-14 rounded-full flex items-center justify-center font-mono font-bold text-lg ${
+                      isUnlocked
+                        ? 'bg-mint text-ink shadow-[2px_2px_0_#1a1a1a] ring-2 ring-yellow/40'
+                        : 'bg-ink/20 text-ink/50'
                     }`}
                   >
                     {reward.level}

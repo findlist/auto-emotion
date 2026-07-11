@@ -143,19 +143,25 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
       {user && (
         <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] mb-8 w-80 animate-stagger delay-100 relative overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-pink" aria-hidden="true" />
-          <div className="text-left space-y-2 font-mono text-sm pl-2">
-            <p className="text-ink">
-              <span className="text-ink/60">昵称:</span> {user.nickname}
+          <div className="text-left font-mono text-sm pl-2">
+            <p className="text-ink mb-3">
+              <span className="text-ink/60">昵称:</span> <span className="font-bold">{user.nickname}</span>
             </p>
-            <p className="text-ink">
-              <span className="text-ink/60">等级:</span> Lv.{user.level}
-            </p>
-            <p className="text-ink">
-              <span className="text-ink/60">金币:</span> <span className="text-yellow font-bold">{user.coins}</span>
-            </p>
-            <p className="text-ink">
-              <span className="text-ink/60">战力:</span> <span className="text-mint font-bold">{user.power}</span>
-            </p>
+            {/* 三项核心数据 grid 排列：等级/金币/战力分色区分，比原垂直堆叠更紧凑且层次清晰 */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-ink/5 px-2 py-1.5 rounded">
+                <p className="text-ink/60 text-xs">等级</p>
+                <p className="text-ink font-bold">Lv.{user.level}</p>
+              </div>
+              <div className="bg-yellow/20 px-2 py-1.5 rounded">
+                <p className="text-ink/60 text-xs">金币</p>
+                <p className="text-yellow font-bold">{user.coins}</p>
+              </div>
+              <div className="bg-mint/20 px-2 py-1.5 rounded">
+                <p className="text-ink/60 text-xs">战力</p>
+                <p className="text-mint font-bold">{user.power}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -69,7 +69,10 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
           <div className="absolute inset-0 bg-dots opacity-50 pointer-events-none" aria-hidden="true" />
           <div className="absolute inset-0 bg-stripes opacity-30 pointer-events-none" aria-hidden="true" />
           <div className="relative">
-            <p className="font-cn text-lg mb-3 text-center">压力分布雷达</p>
+            <div className="text-center mb-3">
+              <p className="font-cn text-xl">压力分布雷达</p>
+              <p className="font-mono text-xs text-cream/60 mt-0.5">实时监测多维情绪压力</p>
+            </div>
             <div className="flex justify-center">
               <PressureRadar data={pressure} size={240} />
             </div>

@@ -593,7 +593,13 @@ function SettlementPopup({ settlement, onBack }: { settlement: SettlementData; o
             <div
               key={p.userId}
               className={`flex justify-between items-center px-3 py-1.5 border-2 ${
-                idx === 0 ? 'border-yellow bg-yellow/10' : 'border-ink/20'
+                idx === 0
+                  ? 'border-yellow bg-yellow/10'
+                  : idx === 1
+                  ? 'border-gray-400 bg-gray-100'
+                  : idx === 2
+                  ? 'border-amber-700 bg-amber-50'
+                  : 'border-ink/20'
               }`}
             >
               <span className={`font-cn ${medalClass(idx)} ${idx === 0 ? 'font-bold' : ''}`}>

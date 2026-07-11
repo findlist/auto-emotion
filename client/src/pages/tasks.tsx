@@ -136,7 +136,7 @@ export default function TasksPage({ onBack }: TasksPageProps) {
 
                   {/* 进度条：role="progressbar" + aria 属性让屏幕阅读器可朗读任务进度 */}
                   <div
-                    className="h-2 bg-ink/20 rounded-full mb-3"
+                    className="h-2.5 bg-ink/20 rounded-full mb-3"
                     role="progressbar"
                     aria-label={`任务进度：${task.name}`}
                     aria-valuenow={task.progress}

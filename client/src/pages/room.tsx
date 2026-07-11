@@ -22,6 +22,17 @@ const GAME_MODES: { value: GameMode; label: string }[] = [
   { value: 'speed', label: '手速竞速' },
 ];
 
+// 房间状态中文映射：原 roomStore.status 直接显示英文（waiting/playing）让用户困惑
+// 设计原因：状态字段为内部协议值，UI 应展示用户可读的本地化文字
+const ROOM_STATUS_LABEL: Record<string, string> = {
+  waiting: '等待中',
+  ready: '已准备',
+  generating: '生成中',
+  playing: '游戏中',
+  settling: '结算中',
+  closed: '已关闭',
+};
+
 export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
   const user = useUserStore((s) => s.user);
   // useShallow 浅比较返回字段，避免 store 任意字段变化时创建新对象触发不必要重渲染
@@ -107,7 +118,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
         <div className="text-center">
           <h2 className="font-cn text-3xl text-ink drop-shadow-[3px_3px_0_rgba(255,61,127,0.2)]">游戏房间</h2>
           <p className="text-ink/60 font-mono text-sm mt-1">
-            状态: <span className="text-pink font-bold">{roomStore.status}</span>
+            状态: <span className="text-pink font-bold">{ROOM_STATUS_LABEL[roomStore.status] ?? roomStore.status}</span>
           </p>
         </div>
       </div>
@@ -123,14 +134,26 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
                 player.userId === roomStore.hostId ? 'border-yellow' : 'border-ink'
               } ${player.userId === user?.id.toString() ? 'bg-yellow/20' : 'bg-cream'}`}
             >
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm text-ink">{player.nickname}</span>
-                {player.userId === roomStore.hostId && (
-                  <span className="bg-yellow text-ink text-xs px-1 font-bold shadow-[1px_1px_0_#1a1a1a]">房主</span>
-                )}
-                {player.userId === user?.id.toString() && (
-                  <span className="text-ink/60 text-xs">(你)</span>
-                )}
+              <div className="flex items-center gap-2.5">
+                {/* 玩家首字母 avatar：与首页/挂机页头像风格统一，提升识别度 */}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-bold ${
+                  player.userId === roomStore.hostId
+                    ? 'bg-yellow text-ink'
+                    : player.userId === user?.id.toString()
+                    ? 'bg-pink text-cream'
+                    : 'bg-ink text-cream'
+                }`}>
+                  {player.nickname?.[0] ?? '?'}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm text-ink">{player.nickname}</span>
+                  {player.userId === roomStore.hostId && (
+                    <span className="bg-yellow text-ink text-xs px-1 font-bold shadow-[1px_1px_0_#1a1a1a]">房主</span>
+                  )}
+                  {player.userId === user?.id.toString() && (
+                    <span className="text-ink/60 text-xs">(你)</span>
+                  )}
+                </div>
               </div>
               <span
                 className={`font-mono text-sm font-bold ${player.isReady ? 'text-mint' : 'text-pink'}`}

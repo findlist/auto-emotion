@@ -166,7 +166,7 @@ export default function ShopPage({ onBack }: ShopPageProps) {
               className={`px-3 py-1 font-cn text-sm whitespace-nowrap transition-all ${
                 activeType === type
                   ? 'bg-ink text-cream shadow-[2px_2px_0_#ff3d7f]'
-                  : 'bg-ink/10 text-ink/70 hover:bg-ink/20'
+                  : 'bg-ink/15 text-ink/80 hover:bg-ink/25'
               }`}
             >
               {type === 'all' ? '全部' : TYPE_LABELS[type]}

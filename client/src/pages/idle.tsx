@@ -407,19 +407,19 @@ function IdlePage({ onBack }: IdlePageProps) {
         </div>
         <div className="grid grid-cols-4 gap-2 font-mono text-xs">
           {/* 属性框：bg-cream/10 浅色底在深色父级上形成可见层次（原 bg-ink/80 与父级同色不可辨） */}
-          <div className="bg-cream/10 px-2 py-1 rounded border border-cream/20">
+          <div className="bg-cream/10 px-2.5 py-1.5 rounded border border-cream/20">
             <span className="text-cream/60">攻击</span>
             <span className="ml-1 text-orange font-bold">{status?.attack ?? 0}</span>
           </div>
-          <div className="bg-cream/10 px-2 py-1 rounded border border-cream/20">
+          <div className="bg-cream/10 px-2.5 py-1.5 rounded border border-cream/20">
             <span className="text-cream/60">防御</span>
             <span className="ml-1 text-mint font-bold">{status?.defense ?? 0}</span>
           </div>
-          <div className="bg-cream/10 px-2 py-1 rounded border border-cream/20">
+          <div className="bg-cream/10 px-2.5 py-1.5 rounded border border-cream/20">
             <span className="text-cream/60">生命</span>
             <span className="ml-1 text-pink font-bold">{status?.hp ?? 0}</span>
           </div>
-          <div className="bg-cream/10 px-2 py-1 rounded border border-cream/20">
+          <div className="bg-cream/10 px-2.5 py-1.5 rounded border border-cream/20">
             <span className="text-cream/60">效率</span>
             <span className="ml-1 text-yellow font-bold">{((status?.efficiency ?? 1) * 100).toFixed(0)}%</span>
           </div>
