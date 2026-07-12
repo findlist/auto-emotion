@@ -153,3 +153,57 @@
 下一轮迭代建议：
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
 - 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-13 01:00:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 上线验收标准 7 项独立核对（本轮为有效调研工作，未修改业务代码）
+- 健康预检全绿（本轮独立运行确认）：
+  ① 后端 tsc --noEmit ✅ 零错误（exit 0）
+  ② 后端 vitest run ✅ 652/652 通过（50 测试文件，5.30s）。stderr 中的报错均为测试预期日志（auth errorHandler 冒泡测试 4 处、room-manager AI 兜底测试 3 处），非真实故障
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.19s）
+  ④ 前端 vitest run ✅ 242/242 通过（29 测试文件，13.95s）。stderr 中 getContext 警告为 jsdom 环境限制（PixiJS 渲染测试在 jsdom 下不可用，纯逻辑测试正常运行）
+  ⑤ 前端 npx eslint . ✅ 0 错误 0 警告
+- P0 三项收尾任务代码独立核实（与 2026-07-09 11:36 验收记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——confirm.tsx showConfirm 返回 Promise<boolean>，ConfirmDialog 实现；Grep 核实 showConfirm 覆盖 6 业务页面（achievements/friends/idle/season-pass/shop/tasks）共 65 处调用 + 6 个测试文件配套
+  ② WebSocket 断线重连——websocket/index.ts:49-52 reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000（指数退避 1-5s）+ L59-65 disconnect Toast（非主动断开时提示）+ L67-70 connect_error 日志 + L73-80 reconnect 自动 rejoin（lastRoomId/lastNickname）+ L83-85 reconnect_failed Toast + L108-113 room:player-offline 广播 + L138-139 disconnect 清理 lastRoomId + battle.tsx:534-541 断线重连遮罩（!connected && gameStarted && !settlement.show）
+  ③ 对战画布响应式——battle.tsx:474 width: 'min(100%, 800px, calc(75vh * 4 / 3))' + L475 aspectRatio: '4 / 3' + L461 portrait 横屏柔和提示
+- 用户指令基线"品质优化专项 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md 核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范"所有已完成功能不得重复开发"红线未重做
+- 工作区状态：git status 无未提交改动（工作区干净），最近 commit 为 9343128（docs: 沉淀 2026-07-13 00:55 健康校验与 P0 三项代码核实进度记录）
+- 技术债扫描（本轮独立核实）：① .skip/.todo/FIXME/XXX 标记 0 处（仅 friends.test.ts:105 注释文案"XXX失败"描述 catch 块逻辑，非标记）；② any 类型 0 处实际使用（3 处命中均为注释中"已修复"的设计原因说明）；③ lint 0 警告；④ 前端覆盖率工具化仍受 @vitest/coverage-v8 依赖红线阻塞（规范"禁止随意新增第三方依赖"）
+- 上线验收标准（规范第十一条）7 项独立核对结果：
+  1. 核心功能全链路闭环 ✅（对战/挂机/AI/社交/商城/任务体系完整，P0 三项代码完整在位）
+  2. 后端 tsc 零错误零警告 ✅（本轮 exit 0）
+  3. 后端覆盖率 ≥ 70% ✅（历史 97%，CI 配置 --coverage，vitest.config 阈值 70% 锁定）
+  4. 前端 build 零错误零警告 ✅（本轮 861 modules, 1.19s）
+  5. 全页面移动端适配、状态提示、交互体验 ✅（历史多轮样式精修，battle.tsx 响应式完整）
+  6. CI/CD 流水线 ✅（.github/workflows/ci.yml 前后端并行 job，覆盖 lint + tsc + vitest + coverage + build，触发条件 push/PR to main/master）
+  7. 无高危技术债 ✅（any/lint/Promise/内存泄漏均无缺口，数据库索引迁移 003 已补齐，事务/并发机制完善）
+
+修改文件清单：
+- 无（本轮为有效调研工作，未修改业务代码）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（exit 0）
+- 后端 vitest run ✅ 652/652 通过（50 测试文件，5.30s）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.19s）
+- 前端 vitest run ✅ 242/242 通过（29 测试文件，13.95s）
+- 前端 npx eslint . ✅ 0 错误 0 警告
+
+动态计划调整：
+- 本轮完成全量健康校验 + P0 三项代码独立核实 + 上线验收标准 7 项独立核对，确认项目已达到生产就绪状态
+- 剩余可推进项均为设计决策或不适用项，不宜强行推进（避免违反"避免过度工程化"原则）：
+  ① C-05 handleDisconnect 清理：设计决策，handlers.ts 注释明确"不移除房间数据，给断线玩家保留 5 分钟重连窗口（房间 TTL 自然清理）"，立即清理破坏 P0 重连流程，延迟清理需引入定时器机制复杂度高
+  ② generateLevelAndEvents 加 withRoomLock：设计决策，generating 状态下 setReady/setMode/submitStress 均已被守卫拦截（2026-07-12 00:45 修复），竞态影响可接受，加锁会阻塞 handleFinish 等并发操作
+  ③ weapons.ts TODO：设计决策，纯内存对象无需 DB 初始化
+  ④ app.ts/websocket/index.ts 测试：vitest.config 明确排除，入口文件副作用驱动不可单测
+  ⑤ 前端覆盖率工具化：受 @vitest/coverage-v8 依赖红线阻塞，待用户决策
+- 触发终止条件：当前阶段所有 P0 任务全部验收完成（7.1.3）+ 无备选可迭代任务（7.1.2）+ 连续多轮纯调研无落地优化（7.1.4）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
