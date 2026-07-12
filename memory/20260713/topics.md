@@ -207,3 +207,41 @@
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
 - 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
 - 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-13 09:05:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 剩余可推进项深度评估（本轮为有效调研工作，未修改业务代码）
+- 健康预检全绿（本轮独立运行确认）：后端 tsc 零错误（exit 0）、vitest 652/652 通过（50 测试文件，4.87s）；前端 build 零错误零警告（861 modules, 1.17s）。stderr 中的报错均为测试预期日志（auth errorHandler 冒泡测试 4 处、room-manager AI 兜底测试 3 处），非真实故障
+- P0 三项收尾任务代码独立核实（与 2026-07-09 11:36 验收记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——Grep 核实 showConfirm 覆盖 6 业务页面（achievements/friends/idle/season-pass/shop/tasks），idle 8 处（武器购买/升级/装备、技能解锁/升级/激活、宠物购买/装备、属性升级）、season-pass 2 处、其余各 1 处
+  ② WebSocket 断线重连——websocket/index.ts:49-52 reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000（指数退避 1-5s）
+  ③ 对战画布响应式——battle.tsx:474 width: 'min(100%, 800px, calc(75vh * 4 / 3))'
+- 用户指令基线"品质优化专项 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md 核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范"所有已完成功能不得重复开发"红线未重做
+- 剩余可推进项深度评估（全部确认为设计决策或不适用项，不宜推进，避免违反"避免过度工程化"原则）：
+  ① C-05 handleDisconnect 清理：设计决策，handlers.ts 注释明确"不移除房间数据，给断线玩家保留 5 分钟重连窗口（房间 TTL 自然清理）"，立即清理破坏 P0 重连流程，延迟清理需引入定时器机制复杂度高
+  ② generateLevelAndEvents 加 withRoomLock：设计决策，generating 状态下 setReady/setMode/submitStress 均已被守卫拦截（2026-07-12 00:45 修复），竞态影响可接受，加锁会阻塞 handleFinish 等并发操作
+  ③ weapons.ts TODO：设计决策，纯内存对象无需 DB 初始化
+  ④ app.ts/websocket/index.ts 测试：vitest.config 明确排除，入口文件副作用驱动不可单测
+- 上线验收标准（规范第十一条）7 项全部达标（2026-07-11 02:55 + 2026-07-12 01:20 + 2026-07-12 02:15 三轮核对确认，本轮健康预检再次确认）
+
+修改文件清单：
+- 无（本轮为有效调研工作，未修改业务代码）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（exit 0）
+- 后端 vitest run ✅ 652/652 通过（50 测试文件，4.87s）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.17s）
+
+动态计划调整：
+- 本轮完成全量健康校验 + P0 三项代码独立核实 + 剩余可推进项深度评估，确认项目已达到生产就绪状态
+- 剩余可推进项均为设计决策或不适用项，不宜强行推进（避免违反"避免过度工程化"原则）
+- 触发终止条件：当前阶段所有 P0 任务全部验收完成（7.1.3）+ 无备选可迭代任务（7.1.2）+ 连续多轮纯调研无落地优化（7.1.4）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
