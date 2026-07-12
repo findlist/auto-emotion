@@ -128,20 +128,20 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 scrollbar-brutal">
-      {/* 标题：交错入场，添加副标徽章 */}
+      {/* 标题：交错入场，添加副标徽章；标题响应式避免小屏溢出 */}
       <div className="text-center mb-8 animate-stagger">
         <span className="inline-block bg-ink text-cream px-3 py-1 text-xs font-bold tracking-widest mb-3 shadow-[3px_3px_0_#ff3d7f]">
           BATTLE LOBBY
         </span>
-        <h1 className="font-cn text-5xl text-ink mb-2 drop-shadow-[4px_4px_0_rgba(255,107,53,0.3)]">
+        <h1 className="font-cn text-4xl sm:text-5xl text-ink mb-2 drop-shadow-[4px_4px_0_rgba(255,107,53,0.3)]">
           游戏大厅
         </h1>
         <p className="text-ink/70 font-mono text-sm">选择一个模式开始游戏</p>
       </div>
 
-      {/* 角色信息卡：交错入场，加左侧色条装饰 */}
+      {/* 角色信息卡：交错入场，加左侧色条装饰；w-80 配 max-w-full 避免小屏溢出 */}
       {user && (
-        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] mb-8 w-80 animate-stagger delay-100 relative overflow-hidden">
+        <div className="bg-cream border-4 border-ink px-6 py-4 shadow-[6px_6px_0_#1a1a1a] mb-8 w-80 max-w-full animate-stagger delay-100 relative overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-pink" aria-hidden="true" />
           <div className="text-left font-mono text-sm pl-2">
             <p className="text-ink mb-3">
@@ -166,8 +166,8 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
         </div>
       )}
 
-      {/* 操作按钮区：整体交错入场，每个按钮加 active 按下 */}
-      <div className="flex flex-col gap-4 w-64 animate-stagger delay-200">
+      {/* 操作按钮区：整体交错入场，每个按钮加 active 按下；w-64 配 max-w-full 避免小屏溢出 */}
+      <div className="flex flex-col gap-4 w-64 max-w-full animate-stagger delay-200">
         {/* 创建房间 */}
         <button
           onClick={handleCreateRoom}

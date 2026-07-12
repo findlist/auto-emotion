@@ -82,11 +82,13 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
   }
 
   // Top3 行加差异化背景色，突出前三名视觉层次
+  // 配色与 medal-gold/silver/bronze 奖牌体系呼应：金(yellow)/银(ink 灰阶)/铜(orange)
+  // 原 gray-100/amber-50 脱离 Neo-brutalism 调色板，统一为调色板内色彩
   function getRowStyle(rank: number, isMe: boolean) {
     if (isMe) return 'bg-yellow/20 border-yellow';
     if (rank === 1) return 'bg-yellow/10 border-yellow';
-    if (rank === 2) return 'bg-gray-100 border-gray-400';
-    if (rank === 3) return 'bg-amber-50 border-amber-600';
+    if (rank === 2) return 'bg-ink/10 border-ink/40';
+    if (rank === 3) return 'bg-orange/10 border-orange/60';
     return 'bg-cream border-ink';
   }
 

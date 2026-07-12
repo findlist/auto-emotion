@@ -196,7 +196,7 @@ export default function ShopPage({ onBack }: ShopPageProps) {
                 <p className="font-mono text-xs text-ink/40 mt-1">敬请期待新上架</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {items.map((item, idx) => (
                   <div
                     key={item.id}

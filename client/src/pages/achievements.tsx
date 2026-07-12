@@ -154,8 +154,9 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                       <div
                         key={achievement.id}
                         className={`bg-cream border-2 ${
+                          // 已领取用 ink/40 灰阶表示归档态（原 green-500 脱离调色板）
                           achievement.claimed
-                            ? 'border-green-500'
+                            ? 'border-ink/40'
                             : achievement.completed
                             ? 'border-mint'
                             : 'border-ink'
@@ -194,7 +195,7 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                           <div
                             className={`h-full rounded-full transition-all progress-fill ${
                               achievement.claimed
-                                ? 'bg-green-500'
+                                ? 'bg-ink/40'
                                 : achievement.completed
                                 ? 'bg-mint'
                                 : 'bg-pink'
@@ -219,7 +220,7 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                           )}
 
                           {achievement.claimed && (
-                            <span className="font-mono text-xs text-green-600 font-bold bg-green-500/10 px-2 py-1 rounded shadow-[1px_1px_0_#1a1a1a]">
+                            <span className="font-mono text-xs text-ink/60 font-bold bg-ink/10 px-2 py-1 rounded shadow-[1px_1px_0_#1a1a1a]">
                               ✓ 已领取
                             </span>
                           )}

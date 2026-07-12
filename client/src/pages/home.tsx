@@ -70,8 +70,13 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
           <div className="absolute inset-0 bg-stripes opacity-30 pointer-events-none" aria-hidden="true" />
           <div className="relative">
             <div className="text-center mb-3">
-              <p className="font-cn text-xl">压力分布雷达</p>
-              <p className="font-mono text-xs text-cream/60 mt-0.5">实时监测多维情绪压力</p>
+              {/* 标题左右装饰线增强"雷达/仪表"科技感，纯样式装饰 */}
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <span className="h-px w-8 bg-cream/30" aria-hidden="true" />
+                <p className="font-cn text-xl">压力分布雷达</p>
+                <span className="h-px w-8 bg-cream/30" aria-hidden="true" />
+              </div>
+              <p className="font-mono text-xs text-cream/60">实时监测多维情绪压力</p>
             </div>
             <div className="flex justify-center">
               <PressureRadar data={pressure} size={240} />

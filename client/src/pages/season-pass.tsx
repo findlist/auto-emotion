@@ -213,7 +213,7 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                 {/* 奖励展示：加 border 增强免费/高级两栏的视觉分隔 */}
                 <div className="flex gap-4">
                   {/* 免费奖励 */}
-                  <div className={`flex-1 p-2 rounded border ${reward.freeClaimed ? 'bg-green-500/20 border-green-500/40' : 'bg-ink/5 border-ink/20'}`}>
+                  <div className={`flex-1 p-2 rounded border ${reward.freeClaimed ? 'bg-mint/20 border-mint/40' : 'bg-ink/5 border-ink/20'}`}>
                     <p className="font-mono text-xs text-ink/70 mb-1">免费</p>
                     <p className="font-cn text-sm text-ink">
                       {REWARD_TYPE_LABELS[reward.free_reward_type] || reward.free_reward_type}
@@ -229,12 +229,12 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                       </button>
                     )}
                     {reward.freeClaimed && (
-                      <p className="mt-2 font-mono text-xs text-green-600 font-bold bg-green-500/10 px-2 py-1 rounded inline-block shadow-[1px_1px_0_#1a1a1a]">✓ 已领取</p>
+                      <p className="mt-2 font-mono text-xs text-ink/60 font-bold bg-mint/20 px-2 py-1 rounded inline-block shadow-[1px_1px_0_#1a1a1a]">✓ 已领取</p>
                     )}
                   </div>
 
                   {/* 高级奖励 */}
-                  <div className={`flex-1 p-2 rounded border ${reward.premiumClaimed ? 'bg-green-500/20 border-green-500/40' : 'bg-yellow/20 border-yellow/40'}`}>
+                  <div className={`flex-1 p-2 rounded border ${reward.premiumClaimed ? 'bg-mint/20 border-mint/40' : 'bg-yellow/20 border-yellow/40'}`}>
                     <p className="font-mono text-xs text-ink/70 mb-1 flex items-center gap-1">
                       {/* 装饰性 emoji 与后跟"高级"文字语义重复 */}
                       <span className="text-yellow" aria-hidden="true">👑</span> 高级
@@ -252,7 +252,7 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                       </button>
                     )}
                     {reward.premiumClaimed && (
-                      <p className="mt-2 font-mono text-xs text-green-600 font-bold bg-green-500/10 px-2 py-1 rounded inline-block shadow-[1px_1px_0_#1a1a1a]">✓ 已领取</p>
+                      <p className="mt-2 font-mono text-xs text-ink/60 font-bold bg-mint/20 px-2 py-1 rounded inline-block shadow-[1px_1px_0_#1a1a1a]">✓ 已领取</p>
                     )}
                     {!seasonPass.isPremium && (
                       <p className="mt-2 font-mono text-xs text-ink/50">需高级通行证</p>

@@ -124,8 +124,9 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                 <div
                   key={task.id}
                   className={`bg-cream border-2 ${
+                    // 已领取用 ink/40 灰阶表示归档态，与可领取(mint)形成清晰区分（原 green-500 脱离调色板）
                     status === 'claimed'
-                      ? 'border-green-500'
+                      ? 'border-ink/40'
                       : status === 'completed'
                       ? 'border-mint'
                       : 'border-ink'
@@ -161,7 +162,7 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                     <div
                       className={`h-full rounded-full transition-all progress-fill ${
                         status === 'claimed'
-                          ? 'bg-green-500'
+                          ? 'bg-ink/40'
                           : status === 'completed'
                           ? 'bg-mint'
                           : 'bg-pink'
@@ -175,7 +176,7 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                     <span
                       className={`font-mono text-xs px-2 py-1 shadow-[1px_1px_0_#1a1a1a] ${
                         status === 'claimed'
-                          ? 'bg-green-500 text-cream'
+                          ? 'bg-ink text-cream/70'
                           : status === 'completed'
                           ? 'bg-mint text-ink'
                           : 'bg-ink/20 text-ink/70'

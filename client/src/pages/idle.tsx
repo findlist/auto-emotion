@@ -443,7 +443,8 @@ function IdlePage({ onBack }: IdlePageProps) {
                   isActive
                     ? 'bg-pink text-cream shadow-[3px_3px_0_#1a1a1a] -translate-y-[1px]'
                     : isLocked
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      // 锁定态改用 ink/10 + 虚线边框保持 Neo-brutalism 调色板一致性（原 gray-300 脱离设计系统）
+                      ? 'bg-ink/5 text-ink/40 border-2 border-dashed border-ink/30 cursor-not-allowed'
                       : 'bg-cream border-2 border-ink text-ink hover:bg-yellow hover:border-ink shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none'
                 }`}
                 style={{ backgroundColor: isActive ? area.bg_color : undefined }}
@@ -657,8 +658,9 @@ function IdlePage({ onBack }: IdlePageProps) {
                           onClick={() => handleActivateSkill(skill, !isActive)}
                           disabled={loading}
                           className={`px-3 py-1 font-mono text-xs font-bold transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 ${
+                            // 停用按钮改用 orange 保持 Neo-brutalism 调色板（原 red-500 脱离设计系统）
                             isActive
-                              ? 'bg-red-500 text-cream hover:bg-ink'
+                              ? 'bg-orange text-cream hover:bg-ink'
                               : 'bg-ink text-cream hover:bg-mint hover:text-ink'
                           }`}
                         >
