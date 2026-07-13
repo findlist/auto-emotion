@@ -516,7 +516,12 @@ export class BrawlGame {
     this.isRunning = false;
     this.teardownInput();
 
-    this.players.forEach((d) => this.world.removeChild(d.player.container));
+    // 显式 destroy 玩家容器释放 PixiJS 资源：仅 removeChild 会让 Player 对象残留在内存，
+    // 连续开局时 cleanup 在 init 中被调用，旧 Player 不经 destroy 会持续累积导致内存泄漏
+    this.players.forEach((d) => {
+      this.world.removeChild(d.player.container);
+      d.player.destroy();
+    });
     this.players.clear();
 
     this.projectiles.forEach((p) => p.projectile.destroy());
