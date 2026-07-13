@@ -521,3 +521,60 @@
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
 - 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
 - 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-14 02:30:00]
+本次完成任务：全量健康校验 + 技术债清理 1 项（websocket/index.ts raw console 日志改用结构化 logger）
+- 健康预检全绿（本轮独立运行确认，PowerShell 环境需用 cwd + ; 替代 &&）：
+  ① 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+  ② 后端 vitest run ✅ 653/653 通过（50 测试文件，5.24s）。stderr 报错均为测试预期日志（auth errorHandler 冒泡测试 4 处：数据库写入失败/Redis 不可用/刷新令牌无效/Redis 写入失败；room-manager AI 兜底测试 3 处：stressTags undefined/AI 不可用/事件生成失败），非真实故障
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.19s）
+  ④ 前端 npx eslint . ✅ 0 错误 0 警告（ESLINT_EXIT=0）
+- P0 三项收尾任务代码独立核实（Grep 命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——showConfirm 覆盖 16 文件（6 业务页面 achievements/friends/idle/season-pass/shop/tasks + 6 测试文件配套 + ConfirmDialog 组件 + confirm.tsx 工具）
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位（reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000）
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位（width: min(100%, 800px, calc(75vh * 4 / 3)) + aspectRatio: 4 / 3）
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-14 共 30+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 工作区状态核实：git status 工作区干净，与 origin/main 同步
+- 新鲜技术债独立扫描（非盲从历史结论）：
+  ① any 类型扫描：client/src 仅 2 处命中均为注释中设计说明（App.tsx/room-store.ts），0 处实际使用
+  ② console.log/debug/info 扫描：server 9 处全部为合法用途（logger.ts 内部 2 处、app.ts 启动/关闭横幅 3 处、database.ts/redis.ts 连接确认 2 处、weapons.ts 占位 init 1 处、websocket/index.ts 连接日志 1 处）；client 2 处均为 logger.ts 内部
+  ③ lint 核实：npx eslint . 返回 0 错误 0 警告，bug-check-2026-07-14.md 报告中 9 个 set-state-in-effect 警告现已清零
+  ④ TODO/FIXME 扫描：仅 weapons.ts:74（设计决策，纯内存对象无需 DB 初始化）
+- 动态规划：新鲜扫描发现 websocket/index.ts 中 2 处 raw console（L68 console.warn 握手降级 + L80 console.log 连接日志）绕过项目 logger.ts 结构化 JSON 格式，属真实日志一致性技术债（非样式偏好：per-connection 日志高频产生非 JSON 行，与全项目 logger 标准不一致，生产日志聚合难解析）。app.ts/database.ts/redis.ts 的 console 均为一次性启动横幅，属合法 bootstrap 模式不宜改动
+- 最小单元（websocket 日志一致性修复）：
+  ① websocket/index.ts 新增 import { logger } from '../utils/logger.js'
+  ② L68 console.warn → logger.warn('WebSocket 握手黑名单检查失败，降级放行', { error: ... })
+  ③ L80 console.log → logger.info('WebSocket 连接已建立', { userId: user.userId })
+  ④ 注释说明设计原因：保证连接日志与全项目 JSON 格式一致，便于生产环境日志聚合
+
+修改文件清单：
+- server/src/websocket/index.ts（新增 logger 导入，console.warn/log 替换为 logger.warn/info）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+- 后端 vitest run ✅ 653/653 通过（50 测试文件，5.24s）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.19s，本轮起始已验证，server 独立改动不影响前端）
+- 前端 npx eslint . ✅ 0 错误 0 警告
+- Git commit e26577f 已推送 origin/main（1 file changed, 5 insertions(+), 2 deletions(-)）
+
+动态计划调整：
+- 本轮完成 1 个最小单元（websocket 日志一致性修复），有实质代码产出
+- 新鲜独立扫描确认无其他可修复技术债：剩余可推进项均为设计决策、不适用或高风险重构项
+  ① C-05 handleDisconnect 清理：设计决策，handlers.ts 注释明确"不移除房间数据，给断线玩家保留 5 分钟重连窗口（房间 TTL 自然清理）"，立即清理破坏 P0 重连流程，延迟清理需引入定时器机制复杂度高
+  ② generateLevelAndEvents 加 withRoomLock：设计决策，generating 状态下 setReady/setMode/submitStress 均已被守卫拦截，竞态影响可接受，加锁会阻塞 handleFinish 等并发操作
+  ③ weapons.ts TODO：设计决策，纯内存对象无需 DB 初始化
+  ④ app.ts/websocket/index.ts 测试：vitest.config 明确排除，入口文件副作用驱动不可单测
+  ⑤ 前端覆盖率工具化：受 @vitest/coverage-v8 依赖红线阻塞，待用户决策
+- 上线验收标准（规范第十一条）7 项全部达标，项目已达到生产就绪状态
+- 触发终止条件：当前阶段所有 P0 任务全部验收完成（7.1.3）+ 无备选可迭代任务（7.1.2）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
