@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   del: vi.fn(),
   exists: vi.fn(),
   setex: vi.fn(),
+  set: vi.fn(),
   createRoom: vi.fn(),
   joinRoom: vi.fn(),
 }));
@@ -28,6 +29,7 @@ vi.mock('../config/redis.js', () => ({
     del: mocks.del,
     exists: mocks.exists,
     setex: mocks.setex,
+    set: mocks.set,
   },
 }));
 
@@ -68,6 +70,8 @@ describe('match-service 快速匹配服务', () => {
     vi.clearAllMocks();
     script = [];
     mocks.lrange.mockImplementation(() => Promise.resolve(script.shift() ?? []));
+    // 默认模拟 SET NX 占位成功（ioredis set NX 成功返回 'OK'）
+    mocks.set.mockResolvedValue('OK');
   });
 
   describe('joinQuickMatch 加入匹配', () => {
@@ -83,7 +87,21 @@ describe('match-service 快速匹配服务', () => {
       expect(mocks.rpush).not.toHaveBeenCalled();
     });
 
-    it('队列未满时加入队列并抛"正在匹配中"，验证 rpush 与 setex', async () => {
+    it('并发请求时 SET NX 占位失败则抛 BAD_REQUEST 且不入队', async () => {
+      // 模拟并发场景：另一请求已通过 SET NX 占位，本请求 set 返回 null
+      mocks.set.mockResolvedValueOnce(null);
+      // cleanup 空、主体空（队列无自己，some 检查通过，但 SET NX 失败）
+      script = [[], []];
+
+      await expect(joinQuickMatch('u1', 'nick1', 's1')).rejects.toMatchObject({
+        code: ErrorCode.BAD_REQUEST,
+        message: '已在匹配队列中',
+      });
+      // 占位失败，不应入队
+      expect(mocks.rpush).not.toHaveBeenCalled();
+    });
+
+    it('队列未满时加入队列并抛"正在匹配中"，验证 rpush 与 SET NX 原子占位', async () => {
       // cleanup 空、主体空、加入后仅自己（1 人未满）
       script = [[], [], queue(['u1', 'nick1', 's1', Date.now()])];
 
@@ -100,11 +118,13 @@ describe('match-service 快速匹配服务', () => {
         'match:queue',
         expect.stringContaining('"nickname":"nick1"')
       );
-      // setex 设置 30 秒匹配状态
-      expect(mocks.setex).toHaveBeenCalledWith(
+      // SET NX EX 原子设置 30 秒匹配状态（替代原 setex，消除竞态窗口）
+      expect(mocks.set).toHaveBeenCalledWith(
         'match:status:u1',
+        'matching',
+        'EX',
         30,
-        'matching'
+        'NX'
       );
     });
 

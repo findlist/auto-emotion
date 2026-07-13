@@ -133,11 +133,24 @@ export async function joinQuickMatch(
   const players = await getQueuePlayers();
   const joinedAt = Date.now();
   
-  // 检查是否已在队列中
+  // 检查是否已在队列中（处理状态过期但队列残留的边缘场景）
   if (players.some(p => p.userId === userId)) {
     throw new AppError(ErrorCode.BAD_REQUEST, '已在匹配队列中');
   }
-  
+
+  // 原子占位：SET NX EX 保证同一用户并发请求仅一个能继续，消除上方 some 检查与 rpush 之间的竞态窗口
+  // 设计原因：some 检查与 rpush 非原子，双击匹配按钮等并发场景下两个请求都通过检查后重复入队
+  const acquired = await redis.set(
+    `${MATCH_STATUS_KEY_PREFIX}${userId}`,
+    'matching',
+    'EX',
+    MATCH_TIMEOUT_MS / 1000,
+    'NX'
+  );
+  if (!acquired) {
+    throw new AppError(ErrorCode.BAD_REQUEST, '已在匹配队列中');
+  }
+
   // 单条 JSON 字符串入队，确保 lrem 可按完整对象原子删除
   // 设计原因：扁平存储 4 字段时重复值会误删其他玩家，JSON 单条存储规避该风险
   const player: QueuePlayer = { userId, nickname, socketId, joinedAt };
@@ -186,10 +199,8 @@ export async function joinQuickMatch(
     }
   }, MATCH_TIMEOUT_MS);
   matchTimers.set(userId, timer);
-  
-  // 设置匹配状态
-  await redis.setex(`${MATCH_STATUS_KEY_PREFIX}${userId}`, MATCH_TIMEOUT_MS / 1000, 'matching');
-  
+
+  // 匹配状态已在入队前通过 SET NX EX 原子设置，此处无需重复 setex
   throw new AppError(ErrorCode.BAD_REQUEST, `正在匹配中，请稍候（${updatedPlayers.length}/${MATCH_PLAYER_COUNT}）`);
 }
 
