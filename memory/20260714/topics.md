@@ -374,3 +374,150 @@
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
 - 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
 - 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-14 01:55:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 剩余可推进项独立评估（本轮为有效调研工作，未修改业务代码）
+- 健康预检全绿（本轮独立运行确认）：
+  ① 后端 tsc --noEmit ✅ 零错误（exit 0）
+  ② 后端 vitest run ✅ 653/653 通过（50 测试文件，10.77s）
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.29s）
+  ④ 前端 npx eslint . ✅ 0 错误 0 警告（exit 0）
+- P0 三项收尾任务代码独立核实（本轮 Grep/Read 独立核实，命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——Grep 核实 showConfirm 覆盖 16 文件 76 处命中（6 业务页面 achievements/friends/idle/season-pass/shop/tasks + 6 测试文件配套 + ConfirmDialog 组件 + ConfirmDialog 测试 + confirm.tsx 工具 + confirm 测试）
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位：reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000（指数退避 1-5s）
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位：width: 'min(100%, 800px, calc(75vh * 4 / 3))'（三者取最小值确保画布在视口内完整可见）+ aspectRatio: '4 / 3'
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-14 共 30+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 工作区状态核实：git status 输出为空（工作区干净，nothing to commit），与 origin/main 同步
+- 技术债扫描确认（本轮独立核实）：
+  ① TODO/FIXME/.skip/.todo 全项目扫描：仅 1 处命中——weapons.ts:74（设计决策，纯内存对象无需 DB 初始化），无新增技术债
+  ② any 类型扫描：3 处命中均为注释中"已修复"的设计原因说明（App.tsx/room-store.ts/record-service.ts），0 处实际使用
+  ③ eslint 0 错误 0 警告（exit 0）
+- 剩余可推进项深度评估（全部确认为设计决策、不适用或高风险重构项，不宜推进，避免违反"避免过度工程化"原则）：
+  ① C-05 handleDisconnect 清理：设计决策，handlers.ts 注释明确"不移除房间数据，给断线玩家保留 5 分钟重连窗口（房间 TTL 自然清理）"，立即清理破坏 P0 重连流程，延迟清理需引入定时器机制复杂度高
+  ② generateLevelAndEvents 加 withRoomLock：设计决策，generating 状态下 setReady/setMode/submitStress 均已被守卫拦截（2026-07-12 00:45 修复），竞态影响可接受，加锁会阻塞 handleFinish 等并发操作
+  ③ weapons.ts TODO：设计决策，纯内存对象无需 DB 初始化
+  ④ app.ts/websocket/index.ts 测试：vitest.config 明确排除，入口文件副作用驱动不可单测
+  ⑤ 前端覆盖率工具化：受 @vitest/coverage-v8 依赖红线阻塞，待用户决策
+- 上线验收标准（规范第十一条）7 项全部达标（2026-07-11 02:55 + 2026-07-12 01:20 + 2026-07-12 02:15 三轮核对确认，本轮健康预检再次确认）
+
+修改文件清单：
+- 无（本轮为有效调研工作，未修改业务代码）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（exit 0）
+- 后端 vitest run ✅ 653/653 通过（50 测试文件，10.77s）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.29s）
+- 前端 npx eslint . ✅ 0 错误 0 警告
+
+动态计划调整：
+- 本轮完成全量健康校验 + P0 三项代码独立核实 + 剩余可推进项独立评估，确认项目已达到生产就绪状态
+- 剩余可推进项均为设计决策、不适用或高风险重构项，不宜强行推进（避免违反"避免过度工程化"原则）
+- 触发终止条件：当前阶段所有 P0 任务全部验收完成（7.1.3）+ 无备选可迭代任务（7.1.2）+ 连续多轮纯调研无落地优化（7.1.4）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-14 02:10:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 剩余可推进项独立评估（本轮为有效调研工作，未修改业务代码）
+- 健康预检全绿（本轮独立运行确认）：
+  ① 后端 tsc --noEmit ✅ 零错误（exit 0）
+  ② 后端 vitest run ✅ 653/653 通过（50 测试文件，6.03s）。stderr 中的报错均为测试预期日志（auth errorHandler 冒泡测试 4 处：数据库写入失败/Redis 不可用/刷新令牌无效/Redis 写入失败；room-manager AI 兜底测试 3 处：stressTags undefined/AI 不可用/事件生成失败），非真实故障
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.30s）
+- P0 三项收尾任务代码独立核实（与 2026-07-09 11:36 验收记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——showConfirm 覆盖 6 业务页面（achievements/friends/idle/season-pass/shop/tasks）+ ConfirmDialog 组件 + confirm.tsx 工具 + 6 个测试文件配套
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位（reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000，指数退避 1-5s）
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位（width: min(100%, 800px, calc(75vh * 4 / 3)) + aspectRatio: 4 / 3）
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-14 共 30+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 工作区状态核实：git status 仅 memory/20260714/topics.md 未提交（前序进度记录，本轮追加），无业务代码改动；最近 5 个 commit 为 docs 进度沉淀 + 2 个 fix（match-service 竞态修复 4d8e9ad + 游戏 cleanup 内存泄漏修复 c0637c8）
+- TODO/FIXME/.skip/.todo/XXX 全项目扫描：仅 2 处命中——weapons.ts:74（设计决策，纯内存对象无需 DB 初始化）+ friends.test.ts:105（注释文案"XXX失败"非标记，描述 catch 块三元逻辑），无新增技术债
+- 剩余可推进项深度评估（全部确认为设计决策、不适用或高风险重构项，不宜推进，避免违反"避免过度工程化"原则）：
+  ① C-05 handleDisconnect 清理：设计决策，handlers.ts 注释明确"不移除房间数据，给断线玩家保留 5 分钟重连窗口（房间 TTL 自然清理）"，立即清理破坏 P0 重连流程，延迟清理需引入定时器机制复杂度高
+  ② generateLevelAndEvents 加 withRoomLock：设计决策，generating 状态下 setReady/setMode/submitStress 均已被守卫拦截，竞态影响可接受，加锁会阻塞 handleFinish 等并发操作
+  ③ weapons.ts TODO：设计决策，纯内存对象无需 DB 初始化
+  ④ app.ts/websocket/index.ts 测试：vitest.config 明确排除，入口文件副作用驱动不可单测
+  ⑤ 前端覆盖率工具化：受 @vitest/coverage-v8 依赖红线阻塞，待用户决策
+- 上线验收标准（规范第十一条）7 项全部达标（2026-07-11 02:55 + 2026-07-12 01:20 + 2026-07-12 02:15 三轮核对确认，本轮健康预检再次确认）
+
+修改文件清单：
+- 无（本轮为有效调研工作，未修改业务代码）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（exit 0）
+- 后端 vitest run ✅ 653/653 通过（50 测试文件，6.03s）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.30s）
+
+动态计划调整：
+- 本轮完成全量健康校验 + P0 三项代码独立核实 + 剩余可推进项独立评估，确认项目已达到生产就绪状态
+- 剩余可推进项均为设计决策、不适用或高风险重构项，不宜强行推进（避免违反"避免过度工程化"原则）
+- 触发终止条件：当前阶段所有 P0 任务全部验收完成（7.1.3）+ 无备选可迭代任务（7.1.2）+ 连续多轮纯调研无落地优化（7.1.4）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-14 02:13:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 剩余可推进项独立评估（本轮为有效调研工作，未修改业务代码）
+- 健康预检全绿（本轮独立运行确认，PowerShell 环境需用 cwd + ; 替代 &&）：
+  ① 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+  ② 后端 vitest run ✅ 653/653 通过（50 测试文件，5.57s）。stderr 报错均为测试预期日志（auth errorHandler 冒泡测试 4 处：数据库写入失败/Redis 不可用/刷新令牌无效/Redis 写入失败；room-manager AI 兜底测试 3 处：stressTags undefined/AI 不可用/事件生成失败），非真实故障
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.30s）
+  ④ 前端 npx eslint . ✅ 0 错误 0 警告（ESLINT_EXIT=0）
+  ⑤ 前端 vitest run ✅ 242/242 通过（29 测试文件，14.73s）。stderr getContext 警告为 jsdom 环境限制（PixiJS 渲染测试在 jsdom 下不可用，纯逻辑测试正常运行），非真实故障
+- P0 三项收尾任务代码独立核实（本轮 Grep/Read 独立核实，命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——Grep 核实 showConfirm 覆盖 16 文件（6 业务页面 achievements/friends/idle/season-pass/shop/tasks + 6 测试文件配套 + ConfirmDialog 组件 + ConfirmDialog 测试 + confirm.tsx 工具 + confirm 测试）
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位：reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000（指数退避 1-5s），并配套 disconnect/reconnect/reconnect_failed 事件处理与 lastRoomId/lastNickname 状态恢复机制
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位：width: 'min(100%, 800px, calc(75vh * 4 / 3))'（三者取最小值确保画布在视口内完整可见）+ aspectRatio: '4 / 3'
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-14 共 30+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 工作区状态核实：git status 仅 memory/20260714/topics.md 未提交（前序进度记录，本轮追加），无业务代码改动；最近 5 个 commit 为 docs 进度沉淀 + 2 个 fix（match-service 竞态修复 4d8e9ad + 游戏 cleanup 内存泄漏修复 c0637c8）
+- 技术债扫描确认（本轮独立核实）：
+  ① TODO/FIXME/XXX/HACK 全项目扫描：仅 2 处命中——weapons.ts:74（设计决策，纯内存对象无需 DB 初始化）+ friends.test.ts:105（注释文案"XXX失败"非标记，描述 catch 块三元逻辑），无新增技术债
+  ② any 类型扫描：3 处命中均为注释中"已修复"的设计原因说明（App.tsx/room-store.ts/record-service.ts），0 处实际使用
+  ③ eslint 0 错误 0 警告（ESLINT_EXIT=0）
+- 剩余可推进项深度评估（全部确认为设计决策、不适用或高风险重构项，不宜推进，避免违反"避免过度工程化"原则）：
+  ① C-05 handleDisconnect 清理：设计决策，handlers.ts 注释明确"不移除房间数据，给断线玩家保留 5 分钟重连窗口（房间 TTL 自然清理）"，立即清理破坏 P0 重连流程，延迟清理需引入定时器机制复杂度高
+  ② generateLevelAndEvents 加 withRoomLock：设计决策，generating 状态下 setReady/setMode/submitStress 均已被守卫拦截（2026-07-12 00:45 修复），竞态影响可接受，加锁会阻塞 handleFinish 等并发操作
+  ③ weapons.ts TODO：设计决策，纯内存对象无需 DB 初始化
+  ④ app.ts/websocket/index.ts 测试：vitest.config 明确排除，入口文件副作用驱动不可单测
+  ⑤ 前端覆盖率工具化：受 @vitest/coverage-v8 依赖红线阻塞，待用户决策
+- 上线验收标准（规范第十一条）7 项全部达标（2026-07-11 02:55 + 2026-07-12 01:20 + 2026-07-12 02:15 三轮核对确认，本轮健康预检再次确认）
+
+修改文件清单：
+- memory/20260714/topics.md（追加本轮进度记录）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+- 后端 vitest run ✅ 653/653 通过（50 测试文件，5.57s）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.30s）
+- 前端 npx eslint . ✅ 0 错误 0 警告（ESLINT_EXIT=0）
+- 前端 vitest run ✅ 242/242 通过（29 测试文件，14.73s）
+
+动态计划调整：
+- 本轮完成全量健康校验 + P0 三项代码独立核实 + 剩余可推进项独立评估，确认项目已达到生产就绪状态
+- 剩余可推进项均为设计决策、不适用或高风险重构项，不宜强行推进（避免违反"避免过度工程化"原则）
+- 触发终止条件：当前阶段所有 P0 任务全部验收完成（7.1.3）+ 无备选可迭代任务（7.1.2）+ 连续多轮纯调研无落地优化（7.1.4）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
