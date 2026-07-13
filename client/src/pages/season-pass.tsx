@@ -103,7 +103,7 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
   if (!seasonPass) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-3">
-        <div className="w-10 h-10 border-4 border-ink border-t-pink rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
         <p className="font-mono text-sm text-ink/60">加载赛季通行证中...</p>
       </div>
     );

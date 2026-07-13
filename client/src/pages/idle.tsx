@@ -505,7 +505,7 @@ function IdlePage({ onBack }: IdlePageProps) {
         {activeTab === 'main' && (
           <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">升级角色属性</p>
-            {UPGRADE_FIELDS.map((field) => {
+            {UPGRADE_FIELDS.map((field, idx) => {
               const value = status?.[field.key] ?? 0;
               const displayValue = field.key === 'efficiency' || field.key === 'crit_rate' || field.key === 'crit_damage'
                 ? (Number(value) * 100).toFixed(0) + field.unit
@@ -513,7 +513,9 @@ function IdlePage({ onBack }: IdlePageProps) {
               return (
                 <div
                   key={field.key}
-                  className="bg-cream border-2 border-ink px-4 py-3 flex items-center justify-between shadow-[3px_3px_0_#1a1a1a] card-hover"
+                  // 加 animate-stagger + 延迟让属性卡片依次入场，与 shop/tasks/achievements 列表入场风格统一
+                  className="bg-cream border-2 border-ink px-4 py-3 flex items-center justify-between shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger"
+                  style={{ animationDelay: `${idx * 50}ms` }}
                 >
                   <div className="flex items-center gap-3">
                     {/* 装饰性 emoji,aria-hidden 避免与后跟 label 文字语义重复(如"红心 生命") */}

@@ -101,7 +101,7 @@ export default function TasksPage({ onBack }: TasksPageProps) {
       <main className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10">
-            <div className="w-10 h-10 border-4 border-ink border-t-pink rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
             <p className="font-mono text-sm text-ink/60">加载任务中...</p>
           </div>
         ) : tasks.length === 0 ? (
@@ -160,12 +160,16 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                     aria-valuemax={task.target}
                   >
                     <div
-                      className={`h-full rounded-full transition-all progress-fill ${
+                      // 已领取(归档态)不加 progress-fill 流光，避免静止状态仍有动画干扰；
+                      // 进行中/可领取才叠加流光暗示进度仍在累积
+                      className={`h-full rounded-full transition-all ${
                         status === 'claimed'
                           ? 'bg-ink/40'
-                          : status === 'completed'
-                          ? 'bg-mint'
-                          : 'bg-pink'
+                          : `progress-fill ${
+                            status === 'completed'
+                              ? 'bg-mint'
+                              : 'bg-pink'
+                          }`
                       }`}
                       style={{ width: `${progressPercent}%` }}
                     />

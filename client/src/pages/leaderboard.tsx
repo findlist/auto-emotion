@@ -148,7 +148,7 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
       <main role="tabpanel" id="leaderboard-panel" aria-labelledby={`leaderboard-tab-${activeTab}`} aria-live="polite" aria-atomic="true" className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10">
-            <div className="w-10 h-10 border-4 border-ink border-t-pink rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
             <p className="font-mono text-sm text-ink/60">加载排名中...</p>
           </div>
         ) : ranking.length === 0 ? (

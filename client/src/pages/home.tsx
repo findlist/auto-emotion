@@ -89,9 +89,10 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
           <button
             aria-label="进入挂机空间"
             onClick={onEnterIdle}
-            className="bg-pink text-cream p-4 sm:p-6 rounded-lg shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center gap-2 animate-stagger delay-100"
+            className="bg-pink text-cream p-4 sm:p-6 rounded-lg shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center gap-2 animate-stagger delay-100 group"
           >
-            <span aria-hidden="true" className="text-4xl">🎮</span>
+            {/* emoji 加 group-hover 放大，与 shop 商品卡片交互一致，提升主入口按钮的微交互反馈 */}
+            <span aria-hidden="true" className="text-4xl transition-transform group-hover:scale-110">🎮</span>
             <span className="font-cn text-2xl">挂机空间</span>
             <span className="font-mono text-xs text-cream/70">放置养成</span>
           </button>
@@ -99,9 +100,9 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
           <button
             aria-label="进入对战大厅"
             onClick={onEnterBattle}
-            className="bg-mint text-ink p-4 sm:p-6 rounded-lg shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center gap-2 animate-stagger delay-200"
+            className="bg-mint text-ink p-4 sm:p-6 rounded-lg shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center gap-2 animate-stagger delay-200 group"
           >
-            <span aria-hidden="true" className="text-4xl">⚔️</span>
+            <span aria-hidden="true" className="text-4xl transition-transform group-hover:scale-110">⚔️</span>
             <span className="font-cn text-2xl">对战大厅</span>
             <span className="font-mono text-xs text-ink/70">多人乱斗</span>
           </button>
