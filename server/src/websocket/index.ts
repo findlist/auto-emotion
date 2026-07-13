@@ -97,7 +97,9 @@ export function initWebSocket(server: HttpServer): void {
     socket.on(GameEvents.ACTION, (data) => handleAction(data, deps));
     socket.on(GameEvents.SCORE_UPDATE, (data) => handleScoreUpdate(data, deps));
     socket.on(GameEvents.FINISH, (data) => handleFinish(data, deps));
-    socket.on('disconnect', (reason) => handleDisconnect(reason, deps));
+    // 使用 disconnecting 而非 disconnect：disconnecting 触发时 socket.rooms 尚未清空，
+    // 可正确遍历房间广播 PLAYER_OFFLINE；disconnect 触发时 rooms 已清空，广播无效
+    socket.on('disconnecting', (reason) => handleDisconnect(reason, deps));
   });
 }
 

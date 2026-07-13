@@ -24,6 +24,10 @@ router.get('/status', authMiddleware, async (req, res) => {
     }
     success(res, data);
   } catch (err) {
+    if (err instanceof AppError) {
+      fail(res, err.code, err.message);
+      return;
+    }
     const error = err as Error;
     fail(res, 500, error.message);
   }
@@ -61,6 +65,10 @@ router.post('/settle', authMiddleware, async (req, res) => {
     const data = await idleService.settle(userId, durationSeconds);
     success(res, data);
   } catch (err) {
+    if (err instanceof AppError) {
+      fail(res, err.code, err.message);
+      return;
+    }
     const error = err as Error;
     fail(res, 500, error.message);
   }
@@ -74,6 +82,10 @@ router.post('/claim', authMiddleware, async (req, res) => {
     const data = await idleService.claimOffline(userId);
     success(res, data);
   } catch (err) {
+    if (err instanceof AppError) {
+      fail(res, err.code, err.message);
+      return;
+    }
     const error = err as Error;
     fail(res, 500, error.message);
   }

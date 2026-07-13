@@ -205,6 +205,10 @@ export async function handleFinish(
   await withErrorHandling(async () => {
     const room = await deps.roomManager.getRoom(data.roomId);
     if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+    // 状态守卫：仅 playing 状态可触发结算，防止非游戏中状态被错误改为 settling
+    if (room.status !== 'playing') {
+      throw new AppError(ErrorCode.CONFLICT, '游戏未在进行中');
+    }
     await deps.roomManager.updateRoomStatus(data.roomId, 'settling');
     deps.io.to(data.roomId).emit(GameEvents.FINISH, {
       userId: deps.user.userId,
@@ -224,8 +228,13 @@ export function handleDisconnect(reason: string, deps: HandlerDeps): void {
   // 主动断开（如玩家离开页面）不广播，避免对其他玩家造成干扰
   if (reason === 'client namespace disconnect') return;
   // 遍历该 socket 加入的房间（排除自身 socket.id），广播玩家断线提示
+  // try/catch 保护：emit 可能因底层传输已关闭而抛错，不应影响其他房间的广播
   for (const roomId of deps.socket.rooms) {
     if (roomId === deps.socket.id) continue;
-    deps.socket.to(roomId).emit(RoomEvents.PLAYER_OFFLINE, { userId: deps.user.userId });
+    try {
+      deps.socket.to(roomId).emit(RoomEvents.PLAYER_OFFLINE, { userId: deps.user.userId });
+    } catch (err) {
+      console.error('PLAYER_OFFLINE 广播失败:', (err as Error).message);
+    }
   }
 }

@@ -155,7 +155,10 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
       newLevel,
     };
   } catch (err) {
-    await client.query('ROLLBACK');
+    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
@@ -207,7 +210,10 @@ export async function switchArea(userId: string, areaId: number): Promise<void> 
 
     await client.query('COMMIT');
   } catch (err) {
-    await client.query('ROLLBACK');
+    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
@@ -229,9 +235,12 @@ export async function upgradeCharacter(
   try {
     await client.query('BEGIN');
 
-    // 获取当前角色状态
+    // advisory lock 串行化同用户升级请求，防止并发请求双扣金币
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+
+    // 获取当前角色状态（JOIN users 表读取金币，characters 表无 gold 字段）
     const charResult = await client.query(
-      'SELECT * FROM characters WHERE user_id = $1',
+      'SELECT c.*, u.gold FROM characters c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1',
       [userId]
     );
 
@@ -298,7 +307,10 @@ export async function upgradeCharacter(
 
     return { success: true, newValue };
   } catch (err) {
-    await client.query('ROLLBACK');
+    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();

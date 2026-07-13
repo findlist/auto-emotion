@@ -56,7 +56,10 @@ export async function claimOffline(userId: string) {
     await client.query('COMMIT');
     return result;
   } catch (err) {
-    await client.query('ROLLBACK');
+    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();

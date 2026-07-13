@@ -29,8 +29,15 @@ router.post('/', async (req: Request, res: Response) => {
     players?: PlayerScore[];
   };
 
-  if (!roomId || !mode || !players) {
+  if (!roomId || !mode || !players || !Array.isArray(players) || players.length === 0) {
     fail(res, 400, '缺少参数');
+    return;
+  }
+
+  // 授权校验：调用者本人必须包含在结算玩家列表中，防止给任意账号发放奖励
+  const callerInPlayers = players.some((p) => p.userId === user.userId);
+  if (!callerInPlayers) {
+    fail(res, 403, '结算玩家列表必须包含当前用户');
     return;
   }
 
