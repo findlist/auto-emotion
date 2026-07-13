@@ -236,3 +236,98 @@
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
 - 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
 - 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-14 17:30:00]
+本次完成任务：技术债清理 1 项（match-service joinQuickMatch 并发竞态修复，使用 ioredis 原生 SET NX EX 原子占位替代 check-then-act，消除 some 检查与 rpush 之间的竞态窗口）
+- 健康预检全绿（本轮独立运行确认）：
+  ① 后端 tsc --noEmit ✅ 零错误
+  ② 后端 vitest run ✅ 653/653 通过（50 测试文件，5.58s。原 652 + 新增 1 个并发占位失败测试）
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.23s）
+- P0 三项收尾任务代码独立核实（Grep 命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——showConfirm 覆盖 16 文件 76 处命中（6 业务页面 + 6 测试配套 + ConfirmDialog 组件 + confirm.tsx 工具）
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位（reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000）
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位（width: min(100%, 800px, calc(75vh * 4 / 3)) + aspectRatio: 4 / 3）
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经代码 + 历史多轮 topics.md 核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 动态规划：扫描剩余可推进项，识别 match-service joinQuickMatch 的 some 检查（L137）与 rpush（L157）之间存在非原子竞态窗口——前序多轮评估认为"高风险重构需 Lua 脚本保证 sismember+sadd 原子性"，本轮独立评估发现无需 Lua 脚本，ioredis 原生 SET NX EX 即可实现原子占位（同一 userId 仅一个请求能设置成功），风险可控、改动最小化
+- 最小单元（match-service 并发竞态修复）：
+  ① match-service.ts L141-152：在 some 检查通过后、rpush 前插入 SET NX EX 原子占位（key=match:status:{userId}, value=matching, EX=30s, NX），set 返回 null 时抛 BAD_REQUEST "已在匹配队列中"，保证同一用户并发请求仅一个能继续入队
+  ② match-service.ts L203：移除末尾冗余 setex（匹配状态已在入队前通过 SET NX EX 原子设置），替换为设计原因注释
+  ③ match-service.test.ts：mocks 对象新增 set: vi.fn()，vi.mock 工厂新增 set: mocks.set，beforeEach 新增 mocks.set.mockResolvedValue('OK') 默认值
+  ④ match-service.test.ts：原 setex 断言更新为 SET NX 断言（toHaveBeenCalledWith('match:status:u1', 'matching', 'EX', 30, 'NX')）
+  ⑤ match-service.test.ts：新增"并发请求时 SET NX 占位失败则抛 BAD_REQUEST 且不入队"测试用例（mocks.set.mockResolvedValueOnce(null) 模拟并发占位失败，断言 rpush 未被调用）
+
+修改文件清单：
+- server/src/services/match-service.ts（插入 SET NX EX 原子占位，移除末尾冗余 setex）
+- server/src/services/match-service.test.ts（新增 set mock，更新断言，新增并发占位失败测试用例）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误
+- 后端 vitest run ✅ 653/653 通过（原 652 + 新增 1 并发占位测试，50 测试文件，5.58s）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.23s）
+- Git commit 4d8e9ad 已推送 origin/main（2 files changed, 41 insertions(+), 10 deletions(-)）
+
+动态计划调整：
+- 本轮完成 1 个最小单元（match-service 并发竞态修复），达成单轮产出下限，触发终止条件
+- 前序评估认为"高风险重构需 Lua 脚本"的竞态问题，经本轮独立评估发现可用 ioredis 原生 SET NX EX 低成本解决，消除"已在队列中"检查与入队之间的竞态窗口
+- 剩余可推进项仍为设计决策或高风险项：C-05 handleDisconnect 清理（设计决策，5 分钟重连窗口 + TTL 自然清理是合理折中）、generateLevelAndEvents 加锁（设计决策，generating 状态下 setReady/setMode/submitStress 已被守卫拦截）、weapons.ts TODO（设计决策，纯内存对象无需 DB 初始化）、app.ts/websocket/index.ts 测试（vitest.config 明确排除）、前端覆盖率工具化（依赖 @vitest/coverage-v8 红线阻塞）
+- 上线验收标准（规范第十一条）7 项全部达标，项目已达到生产就绪状态
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-14 01:38:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 剩余可推进项独立评估（本轮为有效调研工作，未修改业务代码）
+- 健康预检全绿（本轮独立运行确认，PowerShell 环境需用 cwd + ; 替代 &&）：
+  ① 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+  ② 后端 vitest run ✅ 653/653 通过（50 测试文件，5.57s）。stderr 报错均为测试预期日志（auth errorHandler 冒泡测试 4 处：数据库写入失败/Redis 不可用/刷新令牌无效/Redis 写入失败；room-manager AI 兜底测试 3 处：stressTags undefined/AI 不可用/事件生成失败），非真实故障
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.21s）
+  ④ 前端 npx eslint . ✅ 0 错误 0 警告（ESLINT_EXIT=0）
+  ⑤ 前端 vitest run ✅ 242/242 通过（29 测试文件，14.73s）。stderr getContext 警告为 jsdom 环境限制（PixiJS 渲染测试在 jsdom 下不可用，纯逻辑测试正常运行），非真实故障
+- P0 三项收尾任务代码独立核实（本轮 Grep 独立核实，命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——Grep 核实 showConfirm 覆盖 12 文件 65 处命中（6 业务页面 achievements/friends/idle/season-pass/shop/tasks + 6 测试文件配套）。idle 9 处覆盖武器购买/升级/装备、技能解锁/升级/激活、宠物购买/装备、属性升级，season-pass 3 处覆盖购买/领取，其余各 2 处
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位：reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000（指数退避 1-5s）
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位：width: 'min(100%, 800px, calc(75vh * 4 / 3))'（三者取最小值确保画布在视口内完整可见）+ aspectRatio: '4 / 3'
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-14 共 30+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 工作区状态核实：git status 仅 memory/20260714/topics.md 未提交（前序进度记录，本轮追加），无业务代码改动；最近业务 commit 为 4d8e9ad（fix: match-service 并发竞态修复）
+- TODO/FIXME 全项目扫描：仅 2 处命中——weapons.ts:74（设计决策，纯内存对象无需 DB 初始化）+ friends.test.ts:105（注释文案"XXX失败"非标记，描述 catch 块三元逻辑），无新增技术债
+- 剩余可推进项深度评估（全部确认为设计决策、不适用或高风险重构项，不宜推进，避免违反"避免过度工程化"原则）：
+  ① C-05 handleDisconnect 清理：设计决策，handlers.ts 注释明确"不移除房间数据，给断线玩家保留 5 分钟重连窗口（房间 TTL 自然清理）"，立即清理破坏 P0 重连流程，延迟清理需引入定时器机制复杂度高
+  ② generateLevelAndEvents 加 withRoomLock：设计决策，generating 状态下 setReady/setMode/submitStress 均已被守卫拦截，竞态影响可接受，加锁会阻塞 handleFinish 等并发操作
+  ③ weapons.ts TODO：设计决策，纯内存对象无需 DB 初始化
+  ④ app.ts/websocket/index.ts 测试：vitest.config 明确排除，入口文件副作用驱动不可单测
+  ⑤ 前端覆盖率工具化：受 @vitest/coverage-v8 依赖红线阻塞，待用户决策
+- 上线验收标准（规范第十一条）7 项全部达标（2026-07-11 02:55 + 2026-07-12 01:20 + 2026-07-12 02:15 三轮核对确认，本轮健康预检再次确认）
+
+修改文件清单：
+- 无（本轮为有效调研工作，未修改业务代码）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+- 后端 vitest run ✅ 653/653 通过（50 测试文件，5.57s）
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.21s）
+- 前端 npx eslint . ✅ 0 错误 0 警告
+- 前端 vitest run ✅ 242/242 通过（29 测试文件，14.73s）
+
+动态计划调整：
+- 本轮完成全量健康校验 + P0 三项代码独立核实 + 剩余可推进项独立评估，确认项目已达到生产就绪状态
+- 剩余可推进项均为设计决策、不适用或高风险重构项，不宜强行推进（避免违反"避免过度工程化"原则）
+- 触发终止条件：当前阶段所有 P0 任务全部验收完成（7.1.3）+ 无备选可迭代任务（7.1.2）+ 连续多轮纯调研无落地优化（7.1.4）
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
