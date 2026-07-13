@@ -331,3 +331,46 @@
 - C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
 - 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
 - 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-14 01:50:00]
+本次完成任务：技术债清理 1 项（boss-game/brawl-game cleanup 中玩家与 boss 对象仅 removeChild 未 destroy 的内存泄漏修复）
+- 健康预检全绿（本轮独立运行确认）：
+  ① 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+  ② 后端 vitest run ✅ 653/653 通过（50 测试文件，5.10s）
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.21s）
+- P0 三项收尾任务代码独立核实（本轮 Grep 独立核实，命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——Grep 核实 showConfirm 覆盖 16 文件 71 处命中（6 业务页面 + 6 测试配套 + ConfirmDialog 组件 + confirm.tsx 工具）
+  ② WebSocket 断线重连——websocket/index.ts L48-52 完整在位（reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000）
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位（width: min(100%, 800px, calc(75vh * 4 / 3)) + aspectRatio: 4 / 3）
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md 核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 动态规划：扫描 bug-check-2026-07-14.md 报告中 3 项待评估问题，第 2 项 match-service 竞态已于上一轮（commit 4d8e9ad）修复，第 1 项 generateLevelAndEvents 加锁为设计决策，第 3 项"三个游戏引擎 cleanup/destroy 顺序不一致"经本轮独立代码核实发现实际根因：boss-game 与 brawl-game 的 cleanup 方法在清理玩家和 boss 对象时仅调用 removeChild 未调用 destroy，连续开局时旧 Player 对象（含 body/indicator Sprite）与 boss Graphics（含 hpBarBg/hpBar 子节点）残留在内存中无法回收。speed-game 的 targets 已显式 destroy 无此问题。bug-check 报告描述"部分 cleanup 未清理 particles"不准确，三个游戏的 destroy 均正确调用了 particles.destroy()
+- 最小单元（游戏引擎 cleanup 内存泄漏修复）：
+  ① boss-game.ts cleanup L475-494：players forEach 中 removeChild 后显式调用 p.destroy()；boss.sprite removeChild 后显式调用 destroy({ children: true }) 销毁 boss Graphics 及其子节点（hpBarBg/hpBar）
+  ② brawl-game.ts cleanup L519-525：players forEach 中 removeChild 后显式调用 d.player.destroy()
+  ③ 修复依据：Player.destroy() 内部调用 container.destroy({ children: true }) 销毁 body/indicator Sprite；boss.sprite 是 Graphics 对象包含 hpBarBg/hpBar 子节点需 destroy({ children: true }) 递归销毁；PixiJS 的 world.destroy({ children: true }) 仅销毁当前子节点树，removeChild 后的对象不会被 world.destroy 处理，因此必须显式 destroy
+
+修改文件清单：
+- client/src/game/games/boss-game.ts（cleanup 中 players/boss 显式 destroy）
+- client/src/game/games/brawl-game.ts（cleanup 中 players 显式 destroy）
+
+验证结果：
+- 前端 npm run build ✅ 零错误零警告（861 modules, 1.35s）
+- 前端 vitest run ✅ 242/242 通过（29 测试文件，14.81s。stderr getContext 警告为 jsdom 环境限制，非真实故障）
+- 前端 npx eslint . ✅ 0 错误 0 警告（ESLINT_EXIT=0）
+- Git commit c0637c8 已推送 origin/main（2 files changed, 14 insertions(+), 2 deletions(-)）
+
+动态计划调整：
+- 本轮完成 1 个最小单元（游戏引擎 cleanup 内存泄漏修复），达成单轮产出下限，触发终止条件
+- bug-check-2026-07-14.md 报告中 3 项待评估问题现状：第 1 项 generateLevelAndEvents 加锁（设计决策）、第 2 项 match-service 竞态（已修复 ✅）、第 3 项 cleanup/destroy 资源清理（本轮修复 ✅）
+- 剩余可推进项仍为设计决策或高风险项：C-05 handleDisconnect 清理（设计决策，5 分钟重连窗口 + TTL 自然清理是合理折中）、generateLevelAndEvents 加锁（设计决策，generating 状态下 setReady/setMode/submitStress 已被守卫拦截）、weapons.ts TODO（设计决策，纯内存对象无需 DB 初始化）、app.ts/websocket/index.ts 测试（vitest.config 明确排除）、前端覆盖率工具化（依赖 @vitest/coverage-v8 红线阻塞）
+- 上线验收标准（规范第十一条）7 项全部达标，项目已达到生产就绪状态
+
+遗留阻塞问题：
+- 无
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
