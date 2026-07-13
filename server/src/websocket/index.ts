@@ -13,6 +13,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import config from '../config/index.js';
 import redis from '../config/redis.js';
+import { logger } from '../utils/logger.js';
 import { RoomEvents, GameEvents } from './events.js';
 import { roomManager } from './room-manager.js';
 import {
@@ -65,7 +66,8 @@ export function initWebSocket(server: HttpServer): void {
         if (blacklisted) return next(new Error('令牌已失效'));
       } catch (err) {
         // Redis 不可用时降级放行，仅记录警告，不阻塞对战核心连接
-        console.warn('WebSocket 握手黑名单检查失败，降级放行:', (err as Error).message);
+        // 设计原因：使用结构化 logger 替代 raw console.warn，保证生产环境日志格式统一可解析
+        logger.warn('WebSocket 握手黑名单检查失败，降级放行', { error: (err as Error).message });
       }
       socket.data.user = payload;
       next();
@@ -77,7 +79,8 @@ export function initWebSocket(server: HttpServer): void {
   /** 连接处理器：组装依赖并注册各事件 handler */
   io.on('connection', (socket) => {
     const user = socket.data.user as SocketUser;
-    console.log(`Socket connected: ${user.userId}`);
+    // 设计原因：使用结构化 logger 替代 raw console.log，保证连接日志与全项目 JSON 格式一致，便于生产环境日志聚合
+    logger.info('WebSocket 连接已建立', { userId: user.userId });
 
     // 构造依赖注入对象，handler 内部通过 deps 访问 socket/user/roomManager/io
     const deps: HandlerDeps = {
