@@ -1,7 +1,7 @@
 // client/src/pages/room.tsx
 // 房间页：玩家列表 + 房主操作 + 压力源输入 + 准备/开始
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useUserStore } from '@/stores/user-store';
 import { useRoomStore } from '@/stores/room-store';
 import { useShallow } from 'zustand/react/shallow';
@@ -50,16 +50,23 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
   const [stressInput, setStressInput] = useState('');
   const [selectedMode, setSelectedMode] = useState<GameMode>(roomStore.mode);
 
+  // 将 onGameStart 存入 ref，effect 依赖仅 [roomStore.status]，
+  // 避免父组件传入非 memoized 回调时 effect 反复触发形成无限调用
+  const onGameStartRef = useRef(onGameStart);
+  useEffect(() => {
+    onGameStartRef.current = onGameStart;
+  });
+
   const isHost = user?.id.toString() === roomStore.hostId;
   const currentPlayer = roomStore.players.find((p) => p.userId === user?.id.toString());
   const isReady = currentPlayer?.isReady ?? false;
 
   // 状态变为 playing 时跳转游戏
   useEffect(() => {
-    if (roomStore.status === 'playing' && onGameStart) {
-      onGameStart();
+    if (roomStore.status === 'playing' && onGameStartRef.current) {
+      onGameStartRef.current();
     }
-  }, [roomStore.status, onGameStart]);
+  }, [roomStore.status]);
 
   /** 准备/取消准备 */
   function handleToggleReady() {

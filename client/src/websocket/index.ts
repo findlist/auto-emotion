@@ -82,48 +82,70 @@ export function connect(): Socket {
   // 重连彻底失败（达到最大次数）
   socket.io.on('reconnect_failed', () => {
     showToast('error', '重连失败，请检查网络后刷新页面');
+    // 释放死 socket 引用，使下次 connect() 能重建新连接，
+    // 否则 socket 仍存在但已彻底失效，所有 emit 静默丢弃
+    socket = null;
+    lastRoomId = null;
+    lastNickname = null;
   });
 
   // 房间状态同步
   socket.on('room:state', (data: { room: Room }) => {
-    const roomStore = useRoomStore.getState();
-    const { room } = data;
-    roomStore.setRoom({
-      roomId: room.id,
-      hostId: room.hostId,
-      status: room.status,
-      mode: room.mode,
-      players: room.players,
-      stressSources: room.stressSources ?? {},
-    });
+    try {
+      const roomStore = useRoomStore.getState();
+      const { room } = data;
+      roomStore.setRoom({
+        roomId: room.id,
+        hostId: room.hostId,
+        status: room.status,
+        mode: room.mode,
+        players: room.players,
+        stressSources: room.stressSources ?? {},
+      });
+    } catch (err) {
+      // Socket.IO 会吞掉监听器内的同步异常，需显式 catch + log 否则状态更新静默失败
+      logger.error('room:state 处理失败', err);
+    }
   });
 
   // 房间错误：code 可选，与后端 ErrorPayload 对齐，前端可基于 code 做差异化提示
   socket.on('room:error', (data: { code?: number; message: string }) => {
-    const roomStore = useRoomStore.getState();
-    roomStore.setError(data.message);
+    try {
+      const roomStore = useRoomStore.getState();
+      roomStore.setError(data.message);
+    } catch (err) {
+      logger.error('room:error 处理失败', err);
+    }
   });
 
   // 玩家异常断线提示：其他玩家收到，提示等待重连（断线玩家自身由 disconnect 事件单独提示）
   socket.on('room:player-offline', (data: { userId: string }) => {
-    const roomStore = useRoomStore.getState();
-    const player = roomStore.players.find((p) => p.userId === data.userId);
-    const name = player?.nickname ?? '有玩家';
-    showToast('warning', `${name} 已断线，等待重连...`);
+    try {
+      const roomStore = useRoomStore.getState();
+      const player = roomStore.players.find((p) => p.userId === data.userId);
+      const name = player?.nickname ?? '有玩家';
+      showToast('warning', `${name} 已断线，等待重连...`);
+    } catch (err) {
+      logger.error('room:player-offline 处理失败', err);
+    }
   });
 
   // 游戏开始
   socket.on('game:start', () => {
-    const roomStore = useRoomStore.getState();
-    const { roomId, hostId, mode, players, stressSources } = roomStore;
-    roomStore.setRoom({
-      roomId: roomId ?? '',
-      hostId,
-      status: 'playing',
-      mode,
-      players,
-      stressSources,
-    });
+    try {
+      const roomStore = useRoomStore.getState();
+      const { roomId, hostId, mode, players, stressSources } = roomStore;
+      roomStore.setRoom({
+        roomId: roomId ?? '',
+        hostId,
+        status: 'playing',
+        mode,
+        players,
+        stressSources,
+      });
+    } catch (err) {
+      logger.error('game:start 处理失败', err);
+    }
   });
 
   return socket;

@@ -110,5 +110,7 @@ export class ParticleEffect {
   destroy(): void {
     for (const p of this.particles) p.destroy();
     this.particles = [];
+    // 销毁粒子纹理：各游戏类在构造函数中独立创建纹理并传入，无共享，需在此释放 GPU 内存
+    this.texture.destroy(true);
   }
 }
