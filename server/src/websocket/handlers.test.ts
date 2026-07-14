@@ -24,7 +24,7 @@ import {
 } from './handlers.js';
 import { RoomEvents, GameEvents } from './events.js';
 import type { Room, roomManager } from './room-manager.js';
-import { ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode } from '../utils/error.js';
 
 /** 创建 mock socket：用 Map 记录 emit 调用，rooms 为可配置的 Set */
 function createMockSocket(id = 'sock-1', rooms: string[] = []): SocketLike & { emits: Array<{ event: string; data: unknown }>; toEmits: Record<string, Array<{ event: string; data: unknown }>> } {
@@ -426,29 +426,42 @@ describe('websocket/handlers 事件处理器', () => {
   });
 
   describe('handleFinish 游戏结束', () => {
-    it('成功：调用 updateRoomStatus(settling) 并广播 FINISH', async () => {
+    it('成功：CAS 调用 updateRoomStatus(settling, playing) 并广播 FINISH', async () => {
       const room = createMockRoom({ status: 'playing' });
       const deps = createDeps();
-      (deps.roomManager.getRoom as ReturnType<typeof vi.fn>).mockResolvedValue(room);
       (deps.roomManager.updateRoomStatus as ReturnType<typeof vi.fn>).mockResolvedValue(room);
 
       await handleFinish({ roomId: 'ROOM01', finalScore: 200, result: 'win' }, deps);
 
-      expect(deps.roomManager.updateRoomStatus).toHaveBeenCalledWith('ROOM01', 'settling');
+      // 第三参数 'playing' 为 expectedFrom CAS 守卫，原子保证仅 playing 态可转 settling
+      expect(deps.roomManager.updateRoomStatus).toHaveBeenCalledWith('ROOM01', 'settling', 'playing');
       const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
       expect(toEmits.ROOM01[0].event).toBe(GameEvents.FINISH);
       expect(toEmits.ROOM01[0].data).toMatchObject({ userId: 'u1', finalScore: 200, result: 'win' });
     });
 
-    it('失败（房间不存在）：getRoom 返回 null 时抛"房间不存在"', async () => {
+    it('失败（房间不存在）：updateRoomStatus 返回 null 时抛"房间不存在"', async () => {
       const deps = createDeps();
-      (deps.roomManager.getRoom as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (deps.roomManager.updateRoomStatus as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
       await handleFinish({ roomId: 'NOPE', finalScore: 0, result: 'lose' }, deps);
 
-      expect(deps.roomManager.updateRoomStatus).not.toHaveBeenCalled();
       expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
         { event: RoomEvents.ERROR, data: { code: ErrorCode.NOT_FOUND, message: '房间不存在' } },
+      ]);
+    });
+
+    it('失败（非 playing 状态）：updateRoomStatus 抛 CONFLICT 时透传"游戏未在进行中"', async () => {
+      // CAS 守卫：room-manager 内部检测到状态不匹配抛 CONFLICT，withErrorHandling 透传给客户端
+      const deps = createDeps();
+      (deps.roomManager.updateRoomStatus as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new AppError(ErrorCode.CONFLICT, '游戏未在进行中'),
+      );
+
+      await handleFinish({ roomId: 'ROOM01', finalScore: 0, result: 'lose' }, deps);
+
+      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+        { event: RoomEvents.ERROR, data: { code: ErrorCode.CONFLICT, message: '游戏未在进行中' } },
       ]);
     });
   });

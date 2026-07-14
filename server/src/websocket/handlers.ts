@@ -204,13 +204,10 @@ export async function handleFinish(
   deps: HandlerDeps
 ): Promise<void> {
   await withErrorHandling(async () => {
-    const room = await deps.roomManager.getRoom(data.roomId);
+    // CAS 状态转换：原子检查 playing + 更新 settling，消除原 getRoom+检查+update 跨锁边界的 TOCTOU 竞态
+    // 设计原因：原逻辑 getRoom 与 updateRoomStatus 分别获取/释放锁，并发 handleFinish 可能同时通过状态检查后重复设置 settling
+    const room = await deps.roomManager.updateRoomStatus(data.roomId, 'settling', 'playing');
     if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
-    // 状态守卫：仅 playing 状态可触发结算，防止非游戏中状态被错误改为 settling
-    if (room.status !== 'playing') {
-      throw new AppError(ErrorCode.CONFLICT, '游戏未在进行中');
-    }
-    await deps.roomManager.updateRoomStatus(data.roomId, 'settling');
     deps.io.to(data.roomId).emit(GameEvents.FINISH, {
       userId: deps.user.userId,
       finalScore: data.finalScore,

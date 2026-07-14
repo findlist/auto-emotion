@@ -639,6 +639,31 @@ describe('room-manager 房间管理器', () => {
       expect(result!.status).toBe('playing');
       expect(mocks.setexMock).toHaveBeenCalledOnce();
     });
+
+    it('CAS 守卫：expectedFrom 匹配当前状态时正常更新', async () => {
+      const existing: Room = {
+        id: 'R1', hostId: 'u1', status: 'playing', mode: 'boss',
+        players: [], stressSources: {},
+      };
+      mocks.getMock.mockResolvedValue(JSON.stringify(existing));
+
+      const result = await roomManager.updateRoomStatus('R1', 'settling', 'playing');
+
+      expect(result!.status).toBe('settling');
+      expect(mocks.setexMock).toHaveBeenCalledOnce();
+    });
+
+    it('CAS 守卫：expectedFrom 不匹配时抛 CONFLICT 且不写入', async () => {
+      const existing: Room = {
+        id: 'R1', hostId: 'u1', status: 'waiting', mode: 'boss',
+        players: [], stressSources: {},
+      };
+      mocks.getMock.mockResolvedValue(JSON.stringify(existing));
+
+      // 并发场景下另一个 handleFinish 已将状态改离 playing，CAS 守卫拦截重复结算
+      await expect(roomManager.updateRoomStatus('R1', 'settling', 'playing')).rejects.toThrow();
+      expect(mocks.setexMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('broadcast 广播事件', () => {
