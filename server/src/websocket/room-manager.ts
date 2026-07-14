@@ -8,6 +8,7 @@ import { GameEvents, RoomEvents, type LevelReadyPayload } from './events.js';
 import type { GameMode } from '../types/game.js';
 import redis from '../config/redis.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 import { generate } from '../ai/monster-generator.js';
 import { generateLevel } from '../ai/level-generator.js';
 import { generateEvents } from '../ai/event-generator.js';
@@ -238,13 +239,16 @@ export const roomManager = {
     // 异步生成关卡和事件，完成后释放锁允许下一局重新开始
     this.generateLevelAndEvents(room)
       .catch((err) => {
-        console.error('关卡生成失败:', err);
+        // 改用结构化 logger 保证与全项目 JSON 日志格式一致，便于生产环境日志聚合
+        logger.error('关卡生成失败', { error: (err as Error).message, roomId: room.id });
         // 关卡生成失败后恢复房间状态为 ready，避免房间卡死在 generating 无法重新开局
-        // 设计原因：原 catch 仅记录日志，room.status 留在 generating，而 startGame 要求 status===ready
-        // 才允许开局，导致房主无法再次开始，房间永久不可用；恢复为 ready 后玩家可重试
-        room.status = 'ready';
-        // Promise.resolve 包装防止 setex 返回非 Promise（如降级场景）时 .catch 报错
-        Promise.resolve(redis.setex(`room:${room.id}`, ROOM_TTL, serializeRoom(room))).catch(() => {});
+        // 使用 withRoomLock 重新读取最新 room 后恢复状态，避免覆盖异步期间其他操作的修改
+        this.withRoomLock(room.id, async () => {
+          const latestRoom = await this.getRoom(room.id);
+          if (!latestRoom) return;
+          latestRoom.status = 'ready';
+          await redis.setex(`room:${room.id}`, ROOM_TTL, serializeRoom(latestRoom));
+        }).catch(() => {});
         this.broadcast(room.id, RoomEvents.ERROR, { message: '开局失败，请重试' });
       })
       .finally(() => {
@@ -304,15 +308,15 @@ export const roomManager = {
       ? eventsResult.value
       : [];
 
-    // 记录失败的生成器
+    // 记录失败的生成器，改用结构化 logger 保证与全项目 JSON 日志格式一致，便于生产环境日志聚合
     if (monsterResult.status === 'rejected') {
-      console.warn('怪兽生成失败，使用兜底数据:', monsterResult.reason);
+      logger.warn('怪兽生成失败，使用兜底数据', { reason: (monsterResult.reason as Error).message, roomId: room.id });
     }
     if (levelResult.status === 'rejected') {
-      console.warn('关卡生成失败，使用兜底数据:', levelResult.reason);
+      logger.warn('关卡生成失败，使用兜底数据', { reason: (levelResult.reason as Error).message, roomId: room.id });
     }
     if (eventsResult.status === 'rejected') {
-      console.warn('事件生成失败，使用兜底数据:', eventsResult.reason);
+      logger.warn('事件生成失败，使用兜底数据', { reason: (eventsResult.reason as Error).message, roomId: room.id });
     }
 
     // 情绪标签取首个压力关键词：stressTags 是玩家输入的压力来源（如"加班""KPI"），
@@ -345,13 +349,16 @@ export const roomManager = {
       })),
     };
 
-    // 存储关卡数据到房间
-    room.levelData = levelReadyData;
-    await redis.setex(`room:${room.id}`, ROOM_TTL, serializeRoom(room));
-
-    // 更新房间状态为 playing
-    room.status = 'playing';
-    await redis.setex(`room:${room.id}`, ROOM_TTL, serializeRoom(room));
+    // 存储关卡数据并更新状态为 playing：使用 withRoomLock 重新读取最新 room，
+    // 避免覆盖异步生成期间 leaveRoom 等操作的修改（如玩家已离开却被"复活"）
+    await this.withRoomLock(room.id, async () => {
+      const latestRoom = await this.getRoom(room.id);
+      // 房间已删除（所有玩家离开），不重建避免泄露已销毁房间
+      if (!latestRoom) return;
+      latestRoom.levelData = levelReadyData;
+      latestRoom.status = 'playing';
+      await redis.setex(`room:${room.id}`, ROOM_TTL, serializeRoom(latestRoom));
+    });
 
     // 广播关卡就绪事件给所有玩家
     this.broadcast(room.id, GameEvents.LEVEL_READY, levelReadyData);
