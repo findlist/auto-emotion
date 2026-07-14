@@ -56,10 +56,13 @@ export async function listRecords(userId: string, page = 1, pageSize = 10): Prom
     [userId, pageSize, offset]
   );
 
-  return { records: records.rows, total, page, pageSize };
+  // 显式断言为 GameRecord[]：SQL 双表 JOIN 返回的 any[] 需通过类型断言对接接口契约，
+  // 保证消费方获得字段类型保护（接口字段与 SELECT 列严格对齐）
+  return { records: records.rows as GameRecord[], total, page, pageSize };
 }
 
-export async function getRecord(recordId: string, userId: string) {
+// 显式声明返回类型：原缺失返回类型注解导致调用方拿到 any，丢失接口契约保护
+export async function getRecord(recordId: string, userId: string): Promise<GameRecord> {
   const result = await pool.query(
     `SELECT gr.*, grp.*
      FROM game_records gr
@@ -72,5 +75,5 @@ export async function getRecord(recordId: string, userId: string) {
     throw new AppError(ErrorCode.NOT_FOUND, '战绩不存在');
   }
 
-  return result.rows[0];
+  return result.rows[0] as GameRecord;
 }
