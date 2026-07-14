@@ -3,6 +3,7 @@
 
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 
 interface ShopItem {
   id: number;
@@ -139,7 +140,7 @@ export async function buyItem(userId: string, itemId: number) {
     return { success: true, item };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {

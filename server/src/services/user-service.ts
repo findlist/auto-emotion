@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import pool from '../config/database.js';
 import redis from '../config/redis.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -62,7 +63,7 @@ export async function register(input: RegisterInput) {
     return { user, token, refreshToken };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {
