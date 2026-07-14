@@ -19,6 +19,7 @@ import type {
 } from './events.js';
 import type { roomManager } from './room-manager.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 
 /** Socket 最小接口：仅声明 handler 用到的方法，便于测试 mock，避免依赖 socket.io 类型 */
 export interface SocketLike {
@@ -234,7 +235,9 @@ export function handleDisconnect(reason: string, deps: HandlerDeps): void {
     try {
       deps.socket.to(roomId).emit(RoomEvents.PLAYER_OFFLINE, { userId: deps.user.userId });
     } catch (err) {
-      console.error('PLAYER_OFFLINE 广播失败:', (err as Error).message);
+      // 设计原因：使用结构化 logger 替代 raw console.error，与前序 websocket/index.ts 修复一致，
+      // 保证 per-connection 断线广播失败日志与全项目 JSON 格式统一，便于生产环境日志聚合
+      logger.error('PLAYER_OFFLINE 广播失败', { error: (err as Error).message, roomId });
     }
   }
 }
