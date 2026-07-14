@@ -202,6 +202,8 @@ export class BrawlGame {
     const data = this.players.get(playerId);
     if (data) {
       this.world.removeChild(data.player.container);
+      // 显式 destroy 释放 Player 内部 Sprite，避免运行时玩家进出累积残留对象
+      data.player.destroy();
       this.players.delete(playerId);
     }
   }
@@ -479,8 +481,11 @@ export class BrawlGame {
     const alivePlayers = [...this.players.values()].filter((d) => d.alive);
     if (alivePlayers.length === 1) {
       const winner = [...this.players.entries()].find(([, d]) => d.alive);
+      // 停止游戏逻辑：结算后禁止玩家继续操作、投射物继续飞行计分
+      this.isRunning = false;
       this.callbacks.onGameOver?.(winner?.[0] ?? null);
     } else if (alivePlayers.length === 0) {
+      this.isRunning = false;
       this.callbacks.onGameOver?.(null);
     }
   }
@@ -532,6 +537,9 @@ export class BrawlGame {
 
     this.scores.clear();
     this.respawnTimers.clear();
+
+    // 复位 screenShake：震动未完成时 world 位置停留在偏移值，下次开局画面会初始偏移
+    this.screenShake.destroy();
   }
 
   destroy(): void {

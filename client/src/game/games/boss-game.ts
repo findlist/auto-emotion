@@ -225,6 +225,8 @@ export class BossGame {
     const player = this.players.get(playerId);
     if (player) {
       this.world.removeChild(player.container);
+      // 显式 destroy 释放 Player 内部 Sprite，避免运行时玩家进出累积残留对象
+      player.destroy();
       this.players.delete(playerId);
     }
   }
@@ -460,6 +462,8 @@ export class BossGame {
     this.screenShake.shake('high');
     this.world.removeChild(this.boss.sprite);
     this.boss = null;
+    // 停止游戏逻辑：防止结算后玩家仍可操作、投射物继续飞行计分
+    this.isRunning = false;
     this.callbacks.onBossDefeated?.();
     this.callbacks.onGameOver?.('players');
   }
@@ -495,6 +499,9 @@ export class BossGame {
 
     this.scores.clear();
     this.ultimateCharge = 0;
+
+    // 复位 screenShake：震动未完成时 world 位置停留在偏移值，下次开局画面会初始偏移
+    this.screenShake.destroy();
   }
 
   destroy(): void {

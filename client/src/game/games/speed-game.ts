@@ -577,6 +577,9 @@ export class SpeedGame {
       t.destroy();
     }
     this.targets = [];
+
+    // 复位 screenShake：震动未完成时 world 位置停留在偏移值，下次开局画面会初始偏移
+    this.screenShake.destroy();
   }
 
   destroy(): void {
