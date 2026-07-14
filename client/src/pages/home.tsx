@@ -42,8 +42,9 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
     onNavigate(tab === 'battle' ? 'lobby' : tab);
   };
 
+  // 首页根容器：使用 llq.jpg 作为背景图，cover 保证铺满且居中裁切
   return (
-    <div className="min-h-screen flex flex-col max-w-2xl mx-auto scrollbar-brutal">
+    <div className="min-h-screen flex flex-col max-w-2xl mx-auto scrollbar-brutal bg-[url('/llq.jpg')] bg-cover bg-center">
       <header role="banner" className="bg-ink text-cream px-4 sm:px-6 py-3 flex items-center gap-4 bg-glow-pink">
         <div className="w-12 h-12 rounded-full bg-pink flex items-center justify-center font-bold text-lg ring-3 ring-cream/20">
           {user?.nickname?.[0] ?? '游'}
