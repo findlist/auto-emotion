@@ -158,13 +158,14 @@ describe('pet-service 宠物服务', () => {
         .mockResolvedValueOnce({ rows: [{ id: 2, name: '小狗', unlock_cost_gold: 200 }] }) // client.query 查 pets
         .mockResolvedValueOnce({ rows: [] }) // SELECT user_pets 未拥有
         .mockResolvedValueOnce({ rows: [{ gold: 500 }] }) // SELECT users 金币充足
-        .mockResolvedValueOnce({ rows: [] }) // UPDATE 扣金币
+        // 原子守卫 RETURNING gold 需返回非空 rows，否则会被判定为并发扣减失败
+        .mockResolvedValueOnce({ rows: [{ gold: 300 }] }) // UPDATE 扣金币成功（500-200=300）
         .mockResolvedValueOnce({ rows: [] }); // INSERT user_pets
 
       const result = await buyPet('u1', 2);
 
       expect(result).toEqual({ success: true, petId: 2 });
-      // 验证扣除金币（unlock_cost_gold）
+      // 验证扣除金币（unlock_cost_gold）— 原子守卫带 AND gold >= $1 RETURNING gold
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE users SET gold = gold - $1'),
         [200, 'u1']
@@ -185,7 +186,8 @@ describe('pet-service 宠物服务', () => {
         .mockResolvedValueOnce({ rows: [{ id: 1, name: '小猫', unlock_cost_gold: 100 }] }) // client.query 查 pets
         .mockResolvedValueOnce({ rows: [] }) // SELECT user_pets 未拥有
         .mockResolvedValueOnce({ rows: [{ gold: 500 }] }) // SELECT users
-        .mockResolvedValueOnce({ rows: [] }) // UPDATE 扣金币
+        // 原子守卫 RETURNING gold 需返回非空 rows，否则会在扣金币步骤抛"金币不足"而非 INSERT 抛错
+        .mockResolvedValueOnce({ rows: [{ gold: 400 }] }) // UPDATE 扣金币成功（500-100=400）
         .mockImplementationOnce(() => Promise.reject(error)); // INSERT 抛错
 
       await expect(buyPet('u1', 1)).rejects.toThrow('INSERT 失败');

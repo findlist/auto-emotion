@@ -213,12 +213,14 @@ describe('achievement-service 成就服务', () => {
 
       const result = await claimAchievementReward('u1', 1);
 
-      // 事务序列：BEGIN → UPDATE claimed → INSERT inventory → COMMIT
+      // 事务序列：BEGIN → advisory lock → recheck 复查 → UPDATE claimed_at → INSERT inventory → COMMIT
+      // advisory lock + recheck 为新增的并发防重领逻辑
       const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql);
       expect(sqls[0]).toBe('BEGIN');
-      expect(sqls[1]).toContain('UPDATE user_achievements SET claimed = true');
-      expect(sqls[2]).toContain('INSERT INTO user_inventory');
-      expect(sqls[3]).toBe('COMMIT');
+      expect(sqls[1]).toContain('pg_advisory_xact_lock');
+      expect(sqls[3]).toContain('UPDATE user_achievements SET claimed_at = NOW()');
+      expect(sqls[4]).toContain('INSERT INTO user_inventory');
+      expect(sqls[5]).toBe('COMMIT');
       // 返回奖励信息
       expect(result).toEqual({ success: true, reward_type: 'skin', reward_id: 1 });
       // release 必须调用，避免连接泄漏
@@ -235,15 +237,16 @@ describe('achievement-service 成就服务', () => {
 
       const result = await claimAchievementReward('u1', 1);
 
-      // 事务序列：BEGIN → INSERT user_achievements（带 target 进度）→ INSERT inventory → COMMIT
+      // 事务序列：BEGIN → advisory lock → recheck 复查（空行）→ INSERT user_achievements → INSERT inventory → COMMIT
       const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql);
       expect(sqls[0]).toBe('BEGIN');
-      expect(sqls[1]).toContain('INSERT INTO user_achievements');
-      // SQL 为 VALUES ($1, $2, $3, true, true)，参数仅 3 个：userId, achievementId, target
-      // completed/claimed 用字面 true 直接写入，避免参数化冗余
-      expect(mocks.clientQueryMock.mock.calls[1][1]).toEqual(['u1', 1, 100]);
-      expect(sqls[2]).toContain('INSERT INTO user_inventory');
-      expect(sqls[3]).toBe('COMMIT');
+      expect(sqls[1]).toContain('pg_advisory_xact_lock');
+      expect(sqls[3]).toContain('INSERT INTO user_achievements');
+      // SQL 为 VALUES ($1, $2, $3, true, NOW())，参数仅 3 个：userId, achievementId, target
+      // is_completed 用字面 true、claimed_at 用 NOW() 直接写入，避免参数化冗余
+      expect(mocks.clientQueryMock.mock.calls[3][1]).toEqual(['u1', 1, 100]);
+      expect(sqls[4]).toContain('INSERT INTO user_inventory');
+      expect(sqls[5]).toBe('COMMIT');
       expect(result).toEqual({ success: true, reward_type: 'pet', reward_id: 2 });
     });
 

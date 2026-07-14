@@ -57,7 +57,9 @@ export async function equipPet(userId: string, petId: number) {
 
     return { success: true, petId };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
@@ -109,11 +111,16 @@ export async function buyPet(userId: string, petId: number) {
       throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${pet.unlock_cost_gold} 金币`);
     }
 
-    // 扣除金币
-    await client.query(
-      `UPDATE users SET gold = gold - $1 WHERE id = $2`,
+    // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
+    // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
+    const deductResult = await client.query(
+      `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
       [pet.unlock_cost_gold, userId]
     );
+
+    if (deductResult.rows.length === 0) {
+      throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${pet.unlock_cost_gold} 金币`);
+    }
 
     // 创建用户宠物记录
     await client.query(
@@ -125,7 +132,9 @@ export async function buyPet(userId: string, petId: number) {
 
     return { success: true, petId };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();

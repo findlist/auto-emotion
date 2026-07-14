@@ -61,8 +61,9 @@ export async function getAchievements(userId: string) {
   );
 
   // 获取用户成就进度
+  // schema 字段为 is_completed / claimed_at，用别名映射为 completed / claimed 保持 JS 层兼容
   const userAchievementsResult = await pool.query(
-    `SELECT achievement_id, progress, completed, claimed
+    `SELECT achievement_id, progress, is_completed as completed, (claimed_at IS NOT NULL) as claimed
      FROM user_achievements WHERE user_id = $1`,
     [userId]
   );
@@ -96,7 +97,7 @@ export async function getAchievements(userId: string) {
 export async function updateAchievementProgress(userId: string, type: number, delta: number): Promise<void> {
   // 获取该类型的成就
   const result = await pool.query(
-    `SELECT a.id, a.target, COALESCE(ua.progress, 0) as progress, ua.completed, ua.id as user_achievement_id
+    `SELECT a.id, a.target, COALESCE(ua.progress, 0) as progress, ua.is_completed as completed, ua.id as user_achievement_id
      FROM achievements a
      LEFT JOIN user_achievements ua ON ua.achievement_id = a.id AND ua.user_id = $1
      WHERE a.type = $2`,
@@ -111,12 +112,12 @@ export async function updateAchievementProgress(userId: string, type: number, de
 
     if (row.user_achievement_id) {
       await pool.query(
-        `UPDATE user_achievements SET progress = $1, completed = $2 WHERE id = $3`,
+        `UPDATE user_achievements SET progress = $1, is_completed = $2 WHERE id = $3`,
         [newProgress, completed, row.user_achievement_id]
       );
     } else {
       await pool.query(
-        `INSERT INTO user_achievements (user_id, achievement_id, progress, completed)
+        `INSERT INTO user_achievements (user_id, achievement_id, progress, is_completed)
          VALUES ($1, $2, $3, $4)`,
         [userId, row.id, newProgress, completed]
       );
@@ -129,7 +130,7 @@ export async function updateAchievementProgress(userId: string, type: number, de
  */
 export async function claimAchievementReward(userId: string, achievementId: number) {
   const result = await pool.query(
-    `SELECT a.*, ua.progress, ua.completed, ua.claimed, ua.id as user_achievement_id
+    `SELECT a.*, ua.progress, ua.is_completed as completed, (ua.claimed_at IS NOT NULL) as claimed, ua.id as user_achievement_id
      FROM achievements a
      LEFT JOIN user_achievements ua ON ua.achievement_id = a.id AND ua.user_id = $1
      WHERE a.id = $2`,
@@ -154,16 +155,30 @@ export async function claimAchievementReward(userId: string, achievementId: numb
   try {
     await client.query('BEGIN');
 
-    // 更新领取状态
+    // 事务内 advisory lock：串行化同用户同成就并发领取，防止重复发奖
+    // 设计原因：原实现检查在事务外，并发请求都查到 claimed=false 后进入事务，串行 UPDATE 都设 claimed_at 但都发奖
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${achievementId}`]);
+
+    // 事务内权威复查：advisory lock 串行化后前一个请求已 COMMIT，重新确认未领取
+    const recheck = await client.query(
+      `SELECT id, (claimed_at IS NOT NULL) as claimed FROM user_achievements WHERE user_id = $1 AND achievement_id = $2`,
+      [userId, achievementId]
+    );
+
+    if (recheck.rows.length > 0 && recheck.rows[0].claimed) {
+      throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
+    }
+
+    // 更新领取状态：schema 字段为 claimed_at (TIMESTAMP)，非 claimed (BOOLEAN)
     if (achievement.user_achievement_id) {
       await client.query(
-        `UPDATE user_achievements SET claimed = true WHERE id = $1`,
+        `UPDATE user_achievements SET claimed_at = NOW() WHERE id = $1`,
         [achievement.user_achievement_id]
       );
     } else {
       await client.query(
-        `INSERT INTO user_achievements (user_id, achievement_id, progress, completed, claimed)
-         VALUES ($1, $2, $3, true, true)`,
+        `INSERT INTO user_achievements (user_id, achievement_id, progress, is_completed, claimed_at)
+         VALUES ($1, $2, $3, true, NOW())`,
         [userId, achievementId, achievement.target]
       );
     }
@@ -182,7 +197,10 @@ export async function claimAchievementReward(userId: string, achievementId: numb
       reward_id: achievement.reward_id,
     };
   } catch (err) {
-    await client.query('ROLLBACK');
+    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
