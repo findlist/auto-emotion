@@ -108,9 +108,9 @@ export class BattleScene implements Scene {
   }
 
   private initBossGame(levelData?: BossLevelData): void {
-    if (!this.socket) return;
-    // 优先使用业务 userId 作为玩家标识，与后端 game:action 广播的 userId 对齐
-    const localId = this.localUserId || (this.socket.id as string);
+    // 单机演示模式（socket=null）允许继续初始化本地游戏，emitAction 内部已有 socket 守卫保证不上报
+    // 多人模式 socket 非空时 localId 取业务 userId，单机模式兜底为 'local' 保证游戏实例正常创建
+    const localId = this.localUserId || this.socket?.id || 'local';
 
     this.bossGame = new BossGame(
       this.engine.app,
@@ -153,9 +153,8 @@ export class BattleScene implements Scene {
   }
 
   private initBrawlGame(levelData?: BrawlLevelData): void {
-    if (!this.socket) return;
-    // 优先使用业务 userId 作为玩家标识，与后端 game:action 广播的 userId 对齐
-    const localId = this.localUserId || (this.socket.id as string);
+    // 单机演示模式（socket=null）允许继续初始化本地游戏，emitAction 内部已有 socket 守卫保证不上报
+    const localId = this.localUserId || this.socket?.id || 'local';
 
     this.brawlGame = new BrawlGame(
       this.engine.app,
@@ -201,7 +200,7 @@ export class BattleScene implements Scene {
   }
 
   private initSpeedGame(): void {
-    if (!this.socket) return;
+    // 单机演示模式（socket=null）允许继续初始化本地游戏，speed 模式无远程同步需求
 
     this.speedGame = new SpeedGame(
       this.engine.app,

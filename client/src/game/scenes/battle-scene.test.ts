@@ -190,6 +190,20 @@ describe('BattleScene 多人对战同步逻辑', () => {
     expect(() => mockBossInstance.callbacks.onLocalShoot?.(0)).not.toThrow();
   });
 
+  it('socket 为 null 时单机模式仍初始化本地游戏', () => {
+    // 验证 demo 单机演示场景：socket=null 时 BattleScene 不再直接 return，
+    // 而是真正创建游戏实例并添加本地玩家，emitAction 内部守卫保证不上报
+    const { scene } = createScene({ socket: null, localUserId: 'demo-local' });
+    scene.init('boss');
+    expect(mockBossInstance.init).toHaveBeenCalled();
+    expect(mockBossInstance.addPlayer).toHaveBeenCalledWith(
+      'demo-local',
+      expect.any(Number),
+      expect.any(Number),
+      'LocalPlayer',
+    );
+  });
+
   it('roomId 为空时 emitAction 不上报', () => {
     const socket = createMockSocket();
     const engine = { app: {} } as unknown as GameEngine;

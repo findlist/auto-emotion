@@ -140,7 +140,7 @@ function DemoPage({ onBack }: DemoPageProps) {
         { width: CANVAS_WIDTH, height: CANVAS_HEIGHT },
         null,
         '',
-        '',
+        'demo-local',
         [],
         {
           onScoreChange: (s) => setScore(s),
@@ -150,6 +150,8 @@ function DemoPage({ onBack }: DemoPageProps) {
       );
       sceneManager.register('battle', scene);
       sceneManager.switchTo('battle');
+      // 显式初始化 boss 战斗场景：单机演示模式无 socket，BattleScene 内部 emitAction 守卫会跳过上报
+      scene.init('boss');
 
       // ticker 回调：驱动场景更新
       tickerCallback = (ticker) => {
