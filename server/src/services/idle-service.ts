@@ -5,6 +5,7 @@ import * as idleEngine from '../idle/idle-engine.js';
 import * as offlineCalculator from '../idle/offline-calculator.js';
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * 获取角色状态
@@ -58,7 +59,8 @@ export async function claimOffline(userId: string) {
   } catch (err) {
     // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {

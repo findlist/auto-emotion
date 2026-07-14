@@ -3,6 +3,7 @@
 
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 import type { GameMode } from '../types/game.js';
 
 interface SettleInput {
@@ -141,7 +142,8 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
     try {
       await client.query('ROLLBACK');
     } catch (rollbackErr) {
-      console.error('事务 ROLLBACK 失败，原始错误可能被掩盖:', (rollbackErr as Error).message);
+      // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
+      logger.error('事务 ROLLBACK 失败，原始错误可能被掩盖', { error: (rollbackErr as Error).message });
     }
     throw err;
   } finally {
