@@ -207,7 +207,9 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
     if (reward) {
       const rewardType = isPremium ? 'premium_reward_type' : 'free_reward_type';
       const rewardId = isPremium ? reward.premium_reward_id : 0;
-      const rewardAmount = (reward as unknown as { free_reward_type_amount?: number }).free_reward_type_amount || 0;
+      // 设计原因：reward 已是 SeasonReward 类型，接口已定义 free_reward_type_amount?: number，
+      // 无需 as unknown as 强转；用 ?? 替代 || 仅在 undefined/null 时取默认值，语义更精确
+      const rewardAmount = reward.free_reward_type_amount ?? 0;
 
       if (rewardType === 'free_reward_type') {
         await client.query(
