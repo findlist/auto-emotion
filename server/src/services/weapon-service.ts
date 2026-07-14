@@ -89,7 +89,9 @@ export async function upgradeWeapon(userId: string, weaponId: number) {
       cost,
     };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
@@ -139,7 +141,9 @@ export async function equipWeapon(userId: string, weaponId: number) {
 
     return { success: true, weaponId };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
@@ -212,7 +216,9 @@ export async function buyWeapon(userId: string, weaponId: number) {
 
     return { success: true, weaponId };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();

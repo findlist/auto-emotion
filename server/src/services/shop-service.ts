@@ -138,7 +138,9 @@ export async function buyItem(userId: string, itemId: number) {
     await client.query('COMMIT');
     return { success: true, item };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();

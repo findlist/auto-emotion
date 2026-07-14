@@ -29,8 +29,16 @@ export function rateLimit(options: RateLimitOptions) {
     multi.zcard(key);
     multi.pexpire(key, windowMs);
 
-    const results = await multi.exec();
-    const count = results?.[2]?.[1] as number;
+    // Redis 故障时 fail-open：限流是保护措施，不应阻塞核心功能
+    // 设计原因：原 multi.exec() 无 try/catch，Redis 故障时抛错导致所有限流路由返回 500
+    let count: number | undefined;
+    try {
+      const results = await multi.exec();
+      count = results?.[2]?.[1] as number;
+    } catch {
+      next();
+      return;
+    }
 
     if (count !== undefined && count > max) {
       throw new AppError(ErrorCode.RATE_LIMIT, '请求过于频繁，请稍后重试');

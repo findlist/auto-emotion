@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { listPets, equipPet, buyPet } from '../services/pet-service.js';
 import { success, fail } from '../utils/response.js';
+import { checkIdempotency } from '../utils/idempotency.js';
+import { AppError } from '../utils/error.js';
 
 const router = Router();
 
@@ -53,6 +55,17 @@ router.post('/buy', async (req: Request, res: Response) => {
   if (!petId) {
     fail(res, 400, '缺少 petId');
     return;
+  }
+
+  // 幂等控制：5秒窗口防重复提交，避免高频调用重复扣款（与 shop/buy 一致）
+  try {
+    await checkIdempotency(`pets:buy:${user.userId}:${petId}`);
+  } catch (err) {
+    if (err instanceof AppError) {
+      fail(res, err.code, err.message);
+      return;
+    }
+    // 非 AppError 表示 Redis 连接异常，按降级规则放行不阻塞核心业务
   }
 
   try {

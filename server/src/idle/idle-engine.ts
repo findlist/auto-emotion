@@ -81,6 +81,11 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
   try {
     await client.query('BEGIN');
 
+    // 事务内 advisory lock：串行化同用户并发结算，防止重复发放收益
+    // 设计原因：与 upgradeCharacter 一致，路由层 checkIdempotency 在 Redis 故障时降级放行，
+    // advisory lock 作为数据库层兜底，确保同用户串行结算
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+
     // 获取角色状态和区域信息
     const charResult = await client.query(
       `SELECT c.*, a.exp_rate, a.gold_rate

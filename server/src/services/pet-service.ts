@@ -3,6 +3,7 @@
 
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * 获取用户宠物列表
@@ -57,8 +58,9 @@ export async function equipPet(userId: string, petId: number) {
 
     return { success: true, petId };
   } catch (err) {
+    // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {
@@ -132,8 +134,9 @@ export async function buyPet(userId: string, petId: number) {
 
     return { success: true, petId };
   } catch (err) {
+    // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {

@@ -170,7 +170,10 @@ async function main() {
     console.log('======================================');
 
   } catch (err) {
-    await client.query('ROLLBACK');
+    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     console.error('[错误] 种子数据创建失败:', err);
     process.exit(1);
   } finally {

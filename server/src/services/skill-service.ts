@@ -80,7 +80,9 @@ export async function unlockSkill(userId: string, skillId: number) {
 
     return { success: true, skillId };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
@@ -151,7 +153,9 @@ export async function upgradeSkill(userId: string, skillId: number) {
       cost: goldCost,
     };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();
@@ -191,7 +195,9 @@ export async function activateSkill(userId: string, skillId: number, active: boo
 
     return { success: true, skillId, isActive: active };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();

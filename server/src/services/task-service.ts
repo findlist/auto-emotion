@@ -227,7 +227,9 @@ export async function claimTaskReward(userId: string, taskId: number) {
       reward_gold: task.reward_gold,
     };
   } catch (err) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch (rbErr) {
+      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+    }
     throw err;
   } finally {
     client.release();

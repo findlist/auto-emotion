@@ -71,7 +71,7 @@ describe('friend-service 好友服务', () => {
 
       expect(result).toEqual(rows);
       expect(mocks.queryMock).toHaveBeenCalledWith(
-        expect.stringContaining('f.friend_id = $1 AND f.status = 0'),
+        expect.stringContaining("f.friend_id = $1 AND f.status = 'pending'"),
         ['u1']
       );
     });
@@ -134,7 +134,7 @@ describe('friend-service 好友服务', () => {
       expect(mocks.clientQueryMock).toHaveBeenCalledWith('BEGIN');
       // userId 为 string、targetUserId 为 number，参数透传保持原类型
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE friendships SET status = 1'),
+        expect.stringContaining("UPDATE friendships SET status = 'accepted'"),
         [2, '1']
       );
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
@@ -174,9 +174,9 @@ describe('friend-service 好友服务', () => {
       const result = await sendFriendRequest('1', 2);
 
       expect(result).toEqual({ success: true, requestId: 10 });
-      // 验证 INSERT status=0（待处理）
+      // 验证 INSERT status='pending'（待处理）
       expect(mocks.queryMock).toHaveBeenCalledWith(
-        expect.stringContaining('VALUES ($1, $2, 0)'),
+        expect.stringContaining("VALUES ($1, $2, 'pending')"),
         ['1', 2]
       );
     });
