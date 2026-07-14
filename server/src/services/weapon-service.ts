@@ -4,6 +4,7 @@
 import pool from '../config/database.js';
 import { weaponUpgradeCost } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * 获取用户武器列表
@@ -90,7 +91,7 @@ export async function upgradeWeapon(userId: string, weaponId: number) {
     };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {
@@ -142,7 +143,7 @@ export async function equipWeapon(userId: string, weaponId: number) {
     return { success: true, weaponId };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {
@@ -217,7 +218,7 @@ export async function buyWeapon(userId: string, weaponId: number) {
     return { success: true, weaponId };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {

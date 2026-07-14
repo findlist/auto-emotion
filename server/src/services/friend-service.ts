@@ -3,6 +3,7 @@
 
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * 获取好友列表
@@ -97,7 +98,7 @@ export async function sendFriendRequest(userId: string, targetUserId: number) {
       await client.query('COMMIT');
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (rbErr) {
-        console.error('ROLLBACK 失败:', (rbErr as Error).message);
+        logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
       }
       throw err;
     } finally {
@@ -152,7 +153,7 @@ export async function acceptFriendRequest(userId: string, requestId: number) {
     return { success: true };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {
@@ -198,7 +199,7 @@ export async function removeFriend(userId: string, friendId: number) {
     return { success: true };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {

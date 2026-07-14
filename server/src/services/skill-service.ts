@@ -4,6 +4,7 @@
 import pool from '../config/database.js';
 import { skillUnlockLevel } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * 获取用户技能列表
@@ -81,7 +82,7 @@ export async function unlockSkill(userId: string, skillId: number) {
     return { success: true, skillId };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {
@@ -154,7 +155,7 @@ export async function upgradeSkill(userId: string, skillId: number) {
     };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {
@@ -196,7 +197,7 @@ export async function activateSkill(userId: string, skillId: number, active: boo
     return { success: true, skillId, isActive: active };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
     }
     throw err;
   } finally {
