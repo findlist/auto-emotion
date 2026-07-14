@@ -21,7 +21,47 @@ export interface LoginInput {
   password: string;
 }
 
-export async function register(input: RegisterInput) {
+// 注册返回的用户信息（对应 INSERT RETURNING 字段，不含 password_hash）
+export interface UserRow {
+  id: string;
+  phone: string;
+  nickname: string;
+  experience: number;
+  gold: number;
+  pvp_points: number;
+  created_at: Date;
+}
+
+// 登录返回的用户信息（SELECT 字段子集，已剔除 password_hash）
+export interface LoginUserRow {
+  id: string;
+  phone: string;
+  nickname: string;
+  experience: number;
+  gold: number;
+  pvp_points: number;
+}
+
+// 用户资料（getProfile 返回，LEFT JOIN users + characters）
+// 角色字段设为可选：LEFT JOIN 无角色记录时为 null，updateProfile 走 UPDATE RETURNING * 时不包含角色字段
+export interface UserProfile {
+  id: string;
+  phone: string;
+  nickname: string;
+  avatar_url: string | null;
+  experience: number;
+  gold: number;
+  pvp_points: number;
+  created_at: Date;
+  level?: number | null;
+  hp?: number | null;
+  attack?: number | null;
+  defense?: number | null;
+  area_id?: string | null;
+  weapon_id?: string | null;
+}
+
+export async function register(input: RegisterInput): Promise<{ user: UserRow; token: string; refreshToken: string }> {
   const { phone, password, nickname } = input;
   
   // 检查手机号是否已注册
@@ -71,7 +111,7 @@ export async function register(input: RegisterInput) {
   }
 }
 
-export async function login(input: LoginInput) {
+export async function login(input: LoginInput): Promise<{ user: LoginUserRow; token: string; refreshToken: string }> {
   const { phone, password } = input;
   
   const result = await pool.query(
@@ -100,7 +140,7 @@ export async function login(input: LoginInput) {
   return { user: userWithoutPassword, token, refreshToken };
 }
 
-export async function getProfile(userId: string) {
+export async function getProfile(userId: string): Promise<UserProfile> {
   const result = await pool.query(
     `SELECT u.id, u.phone, u.nickname, u.avatar_url, u.experience, u.gold, u.pvp_points, u.created_at,
             c.level, c.hp, c.attack, c.defense, c.area_id, c.weapon_id
@@ -117,7 +157,7 @@ export async function getProfile(userId: string) {
   return result.rows[0];
 }
 
-export async function updateProfile(userId: string, input: { nickname?: string; avatar_url?: string }) {
+export async function updateProfile(userId: string, input: { nickname?: string; avatar_url?: string }): Promise<UserProfile> {
   const fields: string[] = [];
   const values: unknown[] = [];
   let idx = 1;
@@ -144,7 +184,7 @@ export async function updateProfile(userId: string, input: { nickname?: string; 
   return result.rows[0];
 }
 
-export async function logout(token: string, refreshToken?: string) {
+export async function logout(token: string, refreshToken?: string): Promise<void> {
   // access token 与 refreshToken 都加入黑名单，防止登出后 refreshToken 仍可换新 token
   // 设计原因：原实现仅黑名单 access token，refreshToken 函数不检查黑名单，
   // 泄露的 refreshToken 在登出后 30 天内仍可换新 token，是真实安全漏洞
