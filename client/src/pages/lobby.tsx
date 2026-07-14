@@ -168,31 +168,31 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
 
       {/* 操作按钮区：整体交错入场，每个按钮加 active 按下；w-64 配 max-w-full 避免小屏溢出 */}
       <div className="flex flex-col gap-4 w-64 max-w-full animate-stagger delay-200">
-        {/* 创建房间 */}
+        {/* 创建房间：加 🚪 图标增强按钮可扫描性 */}
         <button
           onClick={handleCreateRoom}
           disabled={loading}
           className="bg-yellow text-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-yellow transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a] disabled:hover:bg-yellow disabled:hover:text-ink"
         >
-          创建房间
+          <span aria-hidden="true" className="mr-1">🚪</span> 创建房间
         </button>
 
-        {/* 快速匹配 */}
+        {/* 快速匹配：加 ⚡ 图标暗示"快速"语义 */}
         <button
           onClick={handleQuickMatch}
           disabled={matching}
           className="bg-pink text-cream px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a] disabled:hover:bg-pink disabled:hover:text-cream"
         >
-          {matching ? '匹配中...' : '快速匹配'}
+          {matching ? '匹配中...' : <><span aria-hidden="true" className="mr-1">⚡</span> 快速匹配</>}
         </button>
 
-        {/* 加入房间切换 */}
+        {/* 加入房间切换：加 🔑 图标暗示"凭房间号进入"语义 */}
         {!showJoinInput ? (
           <button
             onClick={() => setShowJoinInput(true)}
             className="bg-cream text-ink border-2 border-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-cream transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
           >
-            加入房间
+            <span aria-hidden="true" className="mr-1">🔑</span> 加入房间
           </button>
         ) : (
           <div className="flex gap-2 animate-slide-left">

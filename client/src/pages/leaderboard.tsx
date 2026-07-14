@@ -172,7 +172,7 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center font-mono font-bold text-sm ${getRankStyle(
                       entry.rank
-                    )} ${entry.rank === 1 ? 'animate-badge-pulse' : ''}`}
+                    )} ${entry.rank === 1 ? 'animate-badge-pulse medal-shine' : entry.rank <= 3 ? 'medal-shine' : ''}`}
                   >
                     {entry.rank}
                   </div>

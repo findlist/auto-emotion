@@ -63,7 +63,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
                 placeholder="请输入手机号"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-pink focus:ring-2 focus:ring-pink/30 focus:outline-none transition-all"
+                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-pink focus:outline-none input-focus-pink transition-all"
                 required
                 minLength={11}
                 maxLength={20}
@@ -81,7 +81,7 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
                 placeholder="请输入密码"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-pink focus:ring-2 focus:ring-pink/30 focus:outline-none transition-all"
+                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-pink focus:outline-none input-focus-pink transition-all"
                 required
                 minLength={6}
                 maxLength={50}

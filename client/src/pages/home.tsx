@@ -109,17 +109,19 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
           </button>
         </div>
 
-        {/* 快捷入口三联：交错入场 */}
+        {/* 快捷入口三联：交错入场，加 card-hover 浮起反馈让静态卡片有交互预期
+            设计原因：原卡片无 hover 反馈，用户无法感知是否可点击；
+            加 card-hover 后即使暂未绑定 onClick 也传递"可交互"视觉信号 */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 animate-stagger delay-300">
-          <div className="bg-yellow text-ink p-2 sm:p-3 rounded-lg text-center shadow-[3px_3px_0_#1a1a1a]">
+          <div className="bg-yellow text-ink p-2 sm:p-3 rounded-lg text-center shadow-[3px_3px_0_#1a1a1a] card-hover">
             <p aria-hidden="true" className="text-xl mb-1">🎁</p>
             <p className="font-mono text-xs">每日奖励</p>
           </div>
-          <div className="bg-orange text-cream p-2 sm:p-3 rounded-lg text-center shadow-[3px_3px_0_#1a1a1a]">
+          <div className="bg-orange text-cream p-2 sm:p-3 rounded-lg text-center shadow-[3px_3px_0_#1a1a1a] card-hover">
             <p aria-hidden="true" className="text-xl mb-1">🏆</p>
             <p className="font-mono text-xs">排行榜</p>
           </div>
-          <div className="bg-pink text-cream p-2 sm:p-3 rounded-lg text-center shadow-[3px_3px_0_#1a1a1a]">
+          <div className="bg-pink text-cream p-2 sm:p-3 rounded-lg text-center shadow-[3px_3px_0_#1a1a1a] card-hover">
             <p aria-hidden="true" className="text-xl mb-1">📦</p>
             <p className="font-mono text-xs">武器库</p>
           </div>
@@ -194,9 +196,9 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
             aria-label={item.label}
             aria-current={activeTab === item.key ? 'page' : undefined}
             onClick={() => handleTabClick(item.key)}
-            className={`flex flex-col items-center gap-1 px-3 py-1 rounded-md transition-all ${
+            className={`flex flex-col items-center gap-1 px-3 py-1 rounded-md transition-all relative ${
               activeTab === item.key
-                ? 'bg-pink text-cream shadow-[2px_2px_0_#ffd93d] -translate-y-[1px]'
+                ? 'bg-pink text-cream shadow-[2px_2px_0_#ffd93d] -translate-y-[1px] nav-active-dot'
                 : 'text-cream/60 hover:text-cream hover:bg-cream/10'
             }`}
           >

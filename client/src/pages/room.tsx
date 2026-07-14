@@ -16,10 +16,10 @@ interface RoomPageProps {
 // 设计原因:原 GAME_MODES 含 'rhythm'/'endless' 是过时数据,
 // 实际 GameMode 类型为 'boss'|'brawl'|'speed'(与 battle.tsx MODE_LABEL 对齐)。
 // 收敛 mode 类型时连带修正,避免类型错误。
-const GAME_MODES: { value: GameMode; label: string }[] = [
-  { value: 'boss', label: 'Boss 组队战' },
-  { value: 'brawl', label: '自由乱斗' },
-  { value: 'speed', label: '手速竞速' },
+const GAME_MODES: { value: GameMode; label: string; emoji: string }[] = [
+  { value: 'boss', label: 'Boss 组队战', emoji: '🐉' },
+  { value: 'brawl', label: '自由乱斗', emoji: '⚔️' },
+  { value: 'speed', label: '手速竞速', emoji: '⚡' },
 ];
 
 // 房间状态中文映射：原 roomStore.status 直接显示英文（waiting/playing）让用户困惑
@@ -187,7 +187,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
                     : 'bg-cream text-ink border-ink hover:bg-ink hover:text-cream'
                 }`}
               >
-                {m.label}
+                <span aria-hidden="true" className="mr-1">{m.emoji}</span>{m.label}
               </button>
             ))}
           </div>

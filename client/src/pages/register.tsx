@@ -78,7 +78,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入手机号"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:ring-2 focus:ring-mint/30 focus:outline-none transition-all"
+                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all"
                 required
                 minLength={11}
                 maxLength={20}
@@ -96,7 +96,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入昵称（2-10字符）"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:ring-2 focus:ring-mint/30 focus:outline-none transition-all"
+                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all"
                 required
                 minLength={2}
                 maxLength={10}
@@ -114,7 +114,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入密码（至少6位）"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:ring-2 focus:ring-mint/30 focus:outline-none transition-all"
+                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all"
                 required
                 minLength={6}
                 maxLength={50}
@@ -132,7 +132,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请再次输入密码"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:ring-2 focus:ring-mint/30 focus:outline-none transition-all"
+                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all"
                 required
                 minLength={6}
                 maxLength={50}

@@ -408,3 +408,160 @@ body::before {
     background: var(--color-pink);
   }
 }
+
+/* ============ 第七轮样式优化扩展（氛围层次 + 微交互增强） ============ */
+
+/* 关键帧：扫描线缓慢下移（战斗画布 CRT 复古氛围）
+   设计原因：纯色画布背景缺乏游戏沉浸感，扫描线是复古街机游戏的经典视觉语言，
+   与 Neo-brutalism 的"硬边+网格"美学同源；极低透明度避免干扰游戏内容可读性 */
+@keyframes scanlineMove {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(100%); }
+}
+
+/* 关键帧：金属光泽斜向扫过（排行榜 Top3 奖牌呼吸感）
+   设计原因：medal-gold/silver/bronze 已用渐变模拟金属质感，
+   叠加缓慢光泽扫过让奖牌"活起来"，强化冠军的视觉重量 */
+@keyframes metalShine {
+  0% { transform: translateX(-120%) rotate(25deg); opacity: 0; }
+  20% { opacity: 0.7; }
+  50% { transform: translateX(120%) rotate(25deg); opacity: 0; }
+  100% { transform: translateX(120%) rotate(25deg); opacity: 0; }
+}
+
+/* 关键帧：高级奖励流光（赛季通行证高级栏专属质感）
+   设计原因：高级奖励是付费内容，需与免费栏视觉区分；
+   黄色流光暗示"尊贵/稀有"，与 👑 高级标识配色一致 */
+@keyframes premiumSweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+/* 扫描线覆盖层：叠加在战斗画布上，pointer-events:none 不阻挡游戏交互
+   用法：父级 position:relative > 子级 .scanlines-overlay */
+@layer components {
+  .scanlines-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(26, 26, 26, 0.04) 0,
+        rgba(26, 26, 26, 0.04) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+  }
+  /* 扫描线内的移动高光条：单条亮线缓慢下移，模拟 CRT 刷新 */
+  .scanlines-overlay::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 40%;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(255, 248, 231, 0.05),
+      transparent
+    );
+    animation: scanlineMove 6s linear infinite;
+  }
+}
+
+/* 奖牌光泽覆盖：在 Top1 徽章上叠加缓慢扫过的金属高光
+   用法：奖牌元素加 .medal-shine（需 position:relative + overflow:hidden） */
+@layer components {
+  .medal-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .medal-shine::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: 0;
+    width: 40%;
+    height: 200%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.55),
+      transparent
+    );
+    animation: metalShine 5s ease-in-out infinite;
+    animation-delay: 1s;
+  }
+}
+
+/* 高级奖励流光：在赛季通行证高级奖励栏叠加黄色流光
+   用法：高级奖励容器加 .premium-shine */
+@layer components {
+  .premium-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .premium-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    width: 30%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 217, 61, 0.35),
+      transparent
+    );
+    animation: premiumSweep 3.5s ease-in-out infinite;
+    animation-delay: 2s;
+  }
+}
+
+/* 输入框焦点光晕：增强 Neo-brutalism 表单的焦点反馈
+   设计原因：原 input focus 仅 ring 边框，在 cream 背景上对比度偏弱；
+   叠加柔和色相光晕让焦点态更醒目，符合无障碍可感知性原则 */
+@layer components {
+  .input-focus-pink:focus {
+    box-shadow:
+      0 0 0 2px var(--color-cream),
+      0 0 0 4px var(--color-pink),
+      2px 2px 0 0 var(--color-ink);
+  }
+  .input-focus-mint:focus {
+    box-shadow:
+      0 0 0 2px var(--color-cream),
+      0 0 0 4px var(--color-mint),
+      2px 2px 0 0 var(--color-ink);
+  }
+}
+
+/* 属性卡片左侧色条：挂机页升级属性卡按类型区分色相
+   设计原因：6 个属性卡片视觉同质化，左侧色条让玩家快速定位目标属性 */
+@layer utilities {
+  .attr-bar-hp { border-left: 6px solid var(--color-pink) !important; }
+  .attr-bar-attack { border-left: 6px solid var(--color-orange) !important; }
+  .attr-bar-defense { border-left: 6px solid var(--color-mint) !important; }
+  .attr-bar-crit_rate { border-left: 6px solid var(--color-yellow) !important; }
+  .attr-bar-crit_damage { border-left: 6px solid #ff8c42 !important; }
+  .attr-bar-efficiency { border-left: 6px solid var(--color-ink) !important; }
+}
+
+/* 底部导航激活点：首页底部 tab 激活态的小圆点指示器
+   设计原因：原激活态仅靠背景色+位移区分，小屏上位移 1px 难以感知；
+   顶部小圆点提供额外的激活态视觉锚点 */
+@layer components {
+  .nav-active-dot::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background: var(--color-yellow);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--color-ink);
+  }
+}

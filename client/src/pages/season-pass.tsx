@@ -233,8 +233,9 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                     )}
                   </div>
 
-                  {/* 高级奖励 */}
-                  <div className={`flex-1 p-2 rounded border ${reward.premiumClaimed ? 'bg-mint/20 border-mint/40' : 'bg-yellow/20 border-yellow/40'}`}>
+                  {/* 高级奖励：未领取时加 premium-shine 流光强化"尊贵/稀有"质感
+                      已领取态不加流光（归档静态），与任务/成就页"claimed 无动画"理念一致 */}
+                  <div className={`flex-1 p-2 rounded border ${reward.premiumClaimed ? 'bg-mint/20 border-mint/40' : 'bg-yellow/20 border-yellow/40 premium-shine'}`}>
                     <p className="font-mono text-xs text-ink/70 mb-1 flex items-center gap-1">
                       {/* 装饰性 emoji 与后跟"高级"文字语义重复 */}
                       <span className="text-yellow" aria-hidden="true">👑</span> 高级

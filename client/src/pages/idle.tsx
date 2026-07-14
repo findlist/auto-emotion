@@ -514,7 +514,8 @@ function IdlePage({ onBack }: IdlePageProps) {
                 <div
                   key={field.key}
                   // 加 animate-stagger + 延迟让属性卡片依次入场，与 shop/tasks/achievements 列表入场风格统一
-                  className="bg-cream border-2 border-ink px-4 py-3 flex items-center justify-between shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger"
+                  // 加 attr-bar-* 左侧色条按属性类型区分色相，6 卡片不再视觉同质化
+                  className={`bg-cream border-2 border-ink px-4 py-3 flex items-center justify-between shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger attr-bar-${field.key}`}
                   style={{ animationDelay: `${idx * 50}ms` }}
                 >
                   <div className="flex items-center gap-3">

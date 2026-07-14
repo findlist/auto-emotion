@@ -475,6 +475,10 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
           aspectRatio: '4 / 3',
         }}
       >
+        {/* 扫描线覆盖层：CRT 复古氛围，pointer-events:none 不阻挡画布交互
+            设计原因：纯色画布缺乏游戏沉浸感，扫描线是复古街机视觉语言，
+            与 Neo-brutalism 硬边美学同源；极低透明度不干扰内容可读性 */}
+        <div className="scanlines-overlay" aria-hidden="true" />
         {/* AI 生成的怪兽信息：用 hud-chip 替代 bg-ink/80 */}
         {levelData && (
           <div className="absolute top-4 left-4 right-4 hud-chip text-cream p-3 rounded-lg z-10">
