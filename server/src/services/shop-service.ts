@@ -15,6 +15,16 @@ interface ShopItem {
   emoji: string;
 }
 
+// 用户背包项：聚合 user_inventory 与多张商品/成就/宠物/武器表的名称
+interface InventoryItem {
+  id: number;
+  item_type: string;
+  item_id: number;
+  quantity: number;
+  name: string | null; // LEFT JOIN 可能无匹配，设为 nullable
+  emoji: string;
+}
+
 // 商品模板
 const SHOP_ITEMS: Omit<ShopItem, 'id'>[] = [
   { name: '挂机加速卡(1小时)', description: '挂机效率提升50%', type: 'item', price: 100, price_type: 'gold', emoji: '⚡' },
@@ -53,7 +63,8 @@ async function ensureItemsExist(): Promise<void> {
 /**
  * 获取商品列表
  */
-export async function getShopItems(type?: string) {
+// SQL 通过 AS 别名将 price_gold 等真实列映射到 ShopItem 字段，需 as 断言对接接口契约
+export async function getShopItems(type?: string): Promise<ShopItem[]> {
   await ensureItemsExist();
 
   // shop_items 表无 price/price_type/emoji 列：实际为 price_gold/price_real/effect_type/effect_value
@@ -70,13 +81,14 @@ export async function getShopItems(type?: string) {
   query += ' ORDER BY price_gold';
 
   const result = await pool.query(query, params);
-  return result.rows;
+  // SQL 通过 AS 别名构造 ShopItem 兼容结构，断言保证类型契约可追溯
+  return result.rows as ShopItem[];
 }
 
 /**
  * 购买商品
  */
-export async function buyItem(userId: string, itemId: number) {
+export async function buyItem(userId: string, itemId: number): Promise<{ success: true; item: ShopItem }> {
   // 获取商品信息：SELECT * 会返回 schema 真实列(price_gold/effect_type 等)但无 price/price_type/emoji
   // 后续依赖 item.price 和 item.price_type 判断货币类型，缺失会导致都走 else 钻石分支（P0 修复）
   const itemResult = await pool.query(
@@ -89,7 +101,8 @@ export async function buyItem(userId: string, itemId: number) {
     throw new AppError(ErrorCode.NOT_FOUND, '商品不存在');
   }
 
-  const item = itemResult.rows[0];
+  // SQL 通过 AS 别名构造 ShopItem 兼容结构，断言保证类型契约可追溯
+  const item = itemResult.rows[0] as ShopItem;
 
   // 获取用户余额
   const userResult = await pool.query(
@@ -160,7 +173,7 @@ export async function buyItem(userId: string, itemId: number) {
 /**
  * 获取用户背包
  */
-export async function getUserInventory(userId: string) {
+export async function getUserInventory(userId: string): Promise<InventoryItem[]> {
   // shop_items/achievements/pets/weapons 表均无 emoji 列，原 COALESCE 引用会报 column does not exist
   // 改为字面量占位 emoji，保持返回结构与前端兼容（前端 shop.tsx 第 261 行依赖 item.emoji）
   const result = await pool.query(
@@ -177,5 +190,6 @@ export async function getUserInventory(userId: string) {
     [userId]
   );
 
-  return result.rows;
+  // LEFT JOIN 聚合多表 name 字段，断言对接 InventoryItem 接口契约
+  return result.rows as InventoryItem[];
 }
