@@ -9,6 +9,7 @@ import {
 } from '../services/leaderboard-service.js';
 import { success, fail } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.get('/power', async (req: Request, res: Response) => {
     const result = await getPowerLeaderboard(page, pageSize);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取战力榜失败';
+    const msg = getErrorMessage(err, '获取战力榜失败');
     fail(res, 500, msg);
   }
 });
@@ -109,7 +110,7 @@ router.get('/:type/me', authMiddleware, async (req: Request, res: Response) => {
       fail(res, 404, '未找到排名');
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取排名失败';
+    const msg = getErrorMessage(err, '获取排名失败');
     fail(res, 500, msg);
   }
 });
