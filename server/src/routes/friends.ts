@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getFriends, getPendingRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend } from '../services/friend-service.js';
 import { success, fail } from '../utils/response.js';
+import { getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get('/', async (req: Request, res: Response) => {
     const friends = await getFriends(user.userId);
     success(res, { friends });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取好友列表失败';
+    const msg = getErrorMessage(err, '获取好友列表失败');
     fail(res, 500, msg);
   }
 });
@@ -33,7 +34,7 @@ router.get('/requests', async (req: Request, res: Response) => {
     const requests = await getPendingRequests(user.userId);
     success(res, { requests });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取好友请求失败';
+    const msg = getErrorMessage(err, '获取好友请求失败');
     fail(res, 500, msg);
   }
 });
@@ -102,7 +103,7 @@ router.post('/reject', async (req: Request, res: Response) => {
     const result = await rejectFriendRequest(user.userId, requestId);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '拒绝好友请求失败';
+    const msg = getErrorMessage(err, '拒绝好友请求失败');
     fail(res, 400, msg);
   }
 });
@@ -126,7 +127,7 @@ router.delete('/:friendId', async (req: Request, res: Response) => {
     const result = await removeFriend(user.userId, friendId);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '删除好友失败';
+    const msg = getErrorMessage(err, '删除好友失败');
     fail(res, 400, msg);
   }
 });
