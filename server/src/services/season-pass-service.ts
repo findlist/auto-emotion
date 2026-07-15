@@ -18,6 +18,24 @@ interface SeasonReward {
   premium_reward_id: number;
 }
 
+// 已领取状态扩展的奖励项：前端据此区分免费/高级两档领取进度
+interface SeasonRewardWithClaim extends SeasonReward {
+  freeClaimed: boolean;
+  premiumClaimed: boolean;
+}
+
+// 当前赛季完整信息：包含赛季元数据、用户进度、奖励列表三部分
+interface SeasonInfo {
+  seasonId: number;
+  seasonName: string;
+  seasonStartedAt: string;
+  seasonEndsAt: string;
+  level: number;
+  exp: number;
+  isPremium: boolean;
+  rewards: SeasonRewardWithClaim[];
+}
+
 // 生成赛季奖励表
 function generateSeasonRewards(): SeasonReward[] {
   const rewards: SeasonReward[] = [];
@@ -41,7 +59,7 @@ const SEASON_REWARDS = generateSeasonRewards();
 /**
  * 获取当前赛季信息
  */
-export async function getCurrentSeason(userId: string) {
+export async function getCurrentSeason(userId: string): Promise<SeasonInfo> {
   // 仅查询 users 表实际存在的赛季字段：season_id/season_started_at 不在 schema 中，
   // 原查询会因字段不存在报错。赛季信息改从 seasons 表获取（下方 seasonResult）
   const result = await pool.query(
@@ -100,7 +118,7 @@ export async function getCurrentSeason(userId: string) {
 /**
  * 购买通行证
  */
-export async function buySeasonPass(userId: string) {
+export async function buySeasonPass(userId: string): Promise<{ success: true }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -136,7 +154,8 @@ export async function buySeasonPass(userId: string) {
 /**
  * 添加赛季经验
  */
-export async function addSeasonExp(userId: string, exp: number) {
+// 仅更新用户赛季经验，无返回值；调用方按 fire-and-forget 处理
+export async function addSeasonExp(userId: string, exp: number): Promise<void> {
   await pool.query(
     `UPDATE users SET season_exp = season_exp + $1 WHERE id = $2`,
     [exp, userId]
@@ -146,7 +165,7 @@ export async function addSeasonExp(userId: string, exp: number) {
 /**
  * 领取赛季奖励
  */
-export async function claimSeasonReward(userId: string, level: number, isPremium: boolean) {
+export async function claimSeasonReward(userId: string, level: number, isPremium: boolean): Promise<{ success: true }> {
   // 事务外 fast-fail 预检查：避免无谓获取事务客户端，改善 UX
   // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在事务内 advisory lock 后的权威检查
   const userResult = await pool.query(
