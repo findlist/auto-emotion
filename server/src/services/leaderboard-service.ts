@@ -87,21 +87,30 @@ export async function getUserRank(userId: string, type: LeaderboardType): Promis
 /**
  * 获取战力榜
  */
-export async function getPowerLeaderboard(page: number = 1, pageSize: number = 20) {
+export async function getPowerLeaderboard(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   return getLeaderboard('power', page, pageSize);
 }
 
 /**
  * 获取对战榜
  */
-export async function getBattleLeaderboard(page: number = 1, pageSize: number = 20) {
+export async function getBattleLeaderboard(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   return getLeaderboard('battle', page, pageSize);
 }
 
 /**
  * 获取速度榜
  */
-export async function getSpeedLeaderboard(page: number = 1, pageSize: number = 20) {
+export async function getSpeedLeaderboard(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   return getLeaderboard('speed', page, pageSize);
 }
 
@@ -136,8 +145,9 @@ export async function updateUserScore(
  */
 export async function getFriendsUserRank(userId: string): Promise<{ rank: number; score: number } | null> {
   // 获取好友列表（与 getFriendsLeaderboard 一致：好友 + 自己）
+  // status 为 VARCHAR('pending'/'accepted')，使用字符串字面量与 schema 对齐（H-12 修复）
   const friendsResult = await pool.query(
-    `SELECT friend_id FROM friendships WHERE user_id = $1 AND status = 1`,
+    `SELECT friend_id FROM friendships WHERE user_id = $1 AND status = 'accepted'`,
     [userId]
   );
   const friendIds = friendsResult.rows.map(r => r.friend_id);
@@ -178,8 +188,9 @@ export async function getFriendsLeaderboard(
   const offset = (page - 1) * pageSize;
 
   // 获取好友列表
+  // status 为 VARCHAR('pending'/'accepted')，使用字符串字面量与 schema 对齐（H-12 修复）
   const friendsResult = await pool.query(
-    `SELECT friend_id FROM friendships WHERE user_id = $1 AND status = 1`,
+    `SELECT friend_id FROM friendships WHERE user_id = $1 AND status = 'accepted'`,
     [userId]
   );
   const friendIds = friendsResult.rows.map(r => r.friend_id);

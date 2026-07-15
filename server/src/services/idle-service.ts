@@ -3,6 +3,9 @@
 
 import * as idleEngine from '../idle/idle-engine.js';
 import * as offlineCalculator from '../idle/offline-calculator.js';
+// 导入类型用于函数返回类型注解，保证 service 层与底层 idleEngine 类型契约显式可追溯
+import type { CharacterStatus, SettleResult } from '../idle/idle-engine.js';
+import type { OfflineResult } from '../idle/offline-calculator.js';
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
@@ -12,7 +15,7 @@ import { logger } from '../utils/logger.js';
  * @param userId 用户ID
  * @returns 角色状态
  */
-export async function getStatus(userId: string) {
+export async function getStatus(userId: string): Promise<CharacterStatus | null> {
   return idleEngine.getStatus(userId);
 }
 
@@ -21,7 +24,7 @@ export async function getStatus(userId: string) {
  * @param userId 用户ID
  * @returns 离线收益结果
  */
-export async function claimOffline(userId: string) {
+export async function claimOffline(userId: string): Promise<OfflineResult> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -74,7 +77,7 @@ export async function claimOffline(userId: string) {
  * @param areaId 区域ID
  * @returns 切换结果
  */
-export async function switchArea(userId: string, areaId: number) {
+export async function switchArea(userId: string, areaId: number): Promise<{ success: boolean }> {
   // 检查区域是否存在
   const area = await pool.query('SELECT * FROM idle_areas WHERE id = $1', [areaId]);
   if (area.rows.length === 0) {
@@ -105,7 +108,7 @@ export async function upgradeCharacter(
   userId: string,
   field: 'hp' | 'attack' | 'defense' | 'crit_rate' | 'crit_damage' | 'efficiency',
   itemType?: string
-) {
+): Promise<{ success: boolean; newValue: number }> {
   return idleEngine.upgradeCharacter(userId, field, itemType);
 }
 
@@ -115,6 +118,6 @@ export async function upgradeCharacter(
  * @param durationSeconds 时长（秒）
  * @returns 结算结果
  */
-export async function settle(userId: string, durationSeconds: number) {
+export async function settle(userId: string, durationSeconds: number): Promise<SettleResult> {
   return idleEngine.settle(userId, durationSeconds);
 }
