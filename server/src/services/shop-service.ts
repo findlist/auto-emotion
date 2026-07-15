@@ -38,10 +38,14 @@ async function ensureItemsExist(): Promise<void> {
   }
 
   for (const item of SHOP_ITEMS) {
+    // shop_items 表实际列为 price_gold/effect_type/effect_value（无 price/price_type/emoji 列）
+    // SHOP_ITEMS 模板用 price 表示金币价、price_type 表示货币类型，此处映射到 schema 的 price_gold
+    // effect_type/effect_value 模板未定义，统一填 NULL；预填数据已由 001_init.sql 完成，本分支仅在空表时执行
     await pool.query(
-      `INSERT INTO shop_items (name, description, type, price, price_type, emoji)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [item.name, item.description, item.type, item.price, item.price_type, item.emoji]
+      `INSERT INTO shop_items (name, description, type, price_gold, effect_type, effect_value)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT DO NOTHING`,
+      [item.name, item.description, item.type, item.price, null, null]
     );
   }
 }
@@ -52,7 +56,10 @@ async function ensureItemsExist(): Promise<void> {
 export async function getShopItems(type?: string) {
   await ensureItemsExist();
 
-  let query = 'SELECT id, name, description, type, price, price_type, emoji FROM shop_items WHERE 1=1';
+  // shop_items 表无 price/price_type/emoji 列：实际为 price_gold/price_real/effect_type/effect_value
+  // 通过 AS 别名暴露 price/price_type/emoji 字段以保持 ShopItem 接口与前端兼容
+  // price_real=0 表示金币商品（预填数据全部如此），故 price_type 固定 'gold'；emoji 用占位符
+  let query = `SELECT id, name, description, type, price_gold AS price, 'gold' AS price_type, '🛒' AS emoji FROM shop_items WHERE 1=1`;
   const params: unknown[] = [];
 
   if (type) {
@@ -60,7 +67,7 @@ export async function getShopItems(type?: string) {
     params.push(type);
   }
 
-  query += ' ORDER BY price';
+  query += ' ORDER BY price_gold';
 
   const result = await pool.query(query, params);
   return result.rows;
@@ -70,9 +77,11 @@ export async function getShopItems(type?: string) {
  * 购买商品
  */
 export async function buyItem(userId: string, itemId: number) {
-  // 获取商品信息
+  // 获取商品信息：SELECT * 会返回 schema 真实列(price_gold/effect_type 等)但无 price/price_type/emoji
+  // 后续依赖 item.price 和 item.price_type 判断货币类型，缺失会导致都走 else 钻石分支（P0 修复）
   const itemResult = await pool.query(
-    `SELECT * FROM shop_items WHERE id = $1`,
+    `SELECT id, name, description, type, price_gold AS price, 'gold' AS price_type, '🛒' AS emoji
+     FROM shop_items WHERE id = $1`,
     [itemId]
   );
 
@@ -152,10 +161,12 @@ export async function buyItem(userId: string, itemId: number) {
  * 获取用户背包
  */
 export async function getUserInventory(userId: string) {
+  // shop_items/achievements/pets/weapons 表均无 emoji 列，原 COALESCE 引用会报 column does not exist
+  // 改为字面量占位 emoji，保持返回结构与前端兼容（前端 shop.tsx 第 261 行依赖 item.emoji）
   const result = await pool.query(
     `SELECT ui.id, ui.item_type, ui.item_id, ui.quantity,
             COALESCE(si.name, ai.name, pi.name, wi.name) as name,
-            COALESCE(si.emoji, ai.emoji, pi.emoji, wi.emoji) as emoji
+            '🛒' as emoji
      FROM user_inventory ui
      LEFT JOIN shop_items si ON si.type = ui.item_type AND si.id = ui.item_id
      LEFT JOIN achievements ai ON ai.type = ui.item_type AND ai.id = ui.item_id

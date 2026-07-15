@@ -42,8 +42,10 @@ const SEASON_REWARDS = generateSeasonRewards();
  * 获取当前赛季信息
  */
 export async function getCurrentSeason(userId: string) {
+  // 仅查询 users 表实际存在的赛季字段：season_id/season_started_at 不在 schema 中，
+  // 原查询会因字段不存在报错。赛季信息改从 seasons 表获取（下方 seasonResult）
   const result = await pool.query(
-    `SELECT season_id, season_level, season_exp, is_premium, season_started_at
+    `SELECT season_level, season_exp, is_premium
      FROM users WHERE id = $1`,
     [userId]
   );
