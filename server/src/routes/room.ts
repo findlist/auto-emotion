@@ -4,7 +4,7 @@
 import { Router, Request, Response } from 'express';
 import { roomManager } from '../websocket/room-manager.js';
 import { success, fail } from '../utils/response.js';
-import { AppError } from '../utils/error.js';
+import { AppError, getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -39,7 +39,7 @@ router.post('/create', async (req: Request, res: Response) => {
     if (err instanceof AppError) {
       fail(res, err.code, err.message);
     } else {
-      const msg = err instanceof Error ? err.message : '创建房间失败';
+      const msg = getErrorMessage(err, '创建房间失败');
       fail(res, 500, msg);
     }
   }

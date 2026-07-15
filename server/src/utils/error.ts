@@ -47,3 +47,12 @@ export class AppError extends Error {
     this.name = 'AppError';
   }
 }
+
+/**
+ * 从未知错误中提取消息，非 Error 类型时返回兜底文案
+ * 设计原因：routes 层 34 处 catch 块重复 `err instanceof Error ? err.message : 'XXX失败'` 三元，
+ * 统一提取为工具函数消除重复，同时保留各路由自定义兜底文案（业务语义不同）。
+ */
+export function getErrorMessage(err: unknown, defaultMsg: string): string {
+  return err instanceof Error ? err.message : defaultMsg;
+}
