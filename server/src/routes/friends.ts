@@ -57,7 +57,7 @@ router.post('/request', async (req: Request, res: Response) => {
     const result = await sendFriendRequest(user.userId, targetUserId);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '发送好友请求失败';
+    const msg = getErrorMessage(err, '发送好友请求失败');
     fail(res, 400, msg);
   }
 });
@@ -80,7 +80,7 @@ router.post('/accept', async (req: Request, res: Response) => {
     const result = await acceptFriendRequest(user.userId, requestId);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '接受好友请求失败';
+    const msg = getErrorMessage(err, '接受好友请求失败');
     fail(res, 400, msg);
   }
 });
