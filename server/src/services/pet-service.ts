@@ -6,11 +6,27 @@ import { AppError, ErrorCode } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 /**
+ * 宠物列表行：对应 listPets 的 SQL JOIN 结果
+ * 设计原因：pets.* + user_pets.is_equipped，未拥有宠物时 is_equipped 为 null，
+ * 前端据此区分已解锁与未解锁状态
+ */
+export interface PetRow {
+  id: number;
+  name: string;
+  description: string | null;
+  bonus_type: string | null;
+  bonus_value: string;
+  unlock_cost_gold: number;
+  created_at: Date;
+  is_equipped: boolean | null;
+}
+
+/**
  * 获取用户宠物列表
  * @param userId 用户ID
- * @returns 宠物列表
+ * @returns 宠物列表（含装备状态，未拥有宠物 is_equipped 为 null）
  */
-export async function listPets(userId: string) {
+export async function listPets(userId: string): Promise<PetRow[]> {
   const result = await pool.query(
     `SELECT p.*, up.is_equipped
      FROM pets p
@@ -18,7 +34,7 @@ export async function listPets(userId: string) {
      ORDER BY p.id`,
     [userId]
   );
-  return result.rows;
+  return result.rows as PetRow[];
 }
 
 /**
@@ -27,7 +43,10 @@ export async function listPets(userId: string) {
  * @param petId 宠物ID
  * @returns 装备结果
  */
-export async function equipPet(userId: string, petId: number) {
+export async function equipPet(
+  userId: string,
+  petId: number
+): Promise<{ success: true; petId: number }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -74,7 +93,10 @@ export async function equipPet(userId: string, petId: number) {
  * @param petId 宠物ID
  * @returns 购买结果
  */
-export async function buyPet(userId: string, petId: number) {
+export async function buyPet(
+  userId: string,
+  petId: number
+): Promise<{ success: true; petId: number }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
