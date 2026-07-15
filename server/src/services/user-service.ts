@@ -196,7 +196,7 @@ export async function logout(token: string, refreshToken?: string): Promise<void
   }
 }
 
-export async function refreshToken(token: string) {
+export async function refreshToken(token: string): Promise<{ token: string }> {
   // jwt.verify 对过期/篡改令牌抛 JsonWebTokenError/TokenExpiredError，需捕获转为 AppError，
   // 否则 errorHandler 会按未知错误返回 500 而非 401，与 API 声明不符
   let payload: { userId: string; type: string };

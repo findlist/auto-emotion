@@ -15,6 +15,14 @@ interface DailyTask {
   reward_gold: number;
 }
 
+// 任务合并视图：在 DailyTask 基础上叠加用户进度与领取状态
+// 设计原因：getDailyTasks 需将 daily_tasks 模板与 user_daily_tasks 进度合并返回前端，
+// 显式类型契约便于调用方与前端追溯完整字段结构
+interface TaskWithProgress extends DailyTask {
+  progress: number;
+  claimed: boolean;
+}
+
 // 预设的每日任务模板
 const DAILY_TASK_TEMPLATES: Omit<DailyTask, 'id'>[] = [
   { code: 'daily_battle_2', name: '完成2局对战', type: 0, target: 2, reward_exp: 50, reward_gold: 100 },
@@ -64,7 +72,7 @@ async function ensureDailyTasksExist(): Promise<void> {
 /**
  * 获取用户的每日任务列表
  */
-export async function getDailyTasks(userId: string) {
+export async function getDailyTasks(userId: string): Promise<TaskWithProgress[]> {
   const today = getTodayStr();
 
   // 确保今日任务存在
@@ -106,7 +114,7 @@ export async function getDailyTasks(userId: string) {
     };
   });
 
-  return tasks;
+  return tasks as TaskWithProgress[];
 }
 
 /**
@@ -151,7 +159,7 @@ export async function updateTaskProgress(userId: string, taskType: number, delta
 /**
  * 领取任务奖励
  */
-export async function claimTaskReward(userId: string, taskId: number) {
+export async function claimTaskReward(userId: string, taskId: number): Promise<{ success: true; reward_exp: number; reward_gold: number }> {
   const today = getTodayStr();
 
   // 事务外 fast-fail 预检查：避免无谓获取事务客户端，改善 UX
