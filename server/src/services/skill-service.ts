@@ -6,12 +6,22 @@ import { skillUnlockLevel } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
+// 技能列表行：对应 listSkills 的 SQL 查询结果
+// level/is_active 来自 LEFT JOIN user_skills，未解锁时为 null
+interface SkillRow {
+  id: number;
+  name: string;
+  description?: string;
+  level: number | null;
+  is_active: boolean | null;
+}
+
 /**
  * 获取用户技能列表
  * @param userId 用户ID
  * @returns 技能列表
  */
-export async function listSkills(userId: string) {
+export async function listSkills(userId: string): Promise<SkillRow[]> {
   const result = await pool.query(
     `SELECT s.*, us.level, us.is_active
      FROM skills s
@@ -19,7 +29,8 @@ export async function listSkills(userId: string) {
      ORDER BY s.id`,
     [userId]
   );
-  return result.rows;
+  // SQL 返回 any[]，断言对接 SkillRow 接口契约，便于调用方与前端类型可追溯
+  return result.rows as SkillRow[];
 }
 
 /**
@@ -28,7 +39,10 @@ export async function listSkills(userId: string) {
  * @param skillId 技能ID
  * @returns 解锁结果
  */
-export async function unlockSkill(userId: string, skillId: number) {
+export async function unlockSkill(
+  userId: string,
+  skillId: number
+): Promise<{ success: true; skillId: number }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -96,7 +110,10 @@ export async function unlockSkill(userId: string, skillId: number) {
  * @param skillId 技能ID
  * @returns 升级结果
  */
-export async function upgradeSkill(userId: string, skillId: number) {
+export async function upgradeSkill(
+  userId: string,
+  skillId: number
+): Promise<{ success: true; newLevel: number; cost: number }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -170,7 +187,11 @@ export async function upgradeSkill(userId: string, skillId: number) {
  * @param active 是否激活
  * @returns 操作结果
  */
-export async function activateSkill(userId: string, skillId: number, active: boolean) {
+export async function activateSkill(
+  userId: string,
+  skillId: number,
+  active: boolean
+): Promise<{ success: true; skillId: number; isActive: boolean }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
