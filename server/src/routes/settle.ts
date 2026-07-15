@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { settleGame } from '../services/settle-service.js';
 import { success, fail } from '../utils/response.js';
-import { AppError } from '../utils/error.js';
+import { AppError, getErrorMessage } from '../utils/error.js';
 import type { GameMode } from '../types/game.js';
 
 const router = Router();
@@ -67,7 +67,7 @@ router.post('/', async (req: Request, res: Response) => {
     if (err instanceof AppError) {
       fail(res, err.code, err.message);
     } else {
-      const msg = err instanceof Error ? err.message : '结算失败';
+      const msg = getErrorMessage(err, '结算失败');
       fail(res, 500, msg);
     }
   }
