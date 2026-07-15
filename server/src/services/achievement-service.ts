@@ -16,6 +16,36 @@ interface Achievement {
   reward_id: number;
 }
 
+/**
+ * 成就视图（含用户进度），对应 getAchievements 返回的每项结构
+ * 设计原因：getAchievements 合并 achievements 模板与 user_achievements 进度，
+ * 前端展示依赖 progress/completed/claimed 三个字段，统一类型契约便于调用方追溯
+ */
+interface AchievementWithProgress {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  type: number;
+  target: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+  reward_type: string;
+  reward_id: number;
+}
+
+/**
+ * 领取奖励返回值，对应 claimAchievementReward 成功分支
+ * 设计原因：失败分支统一抛 AppError，返回类型仅描述成功语义，
+ * success 字面量 true 便于调用方 narrowing
+ */
+interface ClaimRewardResult {
+  success: true;
+  reward_type: string;
+  reward_id: number;
+}
+
 // 成就模板
 const ACHIEVEMENT_TEMPLATES: Omit<Achievement, 'id'>[] = [
   { code: 'first_battle', name: '初次解压', description: '完成首局对战', type: 0, target: 1, reward_type: 'skin', reward_id: 1 },
@@ -51,7 +81,7 @@ async function ensureAchievementsExist(): Promise<void> {
 /**
  * 获取成就列表
  */
-export async function getAchievements(userId: string) {
+export async function getAchievements(userId: string): Promise<AchievementWithProgress[]> {
   // 确保成就已初始化
   await ensureAchievementsExist();
 
@@ -129,7 +159,7 @@ export async function updateAchievementProgress(userId: string, type: number, de
 /**
  * 领取成就奖励
  */
-export async function claimAchievementReward(userId: string, achievementId: number) {
+export async function claimAchievementReward(userId: string, achievementId: number): Promise<ClaimRewardResult> {
   const result = await pool.query(
     `SELECT a.*, ua.progress, ua.is_completed as completed, (ua.claimed_at IS NOT NULL) as claimed, ua.id as user_achievement_id
      FROM achievements a
