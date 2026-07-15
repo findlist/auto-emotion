@@ -36,7 +36,7 @@ router.get('/battle', async (req: Request, res: Response) => {
     const result = await getBattleLeaderboard(page, pageSize);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取对战榜失败';
+    const msg = getErrorMessage(err, '获取对战榜失败');
     fail(res, 500, msg);
   }
 });
@@ -50,7 +50,7 @@ router.get('/speed', async (req: Request, res: Response) => {
     const result = await getSpeedLeaderboard(page, pageSize);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取速度榜失败';
+    const msg = getErrorMessage(err, '获取速度榜失败');
     fail(res, 500, msg);
   }
 });
@@ -70,7 +70,7 @@ router.get('/friends', authMiddleware, async (req: Request, res: Response) => {
     const result = await getFriendsLeaderboard(user.userId, page, pageSize);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取好友榜失败';
+    const msg = getErrorMessage(err, '获取好友榜失败');
     fail(res, 500, msg);
   }
 });
