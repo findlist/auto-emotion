@@ -5,10 +5,28 @@ import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
+// 好友列表行：对应 getFriends 的 SQL JOIN 结果，online 由 LATERAL 子查询计算
+interface FriendRow {
+  id: string;
+  nickname: string;
+  avatar_url: string | null;
+  status: string;
+  online: boolean;
+}
+
+// 待处理请求行：对应 getPendingRequests 的 SQL 查询结果
+interface PendingRequestRow {
+  id: number;
+  from_user_id: string;
+  nickname: string;
+  avatar_url: string | null;
+  created_at: Date;
+}
+
 /**
  * 获取好友列表
  */
-export async function getFriends(userId: string) {
+export async function getFriends(userId: string): Promise<FriendRow[]> {
   const result = await pool.query(
     `SELECT u.id, u.nickname, u.avatar_url, u.status,
             CASE WHEN f2.user_id IS NOT NULL THEN true ELSE false END as online
@@ -22,13 +40,14 @@ export async function getFriends(userId: string) {
      ORDER BY u.nickname`,
     [userId]
   );
-  return result.rows;
+  // SQL 返回 any[]，断言对接 FriendRow 接口契约，便于调用方与前端类型可追溯
+  return result.rows as FriendRow[];
 }
 
 /**
  * 获取收到的好友请求
  */
-export async function getPendingRequests(userId: string) {
+export async function getPendingRequests(userId: string): Promise<PendingRequestRow[]> {
   const result = await pool.query(
     `SELECT f.id, f.user_id as from_user_id, u.nickname, u.avatar_url, f.created_at
      FROM friendships f
@@ -37,13 +56,17 @@ export async function getPendingRequests(userId: string) {
      ORDER BY f.created_at DESC`,
     [userId]
   );
-  return result.rows;
+  return result.rows as PendingRequestRow[];
 }
 
 /**
  * 发送好友请求
  */
-export async function sendFriendRequest(userId: string, targetUserId: number) {
+// 联合类型：双向已存在请求时走自动接受分支返回 autoAccepted，否则走新建请求分支返回 requestId
+export async function sendFriendRequest(
+  userId: string,
+  targetUserId: number
+): Promise<{ success: true; autoAccepted: true } | { success: true; requestId: number }> {
   if (userId === targetUserId.toString()) {
     throw new AppError(ErrorCode.BAD_REQUEST, '不能添加自己为好友');
   }
@@ -118,7 +141,10 @@ export async function sendFriendRequest(userId: string, targetUserId: number) {
 /**
  * 接受好友请求
  */
-export async function acceptFriendRequest(userId: string, requestId: number) {
+export async function acceptFriendRequest(
+  userId: string,
+  requestId: number
+): Promise<{ success: true }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -164,7 +190,10 @@ export async function acceptFriendRequest(userId: string, requestId: number) {
 /**
  * 拒绝好友请求
  */
-export async function rejectFriendRequest(userId: string, requestId: number) {
+export async function rejectFriendRequest(
+  userId: string,
+  requestId: number
+): Promise<{ success: true }> {
   const result = await pool.query(
     `DELETE FROM friendships WHERE id = $1 AND friend_id = $2 AND status = 'pending' RETURNING id`,
     [requestId, userId]
@@ -180,7 +209,7 @@ export async function rejectFriendRequest(userId: string, requestId: number) {
 /**
  * 删除好友
  */
-export async function removeFriend(userId: string, friendId: number) {
+export async function removeFriend(userId: string, friendId: number): Promise<{ success: true }> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
