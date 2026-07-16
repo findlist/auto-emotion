@@ -2,7 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/database.js';
 import redis from '../config/redis.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 const SALT_ROUNDS = 10;
@@ -103,7 +103,8 @@ export async function register(input: RegisterInput): Promise<{ user: UserRow; t
     return { user, token, refreshToken };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
