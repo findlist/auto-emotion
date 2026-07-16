@@ -3,8 +3,8 @@
 
 import pool from '../config/database.js';
 import { skillUnlockLevel } from '../idle/growth-curve.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 // 技能列表行：对应 listSkills 的 SQL 查询结果
 // level/is_active 来自 LEFT JOIN user_skills，未解锁时为 null
@@ -43,13 +43,11 @@ export async function unlockSkill(
   userId: string,
   skillId: number
 ): Promise<{ success: true; skillId: number }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // 获取技能信息（用 client.query 在事务连接上执行，保证事务隔离性）
+  // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release，AppError 抛出会触发 ROLLBACK 并透传
+  return withTransaction(async (tx) => {
+    // 获取技能信息（用 tx.query 在事务连接上执行，保证事务隔离性）
     // 设计原因：原用 pool.query 获取独立连接执行，查询不在事务内，虽不影响功能但破坏事务隔离语义
-    const skillResult = await client.query(
+    const skillResult = await tx.query(
       `SELECT * FROM skills WHERE id = $1`,
       [skillId]
     );
@@ -61,7 +59,7 @@ export async function unlockSkill(
     // skillResult.rows[0] 已通过长度检查
 
     // 检查是否已解锁
-    const ownedResult = await client.query(
+    const ownedResult = await tx.query(
       `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2`,
       [userId, skillId]
     );
@@ -71,7 +69,7 @@ export async function unlockSkill(
     }
 
     // 检查角色等级是否满足解锁要求
-    const charResult = await client.query(
+    const charResult = await tx.query(
       `SELECT level FROM characters WHERE user_id = $1`,
       [userId]
     );
@@ -86,23 +84,13 @@ export async function unlockSkill(
     }
 
     // 创建用户技能记录
-    await client.query(
+    await tx.query(
       `INSERT INTO user_skills (user_id, skill_id, level, is_active) VALUES ($1, $2, 1, FALSE)`,
       [userId, skillId]
     );
 
-    await client.query('COMMIT');
-
     return { success: true, skillId };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -115,12 +103,10 @@ export async function upgradeSkill(
   userId: string,
   skillId: number
 ): Promise<{ success: true; newLevel: number; cost: number }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release
+  return withTransaction(async (tx) => {
     // 检查是否拥有该技能
-    const ownedResult = await client.query(
+    const ownedResult = await tx.query(
       `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2`,
       [userId, skillId]
     );
@@ -137,7 +123,7 @@ export async function upgradeSkill(
 
     // 事务内预检查改善 UX：金币不足快速失败，给出明确所需金币数
     // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在下方 AND gold >= $1 原子守卫
-    const userResult = await client.query(
+    const userResult = await tx.query(
       `SELECT gold FROM users WHERE id = $1`,
       [userId]
     );
@@ -149,7 +135,7 @@ export async function upgradeSkill(
     // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
     // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
     // RETURNING 返回 0 行表示并发场景下余额已被其他事务扣减，抛错 ROLLBACK
-    const deductResult = await client.query(
+    const deductResult = await tx.query(
       `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
       [goldCost, userId]
     );
@@ -158,28 +144,18 @@ export async function upgradeSkill(
       throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${goldCost} 金币`);
     }
 
-    await client.query(
+    await tx.query(
       `UPDATE user_skills SET level = level + 1, updated_at = NOW()
        WHERE user_id = $1 AND skill_id = $2`,
       [userId, skillId]
     );
-
-    await client.query('COMMIT');
 
     return {
       success: true,
       newLevel: currentLevel + 1,
       cost: goldCost,
     };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -194,12 +170,10 @@ export async function activateSkill(
   skillId: number,
   active: boolean
 ): Promise<{ success: true; skillId: number; isActive: boolean }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release
+  return withTransaction(async (tx) => {
     // 检查是否拥有该技能
-    const ownedResult = await client.query(
+    const ownedResult = await tx.query(
       `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2`,
       [userId, skillId]
     );
@@ -209,22 +183,12 @@ export async function activateSkill(
     }
 
     // 更新激活状态
-    await client.query(
+    await tx.query(
       `UPDATE user_skills SET is_active = $1, updated_at = NOW()
        WHERE user_id = $2 AND skill_id = $3`,
       [active, userId, skillId]
     );
 
-    await client.query('COMMIT');
-
     return { success: true, skillId, isActive: active };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
