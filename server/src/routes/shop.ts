@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getShopItems, buyItem, getUserInventory } from '../services/shop-service.js';
 import { success, fail } from '../utils/response.js';
 import { checkIdempotency } from '../utils/idempotency.js';
-import { AppError } from '../utils/error.js';
+import { AppError, getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -20,7 +20,7 @@ router.get('/items', async (req: Request, res: Response) => {
     const items = await getShopItems(type as string | undefined);
     success(res, { items });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取商品列表失败';
+    const msg = getErrorMessage(err, '获取商品列表失败');
     fail(res, 500, msg);
   }
 });
@@ -56,7 +56,7 @@ router.post('/buy', async (req: Request, res: Response) => {
     const result = await buyItem(user.userId, itemId);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '购买失败';
+    const msg = getErrorMessage(err, '购买失败');
     fail(res, 400, msg);
   }
 });
@@ -73,7 +73,7 @@ router.get('/inventory', async (req: Request, res: Response) => {
     const inventory = await getUserInventory(user.userId);
     success(res, { inventory });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取背包失败';
+    const msg = getErrorMessage(err, '获取背包失败');
     fail(res, 500, msg);
   }
 });
