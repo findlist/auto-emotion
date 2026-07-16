@@ -7,8 +7,8 @@ import * as offlineCalculator from '../idle/offline-calculator.js';
 import type { CharacterStatus, SettleResult } from '../idle/idle-engine.js';
 import type { OfflineResult } from '../idle/offline-calculator.js';
 import pool from '../config/database.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 /**
  * 获取角色状态
@@ -25,51 +25,40 @@ export async function getStatus(userId: string): Promise<CharacterStatus | null>
  * @returns 离线收益结果
  */
 export async function claimOffline(userId: string): Promise<OfflineResult> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release，业务只需关注事务内逻辑
+  // 设计原因：原手动事务样板含双 COMMIT 反模式（零收益早返回路径 + 正常路径都显式 COMMIT），
+  // 迁移后零收益路径直接 return 即可，工具会在回调正常返回后统一 COMMIT，消除反模式
+  return withTransaction(async (tx) => {
     // 事务内 advisory lock：基于 userId 哈希获取事务级锁，串行化同用户并发领取
     // 设计原因：原实现事务外调用 calculateOffline 读取 idle_since 计算收益，并发请求都读到相同 idle_since
     // 计算相同收益，第一个请求 COMMIT 重置 idle_since=NOW() 后，第二个请求仍用旧收益发放导致双倍
     // pg_advisory_xact_lock 在事务结束自动释放，无需 DDL 变更，是 PostgreSQL 标准并发控制方案
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
 
-    // 事务内重新计算离线收益：用 client.query 在事务连接上读取最新 idle_since
+    // 事务内重新计算离线收益：用 tx.query 在事务连接上读取最新 idle_since
     // advisory lock 串行化后，前一个并发请求已 COMMIT 重置 idle_since=NOW()，重算时间差接近 0 返回 0 收益
-    const result = await offlineCalculator.calculateOffline(userId, client.query.bind(client));
+    const result = await offlineCalculator.calculateOffline(userId, tx.query.bind(tx));
 
-    // 无收益（已被并发领取或刚领取过）直接 COMMIT 返回 0 收益，不发放金币经验
+    // 无收益（已被并发领取或刚领取过）直接返回，不发放金币经验
+    // withTransaction 在回调正常返回后自动 COMMIT，无需显式 COMMIT
     if (result.exp === 0 && result.gold === 0) {
-      await client.query('COMMIT');
       return result;
     }
 
     // 更新用户金币经验
-    await client.query(
+    await tx.query(
       `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
       [result.exp, result.gold, userId]
     );
 
     // 重置离线时间
-    await client.query(
+    await tx.query(
       `UPDATE characters SET idle_since = NOW(), offline_exp = 0, updated_at = NOW() WHERE user_id = $1`,
       [userId]
     );
 
-    await client.query('COMMIT');
     return result;
-  } catch (err) {
-    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
