@@ -3,8 +3,8 @@
 
 import pool from '../config/database.js';
 import { weaponUpgradeCost } from '../idle/growth-curve.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 /**
  * 武器列表行：对应 listWeapons 的 SQL JOIN 结果
@@ -52,12 +52,10 @@ export async function upgradeWeapon(
   userId: string,
   weaponId: number
 ): Promise<{ success: true; newLevel: number; cost: { gold: number; fragments: number } }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  // 事务统一由 withTransaction 管理 BEGIN/COMMIT/ROLLBACK/release，业务侧仅关心 tx.query
+  return withTransaction(async (tx) => {
     // 检查是否拥有该武器
-    const ownedResult = await client.query(
+    const ownedResult = await tx.query(
       `SELECT * FROM user_weapons WHERE user_id = $1 AND weapon_id = $2`,
       [userId, weaponId]
     );
@@ -74,7 +72,7 @@ export async function upgradeWeapon(
 
     // 事务内预检查改善 UX：金币不足快速失败，给出明确所需金币数
     // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在下方 AND gold >= $1 原子守卫
-    const userResult = await client.query(
+    const userResult = await tx.query(
       `SELECT gold FROM users WHERE id = $1`,
       [userId]
     );
@@ -90,7 +88,7 @@ export async function upgradeWeapon(
     // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
     // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
     // RETURNING 返回 0 行表示并发场景下余额已被其他事务扣减，抛错 ROLLBACK
-    const deductResult = await client.query(
+    const deductResult = await tx.query(
       `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
       [cost.gold, userId]
     );
@@ -99,28 +97,18 @@ export async function upgradeWeapon(
       throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${cost.gold} 金币`);
     }
 
-    await client.query(
+    await tx.query(
       `UPDATE user_weapons SET level = level + 1, exp = exp + $1, updated_at = NOW()
        WHERE user_id = $2 AND weapon_id = $3`,
       [cost.fragments, userId, weaponId]
     );
-
-    await client.query('COMMIT');
 
     return {
       success: true,
       newLevel: currentLevel + 1,
       cost,
     };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 friend/skill-service 一致，rbErr 非 Error 时比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -133,12 +121,9 @@ export async function equipWeapon(
   userId: string,
   weaponId: number
 ): Promise<{ success: true; weaponId: number }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // 检查是否拥有该武器
-    const ownedResult = await client.query(
+    const ownedResult = await tx.query(
       `SELECT * FROM user_weapons WHERE user_id = $1 AND weapon_id = $2`,
       [userId, weaponId]
     );
@@ -148,35 +133,25 @@ export async function equipWeapon(
     }
 
     // 取消当前装备的武器
-    await client.query(
+    await tx.query(
       `UPDATE user_weapons SET is_equipped = FALSE WHERE user_id = $1`,
       [userId]
     );
 
     // 装备新武器
-    await client.query(
+    await tx.query(
       `UPDATE user_weapons SET is_equipped = TRUE WHERE user_id = $1 AND weapon_id = $2`,
       [userId, weaponId]
     );
 
     // 更新 characters 表的 weapon_id
-    await client.query(
+    await tx.query(
       `UPDATE characters SET weapon_id = $1, updated_at = NOW() WHERE user_id = $2`,
       [weaponId, userId]
     );
 
-    await client.query('COMMIT');
-
     return { success: true, weaponId };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 friend/skill-service 一致，rbErr 非 Error 时比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -189,12 +164,9 @@ export async function buyWeapon(
   userId: string,
   weaponId: number
 ): Promise<{ success: true; weaponId: number }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // 获取武器信息
-    const weaponResult = await client.query(
+    const weaponResult = await tx.query(
       `SELECT * FROM weapons WHERE id = $1`,
       [weaponId]
     );
@@ -206,7 +178,7 @@ export async function buyWeapon(
     const weapon = weaponResult.rows[0];
 
     // 检查是否已拥有
-    const ownedResult = await client.query(
+    const ownedResult = await tx.query(
       `SELECT * FROM user_weapons WHERE user_id = $1 AND weapon_id = $2`,
       [userId, weaponId]
     );
@@ -217,7 +189,7 @@ export async function buyWeapon(
 
     // 事务内预检查改善 UX：金币不足快速失败，给出明确所需金币数
     // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在下方 AND gold >= $1 原子守卫
-    const userResult = await client.query(
+    const userResult = await tx.query(
       `SELECT gold FROM users WHERE id = $1`,
       [userId]
     );
@@ -229,7 +201,7 @@ export async function buyWeapon(
     // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
     // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
     // RETURNING 返回 0 行表示并发场景下余额已被其他事务扣减，抛错 ROLLBACK
-    const deductResult = await client.query(
+    const deductResult = await tx.query(
       `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
       [weapon.unlock_cost_gold, userId]
     );
@@ -239,21 +211,11 @@ export async function buyWeapon(
     }
 
     // 创建用户武器记录
-    await client.query(
+    await tx.query(
       `INSERT INTO user_weapons (user_id, weapon_id, level, is_equipped) VALUES ($1, $2, 1, FALSE)`,
       [userId, weaponId]
     );
 
-    await client.query('COMMIT');
-
     return { success: true, weaponId };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 friend/skill-service 一致，rbErr 非 Error 时比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
