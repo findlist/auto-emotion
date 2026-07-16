@@ -15,8 +15,20 @@ vi.mock('../services/pet-service.js', () => ({
   buyPet: vi.fn(),
 }));
 
+// mock 幂等控制：buy 路由用 withIdempotency 防重复提交，
+// 默认放行（返回 true）；幂等拦截场景用 mockImplementationOnce 调真实 fail 返回 409
+// 真实 withIdempotency 行为（含 try/catch + fail 调用）由 idempotency.test.ts 单测覆盖
+// 设计原因：原测试未 mock idempotency 依赖真实 Redis 连接，切换为 mock 后测试隔离稳定
+vi.mock('../utils/idempotency.js', () => ({
+  withIdempotency: vi.fn().mockResolvedValue(true),
+  checkIdempotency: vi.fn().mockResolvedValue(true),
+}));
+
 import router from './pets.js';
 import * as petService from '../services/pet-service.js';
+import { ErrorCode } from '../utils/error.js';
+import { fail } from '../utils/response.js';
+import { withIdempotency } from '../utils/idempotency.js';
 
 // 可控鉴权中间件：通过请求头 x-test-no-auth 模拟未授权场景，
 // 默认注入 req.user 模拟已登录用户，避免每个用例重复构造
@@ -208,6 +220,29 @@ describe('pets 宠物路由', () => {
 
       expect(res.status).toBe(400);
       expect(body.message).toBe('缺少 petId');
+      expect(petService.buyPet).not.toHaveBeenCalled();
+    });
+
+    it('幂等拦截命中（5秒内重复提交）时返回 409，不调用 buyPet', async () => {
+      // mock withIdempotency 命中拦截行为：调 fail 返回 409 + 返回 false 让路由 return
+      // 真实 withIdempotency 行为（catch AppError → 调 fail → 返回 false）由 idempotency.test.ts 覆盖
+      (withIdempotency as ReturnType<typeof vi.fn>).mockImplementationOnce(async res => {
+        fail(res, ErrorCode.CONFLICT, '请求已存在，请稍后重试');
+        return false;
+      });
+
+      const res = await fetch(`${baseURL}/buy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ petId: 7 }),
+      });
+      const body = await res.json();
+
+      // CONFLICT 按 ErrorCode 语义映射为 HTTP 409
+      expect(res.status).toBe(409);
+      expect(body.code).toBe(ErrorCode.CONFLICT);
+      expect(body.message).toBe('请求已存在，请稍后重试');
+      // 幂等拦截命中时不应调用 buyPet 扣款发奖
       expect(petService.buyPet).not.toHaveBeenCalled();
     });
 
