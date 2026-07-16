@@ -235,7 +235,8 @@ export function handleDisconnect(reason: string, deps: HandlerDeps): void {
     } catch (err) {
       // 设计原因：使用结构化 logger 替代 raw console.error，与前序 websocket/index.ts 修复一致，
       // 保证 per-connection 断线广播失败日志与全项目 JSON 格式统一，便于生产环境日志聚合
-      logger.error('PLAYER_OFFLINE 广播失败', { error: (err as Error).message, roomId });
+      // 复用 getErrorMessage 统一 unknown→string 兜底，与 L72 withErrorHandling 同文件保持一致
+      logger.error('PLAYER_OFFLINE 广播失败', { error: getErrorMessage(err, '未知错误'), roomId });
     }
   }
 }
