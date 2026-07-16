@@ -3,6 +3,7 @@ import { getDailyTasks, claimTaskReward } from '../services/task-service.js';
 import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
+import { parseIdParam } from '../utils/param.js';
 
 const router = Router();
 
@@ -31,9 +32,7 @@ router.post('/:id/claim', async (req: Request, res: Response) => {
     return;
   }
 
-  const taskIdParam = req.params.id;
-  const taskIdStr = Array.isArray(taskIdParam) ? taskIdParam[0] : taskIdParam;
-  const taskId = parseInt(taskIdStr, 10);
+  const taskId = parseIdParam(req.params.id);
   if (isNaN(taskId)) {
     fail(res, 400, '无效的任务ID');
     return;

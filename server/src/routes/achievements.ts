@@ -3,6 +3,7 @@ import { getAchievements, claimAchievementReward } from '../services/achievement
 import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
+import { parseIdParam } from '../utils/param.js';
 
 const router = Router();
 
@@ -31,9 +32,7 @@ router.post('/:id/claim', async (req: Request, res: Response) => {
     return;
   }
 
-  const achievementIdParam = req.params.id;
-  const achievementIdStr = Array.isArray(achievementIdParam) ? achievementIdParam[0] : achievementIdParam;
-  const achievementId = parseInt(achievementIdStr, 10);
+  const achievementId = parseIdParam(req.params.id);
   if (isNaN(achievementId)) {
     fail(res, 400, '无效的成就ID');
     return;

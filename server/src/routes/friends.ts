@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getFriends, getPendingRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend } from '../services/friend-service.js';
 import { success, fail } from '../utils/response.js';
 import { getErrorMessage } from '../utils/error.js';
+import { parseIdParam } from '../utils/param.js';
 
 const router = Router();
 
@@ -116,8 +117,7 @@ router.delete('/:friendId', async (req: Request, res: Response) => {
     return;
   }
 
-  const friendIdStr = req.params.friendId;
-  const friendId = parseInt(Array.isArray(friendIdStr) ? friendIdStr[0] : friendIdStr, 10);
+  const friendId = parseIdParam(req.params.friendId);
   if (isNaN(friendId)) {
     fail(res, 400, '无效的好友ID');
     return;
