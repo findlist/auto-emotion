@@ -2,8 +2,8 @@
 // 成就服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 interface Achievement {
   id: number;
@@ -182,16 +182,15 @@ export async function claimAchievementReward(userId: string, achievementId: numb
     throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  // 事务内 advisory lock + 权威复查 + 发奖（withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release）
+  // 设计原因：原手动事务样板与全项目 19 处一致，提取为 withTransaction 后统一 ROLLBACK 失败兜底文案与释放策略
+  return withTransaction(async (tx) => {
     // 事务内 advisory lock：串行化同用户同成就并发领取，防止重复发奖
     // 设计原因：原实现检查在事务外，并发请求都查到 claimed=false 后进入事务，串行 UPDATE 都设 claimed_at 但都发奖
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${achievementId}`]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${achievementId}`]);
 
     // 事务内权威复查：advisory lock 串行化后前一个请求已 COMMIT，重新确认未领取
-    const recheck = await client.query(
+    const recheck = await tx.query(
       `SELECT id, (claimed_at IS NOT NULL) as claimed FROM user_achievements WHERE user_id = $1 AND achievement_id = $2`,
       [userId, achievementId]
     );
@@ -202,12 +201,12 @@ export async function claimAchievementReward(userId: string, achievementId: numb
 
     // 更新领取状态：schema 字段为 claimed_at (TIMESTAMP)，非 claimed (BOOLEAN)
     if (achievement.user_achievement_id) {
-      await client.query(
+      await tx.query(
         `UPDATE user_achievements SET claimed_at = NOW() WHERE id = $1`,
         [achievement.user_achievement_id]
       );
     } else {
-      await client.query(
+      await tx.query(
         `INSERT INTO user_achievements (user_id, achievement_id, progress, is_completed, claimed_at)
          VALUES ($1, $2, $3, true, NOW())`,
         [userId, achievementId, achievement.target]
@@ -215,27 +214,15 @@ export async function claimAchievementReward(userId: string, achievementId: numb
     }
 
     // 发放奖励（这里简化处理，实际应该根据 reward_type 发放不同类型奖励）
-    await client.query(
+    await tx.query(
       `INSERT INTO user_inventory (user_id, item_type, item_id) VALUES ($1, $2, $3)`,
       [userId, achievement.reward_type, achievement.reward_id]
     );
-
-    await client.query('COMMIT');
 
     return {
       success: true,
       reward_type: achievement.reward_type,
       reward_id: achievement.reward_id,
     };
-  } catch (err) {
-    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
-    // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
