@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getDailyTasks, claimTaskReward } from '../services/task-service.js';
 import { success, fail } from '../utils/response.js';
 import { checkIdempotency } from '../utils/idempotency.js';
-import { AppError } from '../utils/error.js';
+import { AppError, getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.get('/daily', async (req: Request, res: Response) => {
     const tasks = await getDailyTasks(user.userId);
     success(res, { tasks });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取任务失败';
+    const msg = getErrorMessage(err, '获取任务失败');
     fail(res, 500, msg);
   }
 });
@@ -56,7 +56,7 @@ router.post('/:id/claim', async (req: Request, res: Response) => {
     const result = await claimTaskReward(user.userId, taskId);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '领取奖励失败';
+    const msg = getErrorMessage(err, '领取奖励失败');
     fail(res, 400, msg);
   }
 });
