@@ -2,8 +2,8 @@
 // 好友服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 // 好友列表行：对应 getFriends 的 SQL JOIN 结果，online 由 LATERAL 子查询计算
 interface FriendRow {
@@ -107,27 +107,17 @@ export async function sendFriendRequest(
     // 双向建立好友关系需事务保护：UPDATE 对方请求为已接受 + INSERT 自己侧好友记录
     // 设计原因：两步分开执行若中间失败会导致单向好友关系（对方是好友、自己不是），
     // 数据不一致且难以排查；事务保证原子性，失败整体回滚
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query(
+    // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release，ROLLBACK 失败兜底文案统一为「未知错误」
+    await withTransaction(async (tx) => {
+      await tx.query(
         `UPDATE friendships SET status = 'accepted' WHERE user_id = $1 AND friend_id = $2`,
         [targetUserId, userId]
       );
-      await client.query(
+      await tx.query(
         `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, 'accepted')`,
         [userId, targetUserId]
       );
-      await client.query('COMMIT');
-    } catch (err) {
-      try { await client.query('ROLLBACK'); } catch (rbErr) {
-        // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-      }
-      throw err;
-    } finally {
-      client.release();
-    }
+    });
     return { success: true, autoAccepted: true };
   }
 
@@ -146,12 +136,10 @@ export async function acceptFriendRequest(
   userId: string,
   requestId: number
 ): Promise<{ success: true }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release，AppError 抛出会触发 ROLLBACK 并透传
+  return withTransaction(async (tx) => {
     // 检查请求是否存在且属于当前用户
-    const requestResult = await client.query(
+    const requestResult = await tx.query(
       `SELECT user_id, friend_id FROM friendships
        WHERE id = $1 AND friend_id = $2 AND status = 'pending'`,
       [requestId, userId]
@@ -164,29 +152,20 @@ export async function acceptFriendRequest(
     const { user_id: fromUserId, friend_id: toUserId } = requestResult.rows[0];
 
     // 更新原请求为已接受
-    await client.query(
+    await tx.query(
       `UPDATE friendships SET status = 'accepted' WHERE id = $1`,
       [requestId]
     );
 
     // 创建双向好友关系
-    await client.query(
+    await tx.query(
       `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, 'accepted')
        ON CONFLICT DO NOTHING`,
       [fromUserId, toUserId]
     );
 
-    await client.query('COMMIT');
     return { success: true };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -212,29 +191,18 @@ export async function rejectFriendRequest(
  * 删除好友
  */
 export async function removeFriend(userId: string, friendId: number): Promise<{ success: true }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release
+  return withTransaction(async (tx) => {
     // 删除双向好友关系
-    await client.query(
+    await tx.query(
       `DELETE FROM friendships WHERE user_id = $1 AND friend_id = $2`,
       [userId, friendId]
     );
-    await client.query(
+    await tx.query(
       `DELETE FROM friendships WHERE user_id = $1 AND friend_id = $2`,
       [friendId, userId]
     );
 
-    await client.query('COMMIT');
     return { success: true };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
