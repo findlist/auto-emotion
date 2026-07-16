@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { getShopItems, buyItem, getUserInventory } from '../services/shop-service.js';
 import { success, fail } from '../utils/response.js';
-import { checkIdempotency } from '../utils/idempotency.js';
-import { AppError, getErrorMessage } from '../utils/error.js';
+import { withIdempotency } from '../utils/idempotency.js';
+import { getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -41,15 +41,9 @@ router.post('/buy', async (req: Request, res: Response) => {
 
   // 幂等控制：5秒窗口防重复提交，避免高频调用重复扣款
   // key 含 itemId 避免不同商品互相拦截
-  try {
-    await checkIdempotency(`shop:buy:${user.userId}:${itemId}`);
-  } catch (err) {
-    // AppError(CONFLICT) 表示命中幂等拦截（重复请求），返回 409 拒绝
-    if (err instanceof AppError) {
-      fail(res, err.code, err.message);
-      return;
-    }
-    // 非 AppError 表示 Redis 连接异常，按降级规则放行不阻塞核心业务
+  // 命中拦截（CONFLICT）返回 409；Redis 异常按降级规则放行不阻塞核心业务
+  if (!(await withIdempotency(res, `shop:buy:${user.userId}:${itemId}`))) {
+    return;
   }
 
   try {
