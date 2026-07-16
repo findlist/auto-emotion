@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/user-store';
 import { useRoomStore } from '@/stores/room-store';
 import { connect, roomActions, waitForConnection } from '@/websocket/index';
 import http from '@/api/http';
+import { getErrorMessage } from '@/utils/error';
 
 interface LobbyPageProps {
   onEnterRoom: () => void;
@@ -51,7 +52,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
       roomActions.joinRoom(data.roomId, user?.nickname ?? '未知');
       onEnterRoom();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '创建房间失败';
+      const msg = getErrorMessage(err, '创建房间失败');
       setError(msg);
     } finally {
       // 确保所有路径都重置 loading：成功跳转后用户可能返回大厅，
@@ -71,7 +72,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
       roomActions.joinRoom(roomCode.trim().toUpperCase(), user?.nickname ?? '未知');
       onEnterRoom();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '加入房间失败';
+      const msg = getErrorMessage(err, '加入房间失败');
       setError(msg);
     } finally {
       setLoading(false);
@@ -117,7 +118,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
       roomActions.joinRoom(roomId, user?.nickname ?? '未知');
       onEnterRoom();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '匹配失败';
+      const msg = getErrorMessage(err, '匹配失败');
       setError(msg);
     } finally {
       // 确保所有路径都重置 matching：成功跳转后用户可能返回大厅，
