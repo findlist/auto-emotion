@@ -2,8 +2,8 @@
 // 每日任务服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 interface DailyTask {
   id: number;
@@ -186,17 +186,14 @@ export async function claimTaskReward(userId: string, taskId: number): Promise<{
     throw new AppError(ErrorCode.BAD_REQUEST, '任务未完成');
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // 事务内 advisory lock：基于 userId+taskId 哈希获取事务级锁，串行化同用户同任务并发领取
     // 设计原因：原实现检查在事务外，并发请求都查到 claimed=false 后进入事务，串行 UPDATE 都设 true 但都发奖
     // pg_advisory_xact_lock 在事务结束自动释放，无需 DDL 变更，是 PostgreSQL 标准并发控制方案
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${taskId}`]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${taskId}`]);
 
     // 事务内权威检查：重新查询任务领取状态，advisory lock 串行化后前一个请求已 COMMIT
-    const recheck = await client.query(
+    const recheck = await tx.query(
       `SELECT udt.claimed, udt.id as user_task_id, udt.progress
        FROM user_daily_tasks udt
        WHERE udt.user_id = $1 AND udt.task_id = $2 AND udt.date = $3`,
@@ -210,12 +207,12 @@ export async function claimTaskReward(userId: string, taskId: number): Promise<{
 
     // 更新领取状态
     if (recheck.rows.length > 0) {
-      await client.query(
+      await tx.query(
         `UPDATE user_daily_tasks SET claimed = true WHERE id = $1`,
         [recheck.rows[0].user_task_id]
       );
     } else {
-      await client.query(
+      await tx.query(
         `INSERT INTO user_daily_tasks (user_id, task_id, progress, claimed, date)
          VALUES ($1, $2, $3, true, $4)`,
         [userId, taskId, task.target, today]
@@ -223,25 +220,15 @@ export async function claimTaskReward(userId: string, taskId: number): Promise<{
     }
 
     // 发放奖励
-    await client.query(
+    await tx.query(
       `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
       [task.reward_exp, task.reward_gold, userId]
     );
-
-    await client.query('COMMIT');
 
     return {
       success: true,
       reward_exp: task.reward_exp,
       reward_gold: task.reward_gold,
     };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
