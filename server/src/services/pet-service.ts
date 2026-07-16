@@ -2,7 +2,7 @@
 // 宠物服务：列表/装备
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -79,7 +79,8 @@ export async function equipPet(
   } catch (err) {
     // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 兜底文案 '未知错误'：与 friend/skill/weapon-service 一致，rbErr 非 Error 时比 undefined 更有语义
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
@@ -158,7 +159,8 @@ export async function buyPet(
   } catch (err) {
     // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 兜底文案 '未知错误'：与 friend/skill/weapon-service 一致，rbErr 非 Error 时比 undefined 更有语义
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
