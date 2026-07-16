@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { getAchievements, claimAchievementReward } from '../services/achievement-service.js';
 import { success, fail } from '../utils/response.js';
-import { checkIdempotency } from '../utils/idempotency.js';
-import { AppError, getErrorMessage } from '../utils/error.js';
+import { withIdempotency } from '../utils/idempotency.js';
+import { getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -41,15 +41,9 @@ router.post('/:id/claim', async (req: Request, res: Response) => {
 
   // 幂等控制：5秒窗口防重复提交，避免高频调用重复发放成就奖励
   // key 含 achievementId 避免不同成就互相拦截
-  try {
-    await checkIdempotency(`achievements:claim:${user.userId}:${achievementId}`);
-  } catch (err) {
-    // AppError(CONFLICT) 表示命中幂等拦截（重复请求），返回 409 拒绝
-    if (err instanceof AppError) {
-      fail(res, err.code, err.message);
-      return;
-    }
-    // 非 AppError 表示 Redis 连接异常，按降级规则放行不阻塞核心业务
+  // 命中拦截（CONFLICT）返回 409；Redis 异常按降级规则放行不阻塞核心业务
+  if (!(await withIdempotency(res, `achievements:claim:${user.userId}:${achievementId}`))) {
+    return;
   }
 
   try {
