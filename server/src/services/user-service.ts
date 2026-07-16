@@ -2,8 +2,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/database.js';
 import redis from '../config/redis.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -73,11 +73,9 @@ export async function register(input: RegisterInput): Promise<{ user: UserRow; t
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
   
   // 事务：创建用户 + 创建角色
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    
-    const userResult = await client.query(
+  // 设计原因：withTransaction 内部统一封装 BEGIN/COMMIT/ROLLBACK 与客户端释放，业务侧只关注事务内逻辑
+  const { user } = await withTransaction(async (tx) => {
+    const userResult = await tx.query(
       `INSERT INTO users (phone, password_hash, nickname)
        VALUES ($1, $2, $3)
        ON CONFLICT (phone) DO NOTHING
@@ -90,26 +88,18 @@ export async function register(input: RegisterInput): Promise<{ user: UserRow; t
     }
     const user = userResult.rows[0];
 
-    await client.query(
+    await tx.query(
       `INSERT INTO characters (user_id, nickname, level) VALUES ($1, $2, 1)`,
       [user.id, nickname]
     );
 
-    await client.query('COMMIT');
+    return { user };
+  });
 
-    const token = jwt.sign({ userId: user.id, phone: user.phone }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-    const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+  const token = jwt.sign({ userId: user.id, phone: user.phone }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
 
-    return { user, token, refreshToken };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  return { user, token, refreshToken };
 }
 
 export async function login(input: LoginInput): Promise<{ user: LoginUserRow; token: string; refreshToken: string }> {
