@@ -4,7 +4,7 @@
 
 import pool from '../config/database.js';
 import { expForLevel } from './growth-curve.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 // 角色状态接口（与数据库结构对齐）
@@ -164,7 +164,8 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
     // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
     try { await client.query('ROLLBACK'); } catch (rbErr) {
       // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 复用 getErrorMessage 统一 unknown→string 兜底，与 transaction.ts 的 ROLLBACK 失败日志模式对齐
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
@@ -220,7 +221,8 @@ export async function switchArea(userId: string, areaId: number): Promise<void> 
     // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
     try { await client.query('ROLLBACK'); } catch (rbErr) {
       // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 复用 getErrorMessage 统一 unknown→string 兜底，与 transaction.ts 的 ROLLBACK 失败日志模式对齐
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
@@ -318,7 +320,8 @@ export async function upgradeCharacter(
     // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
     try { await client.query('ROLLBACK'); } catch (rbErr) {
       // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 复用 getErrorMessage 统一 unknown→string 兜底，与 transaction.ts 的 ROLLBACK 失败日志模式对齐
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
