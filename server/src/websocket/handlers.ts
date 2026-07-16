@@ -18,7 +18,7 @@ import type {
   FinishInput,
 } from './events.js';
 import type { roomManager } from './room-manager.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 /** Socket 最小接口：仅声明 handler 用到的方法，便于测试 mock，避免依赖 socket.io 类型 */
@@ -69,7 +69,8 @@ async function withErrorHandling<T>(
     if (err instanceof AppError) {
       socket.emit(RoomEvents.ERROR, { code: err.code, message: err.message });
     } else {
-      const msg = err instanceof Error ? err.message : fallbackMsg;
+      // 复用 routes 层 getErrorMessage 工具：统一 unknown→string 兜底逻辑，避免散落三元
+      const msg = getErrorMessage(err, fallbackMsg);
       socket.emit(RoomEvents.ERROR, { message: msg });
     }
   }
