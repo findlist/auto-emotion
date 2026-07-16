@@ -3,7 +3,7 @@
 
 import pool from '../config/database.js';
 import { skillUnlockLevel } from '../idle/growth-curve.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 // 技能列表行：对应 listSkills 的 SQL 查询结果
@@ -96,7 +96,8 @@ export async function unlockSkill(
     return { success: true, skillId };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
@@ -172,7 +173,8 @@ export async function upgradeSkill(
     };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
@@ -218,7 +220,8 @@ export async function activateSkill(
     return { success: true, skillId, isActive: active };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 设计原因：rbErr 非 Error 时原代码读取 undefined，改用 getErrorMessage 兜底为「未知错误」保证日志可读
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
