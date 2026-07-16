@@ -10,13 +10,13 @@ import {
 import { success, fail } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { getErrorMessage } from '../utils/error.js';
+import { parsePagination } from '../utils/param.js';
 
 const router = Router();
 
 // GET /api/leaderboard/power - 战力榜
 router.get('/power', async (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string, 10) || 1;
-  const pageSize = parseInt(req.query.pageSize as string, 10) || 20;
+  const { page, pageSize } = parsePagination(req.query);
 
   try {
     const result = await getPowerLeaderboard(page, pageSize);
@@ -29,8 +29,7 @@ router.get('/power', async (req: Request, res: Response) => {
 
 // GET /api/leaderboard/battle - 对战榜
 router.get('/battle', async (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string, 10) || 1;
-  const pageSize = parseInt(req.query.pageSize as string, 10) || 20;
+  const { page, pageSize } = parsePagination(req.query);
 
   try {
     const result = await getBattleLeaderboard(page, pageSize);
@@ -43,8 +42,7 @@ router.get('/battle', async (req: Request, res: Response) => {
 
 // GET /api/leaderboard/speed - 速度榜
 router.get('/speed', async (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string, 10) || 1;
-  const pageSize = parseInt(req.query.pageSize as string, 10) || 20;
+  const { page, pageSize } = parsePagination(req.query);
 
   try {
     const result = await getSpeedLeaderboard(page, pageSize);
@@ -63,8 +61,7 @@ router.get('/friends', authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  const page = parseInt(req.query.page as string, 10) || 1;
-  const pageSize = parseInt(req.query.pageSize as string, 10) || 20;
+  const { page, pageSize } = parsePagination(req.query);
 
   try {
     const result = await getFriendsLeaderboard(user.userId, page, pageSize);
