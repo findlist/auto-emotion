@@ -7,7 +7,7 @@ import { io } from './index.js';
 import { GameEvents, RoomEvents, type LevelReadyPayload } from './events.js';
 import type { GameMode } from '../types/game.js';
 import redis from '../config/redis.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 import { generate } from '../ai/monster-generator.js';
 import { generateLevel } from '../ai/level-generator.js';
@@ -240,7 +240,8 @@ export const roomManager = {
     this.generateLevelAndEvents(room)
       .catch((err) => {
         // 改用结构化 logger 保证与全项目 JSON 日志格式一致，便于生产环境日志聚合
-        logger.error('关卡生成失败', { error: (err as Error).message, roomId: room.id });
+        // 复用 getErrorMessage 统一 unknown→string 兜底，与 transaction.ts 的 ROLLBACK 失败日志模式对齐
+        logger.error('关卡生成失败', { error: getErrorMessage(err, '未知错误'), roomId: room.id });
         // 关卡生成失败后恢复房间状态为 ready，避免房间卡死在 generating 无法重新开局
         // 使用 withRoomLock 重新读取最新 room 后恢复状态，避免覆盖异步期间其他操作的修改
         this.withRoomLock(room.id, async () => {
