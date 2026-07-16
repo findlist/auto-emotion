@@ -2,8 +2,8 @@
 // 商城服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 interface ShopItem {
   id: number;
@@ -124,15 +124,13 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
     throw new AppError(ErrorCode.BAD_REQUEST, '钻石不足');
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  // 事务内扣款 + 入库（withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release）
+  return withTransaction(async (tx) => {
     // 扣除货币（原子守卫：WHERE 余额 >= 价格 防止并发购买导致余额变负，RETURNING 验证扣减成功）
     // 设计原因：事务外的余额检查只读快照，并发请求都读到充足余额后各自进入事务，
     // 若 UPDATE 无 AND gold >= $1 守卫，串行执行会使金币变负。RETURNING 返回 0 行表示余额已不足
     if (item.price_type === 'gold') {
-      const deductResult = await client.query(
+      const deductResult = await tx.query(
         `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
         [item.price, userId]
       );
@@ -140,7 +138,7 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
         throw new AppError(ErrorCode.BAD_REQUEST, '金币不足');
       }
     } else {
-      const deductResult = await client.query(
+      const deductResult = await tx.query(
         `UPDATE users SET gems = gems - $1 WHERE id = $2 AND gems >= $1 RETURNING gems`,
         [item.price, userId]
       );
@@ -150,7 +148,7 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
     }
 
     // 添加到背包
-    await client.query(
+    await tx.query(
       `INSERT INTO user_inventory (user_id, item_type, item_id, quantity)
        VALUES ($1, $2, $3, 1)
        ON CONFLICT (user_id, item_type, item_id)
@@ -158,17 +156,8 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
       [userId, item.type, item.id]
     );
 
-    await client.query('COMMIT');
     return { success: true, item };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
