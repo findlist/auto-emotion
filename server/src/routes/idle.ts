@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as idleService from '../services/idle-service.js';
 import { success, fail } from '../utils/response.js';
-import { AppError } from '../utils/error.js';
+import { AppError, getErrorMessage } from '../utils/error.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { checkIdempotency } from '../utils/idempotency.js';
 
@@ -28,8 +28,7 @@ router.get('/status', authMiddleware, async (req, res) => {
       fail(res, err.code, err.message);
       return;
     }
-    const error = err as Error;
-    fail(res, 500, error.message);
+    fail(res, 500, getErrorMessage(err, '查询角色状态失败'));
   }
 });
 
@@ -69,8 +68,7 @@ router.post('/settle', authMiddleware, async (req, res) => {
       fail(res, err.code, err.message);
       return;
     }
-    const error = err as Error;
-    fail(res, 500, error.message);
+    fail(res, 500, getErrorMessage(err, '在线结算失败'));
   }
 });
 
@@ -86,8 +84,7 @@ router.post('/claim', authMiddleware, async (req, res) => {
       fail(res, err.code, err.message);
       return;
     }
-    const error = err as Error;
-    fail(res, 500, error.message);
+    fail(res, 500, getErrorMessage(err, '领取离线收益失败'));
   }
 });
 
@@ -114,8 +111,7 @@ router.post('/switch-area', authMiddleware, async (req, res) => {
       fail(res, err.code, err.message);
       return;
     }
-    const error = err as Error;
-    fail(res, 500, error.message);
+    fail(res, 500, getErrorMessage(err, '切换挂机区域失败'));
   }
 });
 
@@ -143,8 +139,7 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
       fail(res, err.code, err.message);
       return;
     }
-    const error = err as Error;
-    fail(res, 500, error.message);
+    fail(res, 500, getErrorMessage(err, '升级角色属性失败'));
   }
 });
 
