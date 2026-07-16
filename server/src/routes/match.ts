@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { joinQuickMatch, leaveQuickMatch, getMatchStatus } from '../services/match-service.js';
 import { success, fail } from '../utils/response.js';
-import { AppError } from '../utils/error.js';
+import { AppError, getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -29,8 +29,7 @@ router.post('/quick', async (req: Request, res: Response) => {
       fail(res, err.code, err.message);
       return;
     }
-    const error = err as Error;
-    fail(res, 500, error.message);
+    fail(res, 500, getErrorMessage(err, '快速匹配失败'));
   }
 });
 
@@ -52,8 +51,7 @@ router.delete('/cancel', async (req: Request, res: Response) => {
       fail(res, err.code, err.message);
       return;
     }
-    const error = err as Error;
-    fail(res, 500, error.message);
+    fail(res, 500, getErrorMessage(err, '取消匹配失败'));
   }
 });
 
@@ -74,8 +72,7 @@ router.get('/status', async (req: Request, res: Response) => {
       fail(res, err.code, err.message);
       return;
     }
-    const error = err as Error;
-    fail(res, 500, error.message);
+    fail(res, 500, getErrorMessage(err, '获取匹配状态失败'));
   }
 });
 

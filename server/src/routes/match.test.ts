@@ -144,8 +144,7 @@ describe('match 匹配路由', () => {
     });
 
     it('service 抛非 Error 值时兜底 500 + 兜底文案', async () => {
-      // 覆盖 catch 块兜底分支：reject 非 Error 值时 (err as Error).message 为 undefined，
-      // fail(res, 500, undefined) 走默认文案 'error'（response.ts fail 函数默认参数）
+      // 覆盖 catch 块兜底分支：reject 非 Error 值时使用 getErrorMessage 兜底文案（与 quick 路由 catch 块兜底参数一致）
       (matchService.joinQuickMatch as ReturnType<typeof vi.fn>).mockRejectedValue('队列异常');
 
       const res = await fetch(`${baseURL}/quick`, {
@@ -156,7 +155,7 @@ describe('match 匹配路由', () => {
       const body = await res.json();
 
       expect(res.status).toBe(500);
-      expect(body.message).toBe('error');
+      expect(body.message).toBe('快速匹配失败');
     });
   });
 
@@ -196,14 +195,14 @@ describe('match 匹配路由', () => {
     });
 
     it('service 抛非 Error 值时兜底 500 + 兜底文案', async () => {
-      // 覆盖 catch 块兜底分支：reject 非 Error 值时走 fail 默认文案 'error'
+      // 覆盖 catch 块兜底分支：reject 非 Error 值时使用 getErrorMessage 兜底文案（与 cancel 路由 catch 块兜底参数一致）
       (matchService.leaveQuickMatch as ReturnType<typeof vi.fn>).mockRejectedValue('管道断开');
 
       const res = await fetch(`${baseURL}/cancel`, { method: 'DELETE' });
       const body = await res.json();
 
       expect(res.status).toBe(500);
-      expect(body.message).toBe('error');
+      expect(body.message).toBe('取消匹配失败');
     });
   });
 
@@ -245,14 +244,14 @@ describe('match 匹配路由', () => {
     });
 
     it('service 抛非 Error 值时兜底 500 + 兜底文案', async () => {
-      // 覆盖 catch 块兜底分支：reject 非 Error 值时走 fail 默认文案 'error'
+      // 覆盖 catch 块兜底分支：reject 非 Error 值时使用 getErrorMessage 兜底文案（与 status 路由 catch 块兜底参数一致）
       (matchService.getMatchStatus as ReturnType<typeof vi.fn>).mockRejectedValue('游标越界');
 
       const res = await fetch(`${baseURL}/status`);
       const body = await res.json();
 
       expect(res.status).toBe(500);
-      expect(body.message).toBe('error');
+      expect(body.message).toBe('获取匹配状态失败');
     });
   });
 });
