@@ -3,7 +3,7 @@
 
 import pool from '../config/database.js';
 import { weaponUpgradeCost } from '../idle/growth-curve.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -114,7 +114,8 @@ export async function upgradeWeapon(
     };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 兜底文案 '未知错误'：与 friend/skill-service 一致，rbErr 非 Error 时比 undefined 更有语义
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
@@ -169,7 +170,8 @@ export async function equipWeapon(
     return { success: true, weaponId };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 兜底文案 '未知错误'：与 friend/skill-service 一致，rbErr 非 Error 时比 undefined 更有语义
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
@@ -247,7 +249,8 @@ export async function buyWeapon(
     return { success: true, weaponId };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 兜底文案 '未知错误'：与 friend/skill-service 一致，rbErr 非 Error 时比 undefined 更有语义
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
