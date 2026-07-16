@@ -16,16 +16,19 @@ vi.mock('../services/season-pass-service.js', () => ({
   claimSeasonReward: vi.fn(),
 }));
 
-// mock 幂等控制：buy/claim 路由用 checkIdempotency 防重复提交，
-// 默认放行（返回 true），单测按需 mockRejectedValueOnce 覆盖幂等拦截场景
+// mock 幂等控制：buy/claim 路由用 withIdempotency 防重复提交，
+// 默认放行（返回 true）；幂等拦截场景用 mockImplementationOnce 调真实 fail 返回 409
+// 真实 withIdempotency 行为（含 try/catch + fail 调用）由 idempotency.test.ts 单测覆盖
 vi.mock('../utils/idempotency.js', () => ({
+  withIdempotency: vi.fn().mockResolvedValue(true),
   checkIdempotency: vi.fn().mockResolvedValue(true),
 }));
 
 import router from './season-pass.js';
 import * as seasonPassService from '../services/season-pass-service.js';
-import { AppError, ErrorCode } from '../utils/error.js';
-import { checkIdempotency } from '../utils/idempotency.js';
+import { ErrorCode } from '../utils/error.js';
+import { fail } from '../utils/response.js';
+import { withIdempotency } from '../utils/idempotency.js';
 
 // 可控鉴权中间件：通过请求头 x-test-no-auth 模拟未授权场景，
 // 默认注入 req.user 模拟已登录用户，避免每个用例重复构造
@@ -128,10 +131,12 @@ describe('season-pass 赛季通行证路由', () => {
     });
 
     it('幂等拦截命中（5秒内重复提交）时返回 409，不调用 buySeasonPass', async () => {
-      // checkIdempotency 抛 AppError(CONFLICT) 模拟 Redis SET NX 返回 null（key 已存在）
-      (checkIdempotency as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new AppError(ErrorCode.CONFLICT, '请求已存在，请稍后重试')
-      );
+      // mock withIdempotency 命中拦截行为：调 fail 返回 409 + 返回 false 让路由 return
+      // 真实 withIdempotency 行为（catch AppError → 调 fail → 返回 false）由 idempotency.test.ts 覆盖
+      (withIdempotency as ReturnType<typeof vi.fn>).mockImplementationOnce(async res => {
+        fail(res, ErrorCode.CONFLICT, '请求已存在，请稍后重试');
+        return false;
+      });
 
       const res = await fetch(`${baseURL}/buy`, {
         method: 'POST',
@@ -236,10 +241,12 @@ describe('season-pass 赛季通行证路由', () => {
     });
 
     it('幂等拦截命中（5秒内重复提交）时返回 409，不调用 claimSeasonReward', async () => {
-      // checkIdempotency 抛 AppError(CONFLICT) 模拟 Redis SET NX 返回 null（key 已存在）
-      (checkIdempotency as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new AppError(ErrorCode.CONFLICT, '请求已存在，请稍后重试')
-      );
+      // mock withIdempotency 命中拦截行为：调 fail 返回 409 + 返回 false 让路由 return
+      // 真实 withIdempotency 行为（catch AppError → 调 fail → 返回 false）由 idempotency.test.ts 覆盖
+      (withIdempotency as ReturnType<typeof vi.fn>).mockImplementationOnce(async res => {
+        fail(res, ErrorCode.CONFLICT, '请求已存在，请稍后重试');
+        return false;
+      });
 
       const res = await fetch(`${baseURL}/claim`, {
         method: 'POST',
