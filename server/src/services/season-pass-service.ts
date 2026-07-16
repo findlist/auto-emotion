@@ -2,8 +2,8 @@
 // 赛季通行证服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 
 const SEASON_DURATION_DAYS = 28; // 4周
 const SEASON_MAX_LEVEL = 50;
@@ -119,12 +119,9 @@ export async function getCurrentSeason(userId: string): Promise<SeasonInfo> {
  * 购买通行证
  */
 export async function buySeasonPass(userId: string): Promise<{ success: true }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // 检查是否已购买
-    const userResult = await client.query(
+    const userResult = await tx.query(
       `SELECT is_premium FROM users WHERE id = $1 FOR UPDATE`,
       [userId]
     );
@@ -134,22 +131,13 @@ export async function buySeasonPass(userId: string): Promise<{ success: true }> 
     }
 
     // 更新为高级通行证
-    await client.query(
+    await tx.query(
       `UPDATE users SET is_premium = true WHERE id = $1`,
       [userId]
     );
 
-    await client.query('COMMIT');
     return { success: true };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -198,17 +186,14 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
     throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // 事务内 advisory lock：基于 userId+level+isPremium 哈希获取事务级锁，串行化同用户同等级同类型并发领取
     // 设计原因：原实现检查在事务外，并发请求都查到未领取后进入事务，串行 INSERT 都成功都发奖
     // pg_advisory_xact_lock 在事务结束自动释放，无需 DDL 变更，是 PostgreSQL 标准并发控制方案
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${level}:${isPremium}`]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${level}:${isPremium}`]);
 
     // 事务内权威检查：重新查询领取状态，advisory lock 串行化后前一个请求已 COMMIT
-    const recheck = await client.query(
+    const recheck = await tx.query(
       `SELECT id FROM user_season_rewards WHERE user_id = $1 AND season_id = $2 AND level = $3 AND is_premium = $4`,
       [userId, 0, level, isPremium]
     );
@@ -218,7 +203,7 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
     }
 
     // 记录领取
-    await client.query(
+    await tx.query(
       `INSERT INTO user_season_rewards (user_id, season_id, level, is_premium)
        VALUES ($1, $2, $3, $4)`,
       [userId, 0, level, isPremium]
@@ -234,27 +219,18 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
       const rewardAmount = reward.free_reward_type_amount ?? 0;
 
       if (rewardType === 'free_reward_type') {
-        await client.query(
+        await tx.query(
           `UPDATE users SET gold = gold + $1 WHERE id = $2`,
           [rewardAmount, userId]
         );
       } else {
-        await client.query(
+        await tx.query(
           `INSERT INTO user_inventory (user_id, item_type, item_id) VALUES ($1, $2, $3)`,
           [userId, reward.premium_reward_type, rewardId]
         );
       }
     }
 
-    await client.query('COMMIT');
     return { success: true };
-  } catch (err) {
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
