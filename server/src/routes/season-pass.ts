@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getCurrentSeason, buySeasonPass, claimSeasonReward } from '../services/season-pass-service.js';
 import { success, fail } from '../utils/response.js';
 import { checkIdempotency } from '../utils/idempotency.js';
-import { AppError } from '../utils/error.js';
+import { AppError, getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.get('/', async (req: Request, res: Response) => {
     const seasonPass = await getCurrentSeason(user.userId);
     success(res, seasonPass);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '获取赛季通行证失败';
+    const msg = getErrorMessage(err, '获取赛季通行证失败');
     fail(res, 500, msg);
   }
 });
@@ -47,7 +47,7 @@ router.post('/buy', async (req: Request, res: Response) => {
     const result = await buySeasonPass(user.userId);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '购买失败';
+    const msg = getErrorMessage(err, '购买失败');
     fail(res, 400, msg);
   }
 });
@@ -83,7 +83,7 @@ router.post('/claim', async (req: Request, res: Response) => {
     const result = await claimSeasonReward(user.userId, level, isPremium ?? false);
     success(res, result);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '领取奖励失败';
+    const msg = getErrorMessage(err, '领取奖励失败');
     fail(res, 400, msg);
   }
 });
