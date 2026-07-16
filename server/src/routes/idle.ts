@@ -8,7 +8,7 @@ import * as idleService from '../services/idle-service.js';
 import { success, fail } from '../utils/response.js';
 import { AppError, getErrorMessage } from '../utils/error.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { checkIdempotency } from '../utils/idempotency.js';
+import { withIdempotency } from '../utils/idempotency.js';
 
 const router = Router();
 
@@ -49,15 +49,9 @@ router.post('/settle', authMiddleware, async (req, res) => {
 
     // 幂等控制：5秒窗口防重复提交，避免高频调用重复发放挂机收益
     // 设计原因：settle 直接发放金币经验，无拦截时客户端可短时间内重复调用导致收益翻倍
-    try {
-      await checkIdempotency(`idle:settle:${userId}`);
-    } catch (err) {
-      // AppError(CONFLICT) 表示命中幂等拦截（重复请求），返回 409 拒绝
-      if (err instanceof AppError) {
-        fail(res, err.code, err.message);
-        return;
-      }
-      // 非 AppError 表示 Redis 连接异常，按降级规则放行不阻塞核心业务
+    // 命中拦截（CONFLICT）返回 409；Redis 异常按降级规则放行不阻塞核心业务
+    if (!(await withIdempotency(res, `idle:settle:${userId}`))) {
+      return;
     }
 
     const { durationSeconds } = parsed.data;

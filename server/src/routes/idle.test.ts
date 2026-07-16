@@ -31,16 +31,19 @@ vi.mock('../middleware/auth.js', () => ({
   },
 }));
 
-// mock idempotency：settle 路由用 checkIdempotency 防重复提交，
-// 默认放行（返回 true），单测按需 mockRejectedValueOnce 覆盖幂等拦截场景
+// mock idempotency：settle 路由用 withIdempotency 防重复提交，
+// 默认放行（返回 true）；幂等拦截场景用 mockImplementationOnce 调真实 fail 返回 409
+// 真实 withIdempotency 行为（含 try/catch + fail 调用）由 idempotency.test.ts 单测覆盖
 vi.mock('../utils/idempotency.js', () => ({
+  withIdempotency: vi.fn().mockResolvedValue(true),
   checkIdempotency: vi.fn().mockResolvedValue(true),
 }));
 
 import router from './idle.js';
 import * as idleService from '../services/idle-service.js';
 import { AppError, ErrorCode } from '../utils/error.js';
-import { checkIdempotency } from '../utils/idempotency.js';
+import { fail } from '../utils/response.js';
+import { withIdempotency } from '../utils/idempotency.js';
 
 let server: Server;
 let baseURL: string;
@@ -149,10 +152,12 @@ describe('idle 挂机路由', () => {
     });
 
     it('幂等拦截命中（5秒内重复提交）时返回 409 "请求已存在，请稍后重试"', async () => {
-      // checkIdempotency 抛 AppError(CONFLICT) 模拟 Redis SET NX 返回 null（key 已存在）
-      (checkIdempotency as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new AppError(ErrorCode.CONFLICT, '请求已存在，请稍后重试')
-      );
+      // mock withIdempotency 命中拦截行为：调 fail 返回 409 + 返回 false 让路由 return
+      // 真实 withIdempotency 行为（catch AppError → 调 fail → 返回 false）由 idempotency.test.ts 覆盖
+      (withIdempotency as ReturnType<typeof vi.fn>).mockImplementationOnce(async res => {
+        fail(res, ErrorCode.CONFLICT, '请求已存在，请稍后重试');
+        return false;
+      });
 
       const res = await fetch(`${baseURL}/settle`, {
         method: 'POST',
