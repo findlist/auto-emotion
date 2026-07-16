@@ -2,8 +2,8 @@
 // 游戏结算服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+import { withTransaction } from '../utils/transaction.js';
 import type { GameMode } from '../types/game.js';
 
 interface SettleInput {
@@ -50,17 +50,14 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
     throw new AppError(ErrorCode.CONFLICT, '该房间已结算');
   }
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // 事务内 advisory lock：基于 roomId 哈希获取事务级锁，串行化同房间并发结算请求
     // 设计原因：原实现幂等检查在事务外，并发请求都查到不存在后各自进入事务，串行 INSERT 会重复发奖
     // pg_advisory_xact_lock 在事务结束自动释放，无需 DDL 变更，是 PostgreSQL 标准并发控制方案
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [roomId]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [roomId]);
 
     // 事务内权威检查：advisory lock 串行化后，前一个请求已 COMMIT，此处能查到记录
-    const recheck = await client.query(
+    const recheck = await tx.query(
       'SELECT id FROM game_records WHERE room_id = $1',
       [roomId]
     );
@@ -86,7 +83,7 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
 
     // 写入 game_records
     // started_at 用 make_interval(secs => $3) 参数化计算，避免字符串拼接 INTERVAL 导致 SQL 注入风险
-    const recordResult = await client.query(
+    const recordResult = await tx.query(
       `INSERT INTO game_records (room_id, mode, duration_seconds, started_at, ended_at, total_score)
        VALUES ($1, $2, $3, NOW() - make_interval(secs => $3), NOW(), $4)
        RETURNING id`,
@@ -107,8 +104,8 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
       const pointsReward = Math.floor(player.score / 100);
       const rank = index + 1;
 
-      await client.query(
-        `INSERT INTO game_record_players 
+      await tx.query(
+        `INSERT INTO game_record_players
          (record_id, user_id, nickname, score, rank, damage, is_mvp, exp_reward, gold_reward, stress_keywords)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [recordId, player.userId, player.nickname, player.score,
@@ -116,8 +113,8 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
          expReward, goldReward, player.stressKeywords ?? []]
       );
 
-      await client.query(
-        `UPDATE users SET 
+      await tx.query(
+        `UPDATE users SET
          experience = experience + $1,
          gold = gold + $2,
          pvp_points = pvp_points + $3
@@ -135,19 +132,6 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
       });
     }
 
-    await client.query('COMMIT');
     return { success: true, recordId, rewards };
-  } catch (err) {
-    // ROLLBACK 本身可能因连接断开抛错，若不保护会掩盖原始业务错误，导致前端收到误导性错误
-    try {
-      await client.query('ROLLBACK');
-    } catch (rollbackErr) {
-      // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
-      logger.error('事务 ROLLBACK 失败，原始错误可能被掩盖', { error: getErrorMessage(rollbackErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
