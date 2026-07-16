@@ -7,7 +7,7 @@ import * as offlineCalculator from '../idle/offline-calculator.js';
 import type { CharacterStatus, SettleResult } from '../idle/idle-engine.js';
 import type { OfflineResult } from '../idle/offline-calculator.js';
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -63,7 +63,8 @@ export async function claimOffline(userId: string): Promise<OfflineResult> {
     // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
     try { await client.query('ROLLBACK'); } catch (rbErr) {
       // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      logger.error('ROLLBACK 失败', { error: (rbErr as Error).message });
+      // 兜底文案 '未知错误'：与 settle-service 一致，rbErr 极少为非 Error 但兜底文案比 undefined 更有语义
+      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
     }
     throw err;
   } finally {
