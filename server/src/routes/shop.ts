@@ -3,6 +3,7 @@ import { getShopItems, buyItem, getUserInventory } from '../services/shop-servic
 import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
+import { routeError } from '../utils/route-error.js';
 
 const router = Router();
 
@@ -20,8 +21,8 @@ router.get('/items', async (req: Request, res: Response) => {
     const items = await getShopItems(type as string | undefined);
     success(res, { items });
   } catch (err) {
-    const msg = getErrorMessage(err, '获取商品列表失败');
-    fail(res, 500, msg);
+    // GET 路由异常透传 AppError 错误码，普通 Error 兜底 500，与 leaderboard 路由同模式
+    routeError(res, err, '获取商品列表失败');
   }
 });
 
@@ -67,8 +68,8 @@ router.get('/inventory', async (req: Request, res: Response) => {
     const inventory = await getUserInventory(user.userId);
     success(res, { inventory });
   } catch (err) {
-    const msg = getErrorMessage(err, '获取背包失败');
-    fail(res, 500, msg);
+    // GET 路由异常透传 AppError 错误码，普通 Error 兜底 500，与 leaderboard 路由同模式
+    routeError(res, err, '获取背包失败');
   }
 });
 
