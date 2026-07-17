@@ -2,6 +2,7 @@
 // 挂机相关 API
 
 import http from './http';
+import { unwrap } from './unwrap';
 
 /**
  * 角色状态
@@ -71,22 +72,22 @@ export interface IdleArea {
 export const idleApi = {
   /** 获取角色状态 */
   getStatus(userId: string): Promise<CharacterStatus> {
-    return http.get('/idle/status', { params: { userId } }).then((r) => r.data);
+    return unwrap(http.get('/idle/status', { params: { userId } }));
   },
 
   /** 在线结算 */
   settle(userId: string, durationSeconds: number): Promise<SettleResult> {
-    return http.post('/idle/settle', { userId, durationSeconds }).then((r) => r.data);
+    return unwrap(http.post('/idle/settle', { userId, durationSeconds }));
   },
 
   /** 领取离线收益 */
   claim(userId: string): Promise<OfflineResult> {
-    return http.post('/idle/claim', { userId }).then((r) => r.data);
+    return unwrap(http.post('/idle/claim', { userId }));
   },
 
   /** 切换挂机区域 */
   switchArea(userId: string, areaId: number): Promise<{ success: boolean }> {
-    return http.post('/idle/switch-area', { userId, areaId }).then((r) => r.data);
+    return unwrap(http.post('/idle/switch-area', { userId, areaId }));
   },
 
   /** 升级角色属性 */
@@ -95,11 +96,11 @@ export const idleApi = {
     field: 'hp' | 'attack' | 'defense' | 'crit_rate' | 'crit_damage' | 'efficiency',
     itemType?: string
   ): Promise<{ success: boolean; newValue: number }> {
-    return http.post('/idle/upgrade', { userId, field, itemType }).then((r) => r.data);
+    return unwrap(http.post('/idle/upgrade', { userId, field, itemType }));
   },
 
   /** 获取所有挂机区域 */
   listAreas(): Promise<IdleArea[]> {
-    return http.get('/idle/areas').then((r) => r.data);
+    return unwrap(http.get('/idle/areas'));
   },
 };
