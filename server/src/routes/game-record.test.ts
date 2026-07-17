@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import express from 'express';
 import type { Server } from 'http';
+import { getServerPort } from './__helpers__/test-server.js';
 
 // mock 战绩 service：仅关注 route 是否正确调用与透传，不验证 service 内部 SQL
 vi.mock('../services/record-service.js', () => ({
@@ -43,8 +44,7 @@ beforeAll(async () => {
   app.use(errorHandler);
   server = app.listen(0);
   // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
-  await new Promise<void>(resolve => server.once('listening', resolve));
-  const port = (server.address() as { port: number }).port;
+  const port = await getServerPort(server);
   baseURL = `http://localhost:${port}/api/game-records`;
 });
 

@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import express from 'express';
 import type { Server } from 'http';
+import { getServerPort } from './__helpers__/test-server.js';
 
 // mock 怪兽生成器：route 测试聚焦参数校验与二次校验逻辑，generate 行为由生成器单测覆盖
 vi.mock('../ai/monster-generator.js', () => ({
@@ -26,8 +27,7 @@ beforeAll(async () => {
   // ai 路由为同步处理，无 try/catch，但内部逻辑不会抛错（safeParse + 条件返回）
   server = app.listen(0);
   // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
-  await new Promise<void>(resolve => server.once('listening', resolve));
-  const port = (server.address() as { port: number }).port;
+  const port = await getServerPort(server);
   baseURL = `http://localhost:${port}/api/ai`;
 });
 

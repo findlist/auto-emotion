@@ -9,6 +9,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vites
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import type { Server } from 'http';
+import { getServerPort } from './__helpers__/test-server.js';
 
 // mock 挂机 service：route 测试聚焦参数校验与错误兜底，service 行为由 service 测试覆盖
 vi.mock('../services/idle-service.js', () => ({
@@ -55,8 +56,7 @@ beforeAll(async () => {
   // idle 路由内部已 try/catch + fail 自处理错误，未授权由 mock authMiddleware 直接返回 401
   server = app.listen(0);
   // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
-  await new Promise<void>(resolve => server.once('listening', resolve));
-  const port = (server.address() as { port: number }).port;
+  const port = await getServerPort(server);
   baseURL = `http://localhost:${port}/api/idle`;
 });
 

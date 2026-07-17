@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vites
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import type { Server } from 'http';
+import { getServerPort } from './__helpers__/test-server.js';
 
 // mock 排行榜 service：route 测试不验证 SQL/Redis，只验证调用与透传
 vi.mock('../services/leaderboard-service.js', () => ({
@@ -46,8 +47,7 @@ beforeAll(async () => {
   // /friends /:type/me 由 mock authMiddleware 鉴权，/power /battle /speed 公开无需鉴权
   server = app.listen(0);
   // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
-  await new Promise<void>(resolve => server.once('listening', resolve));
-  const port = (server.address() as { port: number }).port;
+  const port = await getServerPort(server);
   baseURL = `http://localhost:${port}/api/leaderboard`;
 });
 
