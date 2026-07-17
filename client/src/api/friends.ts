@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface Friend {
   id: number;
@@ -17,33 +18,31 @@ export interface FriendRequest {
 }
 
 export const friendApi = {
+  // 带字段访问场景：unwrap 解包后取 data.friends（响应拦截器已将 ApiResponse.data 挂到 response.data）
   async getFriends(): Promise<Friend[]> {
-    const res = await http.get('/friends');
-    return res.data.friends;
+    const data = await unwrap(http.get<{ friends: Friend[] }>('/friends'));
+    return data.friends;
   },
 
   async getRequests(): Promise<FriendRequest[]> {
-    const res = await http.get('/friends/requests');
-    return res.data.requests;
+    const data = await unwrap(http.get<{ requests: FriendRequest[] }>('/friends/requests'));
+    return data.requests;
   },
 
-  async sendRequest(targetUserId: number): Promise<{ success: boolean; requestId?: number; autoAccepted?: boolean }> {
-    const res = await http.post('/friends/request', { targetUserId });
-    return res.data;
+  // 无字段访问场景：unwrap 直接返回业务数据
+  sendRequest(targetUserId: number): Promise<{ success: boolean; requestId?: number; autoAccepted?: boolean }> {
+    return unwrap(http.post('/friends/request', { targetUserId }));
   },
 
-  async accept(requestId: number): Promise<{ success: boolean }> {
-    const res = await http.post('/friends/accept', { requestId });
-    return res.data;
+  accept(requestId: number): Promise<{ success: boolean }> {
+    return unwrap(http.post('/friends/accept', { requestId }));
   },
 
-  async reject(requestId: number): Promise<{ success: boolean }> {
-    const res = await http.post('/friends/reject', { requestId });
-    return res.data;
+  reject(requestId: number): Promise<{ success: boolean }> {
+    return unwrap(http.post('/friends/reject', { requestId }));
   },
 
-  async remove(friendId: number): Promise<{ success: boolean }> {
-    const res = await http.delete(`/friends/${friendId}`);
-    return res.data;
+  remove(friendId: number): Promise<{ success: boolean }> {
+    return unwrap(http.delete(`/friends/${friendId}`));
   },
 };
