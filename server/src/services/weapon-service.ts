@@ -5,6 +5,7 @@ import pool from '../config/database.js';
 import { weaponUpgradeCost } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
+import { deductGold } from '../utils/gold.js';
 
 /**
  * 武器列表行：对应 listWeapons 的 SQL JOIN 结果
@@ -88,14 +89,7 @@ export async function upgradeWeapon(
     // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
     // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
     // RETURNING 返回 0 行表示并发场景下余额已被其他事务扣减，抛错 ROLLBACK
-    const deductResult = await tx.query(
-      `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
-      [cost.gold, userId]
-    );
-
-    if (deductResult.rows.length === 0) {
-      throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${cost.gold} 金币`);
-    }
+    await deductGold(tx, userId, cost.gold);
 
     await tx.query(
       `UPDATE user_weapons SET level = level + 1, exp = exp + $1, updated_at = NOW()
@@ -201,14 +195,7 @@ export async function buyWeapon(
     // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
     // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
     // RETURNING 返回 0 行表示并发场景下余额已被其他事务扣减，抛错 ROLLBACK
-    const deductResult = await tx.query(
-      `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
-      [weapon.unlock_cost_gold, userId]
-    );
-
-    if (deductResult.rows.length === 0) {
-      throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${weapon.unlock_cost_gold} 金币`);
-    }
+    await deductGold(tx, userId, weapon.unlock_cost_gold);
 
     // 创建用户武器记录
     await tx.query(

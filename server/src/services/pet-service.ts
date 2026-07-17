@@ -4,6 +4,7 @@
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
+import { deductGold } from '../utils/gold.js';
 
 /**
  * 宠物列表行：对应 listPets 的 SQL JOIN 结果
@@ -121,14 +122,7 @@ export async function buyPet(
 
     // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
     // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
-    const deductResult = await tx.query(
-      `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
-      [pet.unlock_cost_gold, userId]
-    );
-
-    if (deductResult.rows.length === 0) {
-      throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${pet.unlock_cost_gold} 金币`);
-    }
+    await deductGold(tx, userId, pet.unlock_cost_gold);
 
     // 创建用户宠物记录
     await tx.query(
