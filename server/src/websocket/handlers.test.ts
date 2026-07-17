@@ -26,6 +26,30 @@ import { RoomEvents, GameEvents } from './events.js';
 import type { Room, roomManager } from './room-manager.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 
+/**
+ * 类型断言集中点
+ * 设计原因：createMockSocket/createMockIO 返回类型在存入 HandlerDeps 后被收窄为 SocketLike/Broadcaster，
+ * 测试代码访问 emits/toEmits 字段时需重复 as unknown as 断言（30 处散落），
+ * 统一通过 helper 函数集中断言，降低维护同步成本并提升可读性。
+ */
+type EmitEntry = { event: string; data: unknown };
+type EmitMap = Record<string, EmitEntry[]>;
+
+/** 读取 socket.emit 调用记录（单播回执，如 ERROR/LEVEL_READY） */
+function getSocketEmits(socket: SocketLike): EmitEntry[] {
+  return (socket as unknown as { emits: EmitEntry[] }).emits;
+}
+
+/** 读取 io.to(roomId).emit 调用记录（房间广播，如 STATE/START） */
+function getIoToEmits(io: Broadcaster): EmitMap {
+  return (io as unknown as { toEmits: EmitMap }).toEmits;
+}
+
+/** 读取 socket.to(roomId).emit 调用记录（断线场景下的自身房间广播，如 PLAYER_OFFLINE） */
+function getSocketToEmits(socket: SocketLike): EmitMap {
+  return (socket as unknown as { toEmits: EmitMap }).toEmits;
+}
+
 /** 创建 mock socket：用 Map 记录 emit 调用，rooms 为可配置的 Set */
 function createMockSocket(id = 'sock-1', rooms: string[] = []): SocketLike & { emits: Array<{ event: string; data: unknown }>; toEmits: Record<string, Array<{ event: string; data: unknown }>> } {
   const emits: Array<{ event: string; data: unknown }> = [];
@@ -115,7 +139,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       expect(deps.roomManager.joinRoom).toHaveBeenCalledWith('ROOM01', 'u1', 'sock-1', '玩家1');
       expect(deps.socket.join).toHaveBeenCalledWith('ROOM01');
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect(toEmits.ROOM01).toEqual([{ event: RoomEvents.STATE, data: { room } }]);
     });
 
@@ -125,7 +149,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleJoin({ roomId: 'NOPE', nickname: '玩家1' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { message: '房间不存在' } },
       ]);
     });
@@ -137,7 +161,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleJoin({ roomId: 'ROOM01', nickname: '玩家1' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { message: '加入房间失败' } },
       ]);
     });
@@ -158,10 +182,10 @@ describe('websocket/handlers 事件处理器', () => {
       await handleJoin({ roomId: 'ROOM01', nickname: '玩家1' }, deps);
 
       // 广播 STATE 给全房间
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect(toEmits.ROOM01).toEqual([{ event: RoomEvents.STATE, data: { room } }]);
       // 单独补发 LEVEL_READY 给重连玩家（socket.emit 而非 io.to().emit）
-      const socketEmits = (deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits;
+      const socketEmits = getSocketEmits(deps.socket);
       expect(socketEmits).toEqual([{ event: GameEvents.LEVEL_READY, data: levelData }]);
     });
 
@@ -173,7 +197,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleJoin({ roomId: 'ROOM01', nickname: '玩家1' }, deps);
 
-      const socketEmits = (deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits;
+      const socketEmits = getSocketEmits(deps.socket);
       // 仅广播 STATE，无 LEVEL_READY 补发
       expect(socketEmits).toEqual([]);
     });
@@ -186,7 +210,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleJoin({ roomId: 'ROOM01', nickname: '玩家1' }, deps);
 
-      const socketEmits = (deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits;
+      const socketEmits = getSocketEmits(deps.socket);
       expect(socketEmits).toEqual([]);
     });
   });
@@ -201,7 +225,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       expect(deps.roomManager.leaveRoom).toHaveBeenCalledWith('ROOM01', 'u1');
       expect(deps.socket.leave).toHaveBeenCalledWith('ROOM01');
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect(toEmits.ROOM01).toEqual([{ event: RoomEvents.STATE, data: { room } }]);
     });
 
@@ -213,7 +237,7 @@ describe('websocket/handlers 事件处理器', () => {
       await handleLeave({ roomId: 'ROOM01' }, deps);
 
       expect(deps.socket.leave).toHaveBeenCalledWith('ROOM01');
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect(toEmits.ROOM01).toBeUndefined();
     });
 
@@ -223,7 +247,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleLeave({ roomId: 'NOPE' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { message: '房间不存在' } },
       ]);
     });
@@ -238,7 +262,7 @@ describe('websocket/handlers 事件处理器', () => {
       await handleReady({ roomId: 'ROOM01' }, deps);
 
       expect(deps.roomManager.setReady).toHaveBeenCalledWith('ROOM01', 'u1', true);
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect(toEmits.ROOM01[0]).toEqual({ event: RoomEvents.STATE, data: { room } });
     });
 
@@ -250,7 +274,7 @@ describe('websocket/handlers 事件处理器', () => {
       await handleUnready({ roomId: 'ROOM01' }, deps);
 
       expect(deps.roomManager.setReady).toHaveBeenCalledWith('ROOM01', 'u1', false);
-      expect((deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits.ROOM01[0]).toEqual({
+      expect(getIoToEmits(deps.io).ROOM01[0]).toEqual({
         event: RoomEvents.STATE,
         data: { room },
       });
@@ -262,7 +286,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleReady({ roomId: 'ROOM01' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { message: '准备失败' } },
       ]);
     });
@@ -285,7 +309,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleSetMode({ roomId: 'ROOM01', mode: 'brawl' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { message: '仅房主可设置模式' } },
       ]);
     });
@@ -308,7 +332,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleSubmitStress({ roomId: 'ROOM01', stressSource: '加班' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { message: '提交压力源失败' } },
       ]);
     });
@@ -326,7 +350,7 @@ describe('websocket/handlers 事件处理器', () => {
       expect(deps.roomManager.startGame).toHaveBeenCalledWith('ROOM01', 'u1');
       // 状态转换已移交 generateLevelAndEvents，此处不应调用 updateRoomStatus
       expect(deps.roomManager.updateRoomStatus).not.toHaveBeenCalled();
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       // 先广播 STATE（generating），再广播 game:start 通知前端进入加载
       expect(toEmits.ROOM01).toEqual([
         { event: RoomEvents.STATE, data: { room } },
@@ -341,7 +365,7 @@ describe('websocket/handlers 事件处理器', () => {
       await handleStart({ roomId: 'ROOM01' }, deps);
 
       expect(deps.roomManager.updateRoomStatus).not.toHaveBeenCalled();
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { message: '仅房主可开始游戏' } },
       ]);
     });
@@ -356,7 +380,7 @@ describe('websocket/handlers 事件处理器', () => {
       await handleAction({ roomId: 'ROOM01', action: 'shoot', payload: { angle: 90 } }, deps);
 
       expect(deps.roomManager.getRoom).toHaveBeenCalledWith('ROOM01');
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect(toEmits.ROOM01[0].event).toBe(GameEvents.ACTION);
       expect(toEmits.ROOM01[0].data).toMatchObject({
         userId: 'u1',
@@ -372,7 +396,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleAction({ roomId: 'NOPE', action: 'shoot' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { code: ErrorCode.BAD_REQUEST, message: '游戏未在进行中' } },
       ]);
     });
@@ -383,7 +407,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleAction({ roomId: 'ROOM01', action: 'shoot' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { code: ErrorCode.BAD_REQUEST, message: '游戏未在进行中' } },
       ]);
     });
@@ -397,7 +421,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleScoreUpdate({ roomId: 'ROOM01', score: 100, combo: 5 }, deps);
 
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect(toEmits.ROOM01[0].event).toBe(GameEvents.SCORE_UPDATE);
       expect(toEmits.ROOM01[0].data).toMatchObject({ userId: 'u1', score: 100, combo: 5 });
     });
@@ -409,7 +433,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleScoreUpdate({ roomId: 'ROOM01', score: 50 }, deps);
 
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect((toEmits.ROOM01[0].data as { combo: number }).combo).toBe(0);
     });
 
@@ -419,7 +443,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleScoreUpdate({ roomId: 'ROOM01', score: 50 }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { code: ErrorCode.BAD_REQUEST, message: '游戏未在进行中' } },
       ]);
     });
@@ -435,7 +459,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       // 第三参数 'playing' 为 expectedFrom CAS 守卫，原子保证仅 playing 态可转 settling
       expect(deps.roomManager.updateRoomStatus).toHaveBeenCalledWith('ROOM01', 'settling', 'playing');
-      const toEmits = (deps.io as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getIoToEmits(deps.io);
       expect(toEmits.ROOM01[0].event).toBe(GameEvents.FINISH);
       expect(toEmits.ROOM01[0].data).toMatchObject({ userId: 'u1', finalScore: 200, result: 'win' });
     });
@@ -446,7 +470,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleFinish({ roomId: 'NOPE', finalScore: 0, result: 'lose' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { code: ErrorCode.NOT_FOUND, message: '房间不存在' } },
       ]);
     });
@@ -460,7 +484,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       await handleFinish({ roomId: 'ROOM01', finalScore: 0, result: 'lose' }, deps);
 
-      expect((deps.socket as unknown as { emits: Array<{ event: string; data: unknown }> }).emits).toEqual([
+      expect(getSocketEmits(deps.socket)).toEqual([
         { event: RoomEvents.ERROR, data: { code: ErrorCode.CONFLICT, message: '游戏未在进行中' } },
       ]);
     });
@@ -473,18 +497,18 @@ describe('websocket/handlers 事件处理器', () => {
 
       handleDisconnect('client namespace disconnect', deps);
 
-      const toEmits = (socket as unknown as { toEmits: Record<string, Array<unknown>> }).toEmits;
+      const toEmits = getSocketToEmits(socket);
       expect(Object.keys(toEmits)).toHaveLength(0);
     });
 
-    it('异常断线：遍历 rooms 广播 PLAYER_OFFLINE（排除自身 socket.id）', () => {
+    it('异常断线：遍历 rooms 广播 PLAYER_OFFLINE（排除自身 socket.id）', async () => {
       // socket.rooms 包含自身 socket.id 与加入的房间 ID
       const socket = createMockSocket('sock-1', ['sock-1', 'ROOM01', 'ROOM02']);
       const deps = createDeps({ socket });
 
       handleDisconnect('transport close', deps);
 
-      const toEmits = (socket as unknown as { toEmits: Record<string, Array<{ event: string; data: unknown }>> }).toEmits;
+      const toEmits = getSocketToEmits(socket);
       // 自身 socket.id 不广播，仅房间 ID 广播
       expect(toEmits.ROOM01).toEqual([{ event: RoomEvents.PLAYER_OFFLINE, data: { userId: 'u1' } }]);
       expect(toEmits.ROOM02).toEqual([{ event: RoomEvents.PLAYER_OFFLINE, data: { userId: 'u1' } }]);
@@ -497,7 +521,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       handleDisconnect('transport close', deps);
 
-      const toEmits = (socket as unknown as { toEmits: Record<string, Array<unknown>> }).toEmits;
+      const toEmits = getSocketToEmits(socket);
       expect(Object.keys(toEmits)).toHaveLength(0);
     });
 
@@ -507,7 +531,7 @@ describe('websocket/handlers 事件处理器', () => {
 
       handleDisconnect('ping timeout', deps);
 
-      const toEmits = (socket as unknown as { toEmits: Record<string, Array<unknown>> }).toEmits;
+      const toEmits = getSocketToEmits(socket);
       expect(Object.keys(toEmits)).toHaveLength(0);
     });
   });
