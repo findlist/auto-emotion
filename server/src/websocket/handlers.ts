@@ -17,7 +17,7 @@ import type {
   ScoreUpdateInput,
   FinishInput,
 } from './events.js';
-import type { roomManager } from './room-manager.js';
+import type { roomManager, Room } from './room-manager.js';
 import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
 
@@ -41,6 +41,17 @@ export interface SocketUser {
 /** 房间广播接口：与 io.to().emit() 链式调用形态一致 */
 export interface Broadcaster {
   to(roomId: string): { emit(event: string, data: unknown): void };
+}
+
+/**
+ * 向房间内所有在线玩家广播全量房间状态
+ *
+ * 设计原因：handlers.ts 中 7 处重复 `deps.io.to(room.id).emit(RoomEvents.STATE, { room })`，
+ * 抽取为辅助函数消除样板重复，统一广播入口便于后续扩展（如增加广播日志/打点）。
+ * 仅在 handlers.ts 内部使用，不对外导出，避免影响外部依赖图。
+ */
+function broadcastRoomState(io: Broadcaster, room: Room): void {
+  io.to(room.id).emit(RoomEvents.STATE, { room });
 }
 
 /** handler 依赖：注入 socket/user/roomManager/io 便于测试替换 */
@@ -87,7 +98,7 @@ export async function handleJoin(
   await withErrorHandling(async () => {
     const room = await deps.roomManager.joinRoom(data.roomId, deps.user.userId, deps.socket.id, data.nickname);
     await deps.socket.join(room.id);
-    deps.io.to(room.id).emit(RoomEvents.STATE, { room });
+    broadcastRoomState(deps.io, room);
     // 重连恢复：playing 状态下能成功 joinRoom 的必为断线重连玩家（新玩家会被 joinRoom 拒绝）
     // 此时 room.levelData 已由 generateLevelAndEvents 生成，补发给重连玩家以重建场景
     if (room.status === 'playing' && room.levelData) {
@@ -105,7 +116,7 @@ export async function handleLeave(
     const room = await deps.roomManager.leaveRoom(data.roomId, deps.user.userId);
     await deps.socket.leave(data.roomId);
     if (room) {
-      deps.io.to(room.id).emit(RoomEvents.STATE, { room });
+      broadcastRoomState(deps.io, room);
     }
   }, deps.socket, '离开房间失败');
 }
@@ -114,7 +125,7 @@ export async function handleLeave(
 export async function handleReady(data: ReadyInput, deps: HandlerDeps): Promise<void> {
   await withErrorHandling(async () => {
     const room = await deps.roomManager.setReady(data.roomId, deps.user.userId, true);
-    deps.io.to(room.id).emit(RoomEvents.STATE, { room });
+    broadcastRoomState(deps.io, room);
   }, deps.socket, '准备失败');
 }
 
@@ -122,7 +133,7 @@ export async function handleReady(data: ReadyInput, deps: HandlerDeps): Promise<
 export async function handleUnready(data: ReadyInput, deps: HandlerDeps): Promise<void> {
   await withErrorHandling(async () => {
     const room = await deps.roomManager.setReady(data.roomId, deps.user.userId, false);
-    deps.io.to(room.id).emit(RoomEvents.STATE, { room });
+    broadcastRoomState(deps.io, room);
   }, deps.socket, '取消准备失败');
 }
 
@@ -133,7 +144,7 @@ export async function handleSetMode(
 ): Promise<void> {
   await withErrorHandling(async () => {
     const room = await deps.roomManager.setMode(data.roomId, deps.user.userId, data.mode);
-    deps.io.to(room.id).emit(RoomEvents.STATE, { room });
+    broadcastRoomState(deps.io, room);
   }, deps.socket, '设置模式失败');
 }
 
@@ -144,7 +155,7 @@ export async function handleSubmitStress(
 ): Promise<void> {
   await withErrorHandling(async () => {
     const room = await deps.roomManager.submitStress(data.roomId, deps.user.userId, data.stressSource);
-    deps.io.to(room.id).emit(RoomEvents.STATE, { room });
+    broadcastRoomState(deps.io, room);
   }, deps.socket, '提交压力源失败');
 }
 
@@ -156,7 +167,7 @@ export async function handleSubmitStress(
 export async function handleStart(data: StartInput, deps: HandlerDeps): Promise<void> {
   await withErrorHandling(async () => {
     const room = await deps.roomManager.startGame(data.roomId, deps.user.userId);
-    deps.io.to(room.id).emit(RoomEvents.STATE, { room });
+    broadcastRoomState(deps.io, room);
     deps.io.to(room.id).emit(GameEvents.START, { roomId: room.id });
   }, deps.socket, '开始游戏失败');
 }
