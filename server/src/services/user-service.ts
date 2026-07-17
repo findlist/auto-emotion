@@ -10,6 +10,22 @@ const JWT_SECRET = process.env.JWT_SECRET!;
 const JWT_EXPIRES_IN = '7d';
 const REFRESH_EXPIRES_IN = '30d';
 
+/**
+ * 统一签发 access + refresh token 对。
+ *
+ * 设计原因：register 与 login 共 2 处重复签发对，payload 字段（userId/phone/type）、
+ * secret、expiresIn 完全一致。抽取后避免字段漂移（如未来加 role 字段需改多处），
+ * 并保证签发逻辑唯一来源。
+ *
+ * 不对外 export：仅 user-service.ts 内部使用，避免扩散到其他模块影响依赖图。
+ * refreshToken 路径仅签 access 不签 refresh，调用此函数会浪费签发，故保留原样。
+ */
+function signTokenPair(user: { id: string; phone: string }): { token: string; refreshToken: string } {
+  const token = jwt.sign({ userId: user.id, phone: user.phone }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+  return { token, refreshToken };
+}
+
 export interface RegisterInput {
   phone: string;
   password: string;
@@ -96,8 +112,8 @@ export async function register(input: RegisterInput): Promise<{ user: UserRow; t
     return { user };
   });
 
-  const token = jwt.sign({ userId: user.id, phone: user.phone }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-  const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+  // 签发双 token：access + refresh（payload 与 login 共用 signTokenPair 保证字段一致）
+  const { token, refreshToken } = signTokenPair(user);
 
   return { user, token, refreshToken };
 }
@@ -124,8 +140,8 @@ export async function login(input: LoginInput): Promise<{ user: LoginUserRow; to
   // 更新最后登录时间
   await pool.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
 
-  const token = jwt.sign({ userId: user.id, phone: user.phone }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-  const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+  // 签发双 token：access + refresh（payload 与 register 共用 signTokenPair 保证字段一致）
+  const { token, refreshToken } = signTokenPair(user);
 
   const { password_hash, ...userWithoutPassword } = user;
   return { user: userWithoutPassword, token, refreshToken };
