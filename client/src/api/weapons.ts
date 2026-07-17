@@ -22,9 +22,10 @@ export interface UpgradeResult {
 }
 
 export const weaponApi = {
+  // unwrap 解包后取 data.weapons（响应拦截器已将 ApiResponse.data 挂到 response.data）
   async list(): Promise<Weapon[]> {
-    const res = await http.get('/weapons/list');
-    return res.data.weapons;
+    const data = await unwrap(http.get<{ weapons: Weapon[] }>('/weapons/list'));
+    return data.weapons;
   },
 
   upgrade(weaponId: number): Promise<UpgradeResult> {

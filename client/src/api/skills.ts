@@ -19,9 +19,10 @@ export interface UpgradeResult {
 }
 
 export const skillApi = {
+  // unwrap 解包后取 data.skills（响应拦截器已将 ApiResponse.data 挂到 response.data）
   async list(): Promise<Skill[]> {
-    const res = await http.get('/skills/list');
-    return res.data.skills;
+    const data = await unwrap(http.get<{ skills: Skill[] }>('/skills/list'));
+    return data.skills;
   },
 
   unlock(skillId: number): Promise<{ success: boolean; skillId: number }> {

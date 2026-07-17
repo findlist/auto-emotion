@@ -16,9 +16,10 @@ export interface Achievement {
 }
 
 export const achievementApi = {
+  // unwrap 解包后取 data.achievements（响应拦截器已将 ApiResponse.data 挂到 response.data）
   async getAchievements(): Promise<Achievement[]> {
-    const res = await http.get('/achievements');
-    return res.data.achievements;
+    const data = await unwrap(http.get<{ achievements: Achievement[] }>('/achievements'));
+    return data.achievements;
   },
 
   claimReward(achievementId: number): Promise<{ success: boolean; reward_type: string; reward_id: number }> {

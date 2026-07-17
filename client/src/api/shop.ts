@@ -21,18 +21,20 @@ export interface InventoryItem {
 }
 
 export const shopApi = {
+  // unwrap 解包后取 data.items（响应拦截器已将 ApiResponse.data 挂到 response.data）
   async getItems(type?: string): Promise<ShopItem[]> {
     const params = type ? { type } : {};
-    const res = await http.get('/shop/items', { params });
-    return res.data.items;
+    const data = await unwrap(http.get<{ items: ShopItem[] }>('/shop/items', { params }));
+    return data.items;
   },
 
   buy(itemId: number): Promise<{ success: boolean; item: ShopItem }> {
     return unwrap(http.post('/shop/buy', { itemId }));
   },
 
+  // unwrap 解包后取 data.inventory（响应拦截器已将 ApiResponse.data 挂到 response.data）
   async getInventory(): Promise<InventoryItem[]> {
-    const res = await http.get('/shop/inventory');
-    return res.data.inventory;
+    const data = await unwrap(http.get<{ inventory: InventoryItem[] }>('/shop/inventory'));
+    return data.inventory;
   },
 };
