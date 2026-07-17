@@ -6,8 +6,8 @@
 
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
 import type { Server } from 'http';
+import { controllableAuth, getServerPort } from './__helpers__/test-server.js';
 
 // mock 匹配 service：route 测试聚焦参数校验与错误兜底，service 行为由 service 测试覆盖
 vi.mock('../services/match-service.js', () => ({
@@ -20,16 +20,6 @@ import router from './match.js';
 import * as matchService from '../services/match-service.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 
-// 可控鉴权中间件：通过请求头 x-test-no-auth 模拟未授权场景
-function controllableAuth(req: Request, _res: Response, next: NextFunction): void {
-  if (req.headers['x-test-no-auth'] === '1') {
-    next();
-    return;
-  }
-  (req as unknown as { user: { userId: string } }).user = { userId: 'u1' };
-  next();
-}
-
 let server: Server;
 let baseURL: string;
 
@@ -40,9 +30,7 @@ beforeAll(async () => {
   app.use('/api/match', router);
   // match 路由内部已 try/catch + fail 自处理错误，无需额外 errorHandler
   server = app.listen(0);
-  // 等待端口绑定完成再读取 address，避免并行测试时绑定未完成 address() 返回 null 导致 fetch "bad port"
-  await new Promise<void>(resolve => server.once('listening', resolve));
-  const port = (server.address() as { port: number }).port;
+  const port = await getServerPort(server);
   baseURL = `http://localhost:${port}/api/match`;
 });
 
