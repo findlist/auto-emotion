@@ -4,7 +4,7 @@
 import { Router, Request, Response } from 'express';
 import { roomManager } from '../websocket/room-manager.js';
 import { success, fail } from '../utils/response.js';
-import { AppError, getErrorMessage } from '../utils/error.js';
+import { routeError } from '../utils/route-error.js';
 import { firstParam } from '../utils/param.js';
 
 const router = Router();
@@ -37,12 +37,7 @@ router.post('/create', async (req: Request, res: Response) => {
     success(res, { roomId: room.id, hostId: room.hostId, players: room.players });
   } catch (err) {
     // AppError 按其 ErrorCode 语义映射 HTTP 状态码，其余按 500 处理
-    if (err instanceof AppError) {
-      fail(res, err.code, err.message);
-    } else {
-      const msg = getErrorMessage(err, '创建房间失败');
-      fail(res, 500, msg);
-    }
+    routeError(res, err, '创建房间失败');
   }
 });
 

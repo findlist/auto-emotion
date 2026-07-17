@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import * as idleService from '../services/idle-service.js';
 import { success, fail } from '../utils/response.js';
-import { AppError, getErrorMessage } from '../utils/error.js';
+import { routeError } from '../utils/route-error.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { withIdempotency } from '../utils/idempotency.js';
 
@@ -24,11 +24,7 @@ router.get('/status', authMiddleware, async (req, res) => {
     }
     success(res, data);
   } catch (err) {
-    if (err instanceof AppError) {
-      fail(res, err.code, err.message);
-      return;
-    }
-    fail(res, 500, getErrorMessage(err, '查询角色状态失败'));
+    routeError(res, err, '查询角色状态失败');
   }
 });
 
@@ -58,11 +54,7 @@ router.post('/settle', authMiddleware, async (req, res) => {
     const data = await idleService.settle(userId, durationSeconds);
     success(res, data);
   } catch (err) {
-    if (err instanceof AppError) {
-      fail(res, err.code, err.message);
-      return;
-    }
-    fail(res, 500, getErrorMessage(err, '在线结算失败'));
+    routeError(res, err, '在线结算失败');
   }
 });
 
@@ -74,11 +66,7 @@ router.post('/claim', authMiddleware, async (req, res) => {
     const data = await idleService.claimOffline(userId);
     success(res, data);
   } catch (err) {
-    if (err instanceof AppError) {
-      fail(res, err.code, err.message);
-      return;
-    }
-    fail(res, 500, getErrorMessage(err, '领取离线收益失败'));
+    routeError(res, err, '领取离线收益失败');
   }
 });
 
@@ -101,11 +89,7 @@ router.post('/switch-area', authMiddleware, async (req, res) => {
     const data = await idleService.switchArea(userId, areaId);
     success(res, data);
   } catch (err) {
-    if (err instanceof AppError) {
-      fail(res, err.code, err.message);
-      return;
-    }
-    fail(res, 500, getErrorMessage(err, '切换挂机区域失败'));
+    routeError(res, err, '切换挂机区域失败');
   }
 });
 
@@ -129,11 +113,7 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
     const data = await idleService.upgradeCharacter(userId, field, itemType);
     success(res, data);
   } catch (err) {
-    if (err instanceof AppError) {
-      fail(res, err.code, err.message);
-      return;
-    }
-    fail(res, 500, getErrorMessage(err, '升级角色属性失败'));
+    routeError(res, err, '升级角色属性失败');
   }
 });
 
