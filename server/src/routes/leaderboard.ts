@@ -10,7 +10,7 @@ import {
 import { success, fail } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { getErrorMessage } from '../utils/error.js';
-import { parsePagination } from '../utils/param.js';
+import { parsePagination, firstParam } from '../utils/param.js';
 
 const router = Router();
 
@@ -80,9 +80,9 @@ router.get('/:type/me', authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  const typeStr = req.params.type;
+  // type 为字符串枚举（power/battle/speed/friends），用 firstParam 收窄路由参数类型
+  const type = firstParam(req.params.type);
   const validTypes = ['power', 'battle', 'speed', 'friends'];
-  const type = Array.isArray(typeStr) ? typeStr[0] : typeStr;
   
   if (!validTypes.includes(type)) {
     fail(res, 400, '无效的榜单类型');

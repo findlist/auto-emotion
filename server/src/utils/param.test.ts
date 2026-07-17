@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseIdParam, parsePagination } from './param.js';
+import { parseIdParam, parsePagination, firstParam } from './param.js';
 
 describe('parseIdParam 路由参数解析', () => {
   it('传入数字字符串返回对应数字', () => {
@@ -23,6 +23,33 @@ describe('parseIdParam 路由参数解析', () => {
   it('传入空数组返回 NaN', () => {
     // Array.isArray 命中取 value[0] = undefined，parseInt(undefined) = NaN
     expect(parseIdParam([])).toBeNaN();
+  });
+});
+
+describe('firstParam 字符串路由参数收窄', () => {
+  it('传入字符串返回原值（UUID/roomId 等非数字参数）', () => {
+    // friends.ts 的 friendId 为 UUID 字符串，需保留原值不转数字
+    expect(firstParam('abc-123-uuid')).toBe('abc-123-uuid');
+  });
+
+  it('传入单元素数组返回首个元素（兼容 Express 路由参数类型）', () => {
+    // Express 路由参数类型为 string | string[]，需兼容数组形式
+    expect(firstParam(['room-1'])).toBe('room-1');
+  });
+
+  it('传入 undefined 返回空字符串（调用方配合 !value 判断返回 400）', () => {
+    // 显式处理 undefined，避免 as string 在运行时 undefined 输入下的隐患
+    expect(firstParam(undefined)).toBe('');
+  });
+
+  it('传入空数组返回空字符串', () => {
+    // Array.isArray 命中取 value[0] = undefined，?? '' 兜底
+    expect(firstParam([])).toBe('');
+  });
+
+  it('传入多元素数组返回首个元素（边界情况：Express 实际不会出现）', () => {
+    // 单段路由参数实际不会是多元素数组，但工具函数需稳健处理
+    expect(firstParam(['a', 'b', 'c'])).toBe('a');
   });
 });
 

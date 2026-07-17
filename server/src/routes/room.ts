@@ -5,6 +5,7 @@ import { Router, Request, Response } from 'express';
 import { roomManager } from '../websocket/room-manager.js';
 import { success, fail } from '../utils/response.js';
 import { AppError, getErrorMessage } from '../utils/error.js';
+import { firstParam } from '../utils/param.js';
 
 const router = Router();
 
@@ -50,7 +51,8 @@ router.post('/create', async (req: Request, res: Response) => {
  * 获取房间信息
  */
 router.get('/:roomId', async (req: Request, res: Response) => {
-  const roomId = req.params.roomId as string;
+  // roomId 为字符串（6 位房间号），用 firstParam 收窄路由参数类型，消除 as string 类型断言
+  const roomId = firstParam(req.params.roomId);
   const room = await roomManager.getRoom(roomId);
 
   if (!room) {

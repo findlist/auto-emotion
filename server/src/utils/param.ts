@@ -1,5 +1,5 @@
 // server/src/utils/param.ts
-// 路由参数解析工具：统一 Express 路由参数的整数 ID 与分页参数解析逻辑
+// 路由参数解析工具：统一 Express 路由参数的整数 ID、字符串参数与分页参数解析逻辑
 
 /**
  * 解析路由参数为整数 ID
@@ -16,6 +16,22 @@ export function parseIdParam(value: string | string[] | undefined): number {
   if (value === undefined) return NaN;
   const str = Array.isArray(value) ? value[0] : value;
   return parseInt(str, 10);
+}
+
+/**
+ * 提取路由参数的首个字符串值
+ *
+ * 设计原因：与 parseIdParam 对应的字符串版本，处理 UUID、roomId、枚举类型等
+ * 非数字路由参数。Express 路由参数类型为 string | string[]，routes 层多处重复
+ * Array.isArray 三元或直接 `as string` 类型断言。提取后统一参数收窄风格，
+ * 消除 as string 类型断言在运行时 undefined 输入下的安全隐患。
+ *
+ * @param value 路由参数值（req.params.xxx）
+ * @returns 首个字符串值，undefined/空数组时返回空字符串（调用方配合 !value 判断返回 400）
+ */
+export function firstParam(value: string | string[] | undefined): string {
+  if (value === undefined) return '';
+  return Array.isArray(value) ? (value[0] ?? '') : value;
 }
 
 /**

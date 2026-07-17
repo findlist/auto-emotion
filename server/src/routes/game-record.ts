@@ -5,7 +5,7 @@ import { Router } from 'express';
 import * as recordService from '../services/record-service.js';
 import { success } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { parsePagination } from '../utils/param.js';
+import { parsePagination, firstParam } from '../utils/param.js';
 
 const router = Router();
 
@@ -20,7 +20,8 @@ router.get('/', authMiddleware, async (req, res) => {
 
 router.get('/:id', authMiddleware, async (req, res) => {
   const userId = req.user!.userId;
-  const recordId = req.params.id as string;
+  // recordId 为 UUID 字符串，用 firstParam 收窄路由参数类型，消除 as string 类型断言
+  const recordId = firstParam(req.params.id);
   const record = await recordService.getRecord(recordId, userId);
   success(res, record);
 });

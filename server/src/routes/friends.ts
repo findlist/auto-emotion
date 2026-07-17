@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getFriends, getPendingRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend } from '../services/friend-service.js';
 import { success, fail } from '../utils/response.js';
 import { getErrorMessage } from '../utils/error.js';
+import { firstParam } from '../utils/param.js';
 
 const router = Router();
 
@@ -119,8 +120,8 @@ router.delete('/:friendId', async (req: Request, res: Response) => {
     return;
   }
 
-  // friendId 为 UUID 字符串，直接取路由参数（原 parseIdParam 会截断 UUID 导致 SQL 报错）
-  const friendId = Array.isArray(req.params.friendId) ? req.params.friendId[0] : req.params.friendId;
+  // friendId 为 UUID 字符串，用 firstParam 收窄路由参数（原 parseIdParam 会截断 UUID 导致 SQL 报错）
+  const friendId = firstParam(req.params.friendId);
   if (!friendId) {
     fail(res, 400, '无效的好友ID');
     return;
