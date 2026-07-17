@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface Pet {
   id: number;
@@ -16,13 +17,11 @@ export const petApi = {
     return res.data.pets;
   },
 
-  async equip(petId: number): Promise<{ success: boolean; petId: number }> {
-    const res = await http.post('/pets/equip', { petId });
-    return res.data;
+  equip(petId: number): Promise<{ success: boolean; petId: number }> {
+    return unwrap(http.post('/pets/equip', { petId }));
   },
 
-  async buy(petId: number): Promise<{ success: boolean; petId: number }> {
-    const res = await http.post('/pets/buy', { petId });
-    return res.data;
+  buy(petId: number): Promise<{ success: boolean; petId: number }> {
+    return unwrap(http.post('/pets/buy', { petId }));
   },
 };

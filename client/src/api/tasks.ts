@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface DailyTask {
   id: number;
@@ -18,8 +19,7 @@ export const taskApi = {
     return res.data.tasks;
   },
 
-  async claimReward(taskId: number): Promise<{ success: boolean; reward_exp: number; reward_gold: number }> {
-    const res = await http.post(`/tasks/${taskId}/claim`);
-    return res.data;
+  claimReward(taskId: number): Promise<{ success: boolean; reward_exp: number; reward_gold: number }> {
+    return unwrap(http.post(`/tasks/${taskId}/claim`));
   },
 };

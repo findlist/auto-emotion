@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface ShopItem {
   id: number;
@@ -26,9 +27,8 @@ export const shopApi = {
     return res.data.items;
   },
 
-  async buy(itemId: number): Promise<{ success: boolean; item: ShopItem }> {
-    const res = await http.post('/shop/buy', { itemId });
-    return res.data;
+  buy(itemId: number): Promise<{ success: boolean; item: ShopItem }> {
+    return unwrap(http.post('/shop/buy', { itemId }));
   },
 
   async getInventory(): Promise<InventoryItem[]> {

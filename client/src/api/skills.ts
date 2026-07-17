@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface Skill {
   id: number;
@@ -23,18 +24,15 @@ export const skillApi = {
     return res.data.skills;
   },
 
-  async unlock(skillId: number): Promise<{ success: boolean; skillId: number }> {
-    const res = await http.post('/skills/unlock', { skillId });
-    return res.data;
+  unlock(skillId: number): Promise<{ success: boolean; skillId: number }> {
+    return unwrap(http.post('/skills/unlock', { skillId }));
   },
 
-  async upgrade(skillId: number): Promise<UpgradeResult> {
-    const res = await http.post('/skills/upgrade', { skillId });
-    return res.data;
+  upgrade(skillId: number): Promise<UpgradeResult> {
+    return unwrap(http.post('/skills/upgrade', { skillId }));
   },
 
-  async activate(skillId: number, active: boolean): Promise<{ success: boolean; skillId: number; isActive: boolean }> {
-    const res = await http.post('/skills/activate', { skillId, active });
-    return res.data;
+  activate(skillId: number, active: boolean): Promise<{ success: boolean; skillId: number; isActive: boolean }> {
+    return unwrap(http.post('/skills/activate', { skillId, active }));
   },
 };

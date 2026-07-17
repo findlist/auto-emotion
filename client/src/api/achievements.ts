@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface Achievement {
   id: number;
@@ -20,8 +21,7 @@ export const achievementApi = {
     return res.data.achievements;
   },
 
-  async claimReward(achievementId: number): Promise<{ success: boolean; reward_type: string; reward_id: number }> {
-    const res = await http.post(`/achievements/${achievementId}/claim`);
-    return res.data;
+  claimReward(achievementId: number): Promise<{ success: boolean; reward_type: string; reward_id: number }> {
+    return unwrap(http.post(`/achievements/${achievementId}/claim`));
   },
 };

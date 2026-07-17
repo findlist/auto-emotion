@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface Weapon {
   id: number;
@@ -26,18 +27,15 @@ export const weaponApi = {
     return res.data.weapons;
   },
 
-  async upgrade(weaponId: number): Promise<UpgradeResult> {
-    const res = await http.post('/weapons/upgrade', { weaponId });
-    return res.data;
+  upgrade(weaponId: number): Promise<UpgradeResult> {
+    return unwrap(http.post('/weapons/upgrade', { weaponId }));
   },
 
-  async equip(weaponId: number): Promise<{ success: boolean; weaponId: number }> {
-    const res = await http.post('/weapons/equip', { weaponId });
-    return res.data;
+  equip(weaponId: number): Promise<{ success: boolean; weaponId: number }> {
+    return unwrap(http.post('/weapons/equip', { weaponId }));
   },
 
-  async buy(weaponId: number): Promise<{ success: boolean; weaponId: number }> {
-    const res = await http.post('/weapons/buy', { weaponId });
-    return res.data;
+  buy(weaponId: number): Promise<{ success: boolean; weaponId: number }> {
+    return unwrap(http.post('/weapons/buy', { weaponId }));
   },
 };
