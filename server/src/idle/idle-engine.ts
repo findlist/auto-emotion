@@ -4,8 +4,10 @@
 
 import pool from '../config/database.js';
 import { expForLevel } from './growth-curve.js';
-import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
-import { logger } from '../utils/logger.js';
+import { AppError, ErrorCode } from '../utils/error.js';
+// 设计原因：三处事务样板（settle/switchArea/upgradeCharacter）与全项目 19 处 withTransaction 调用范式对齐，
+// 统一由工具函数管理 BEGIN/COMMIT/ROLLBACK/release 与 ROLLBACK 失败日志，业务侧仅关心 work 回调内的 SQL
+import { withTransaction } from '../utils/transaction.js';
 
 // 角色状态接口（与数据库结构对齐）
 export interface CharacterStatus {
@@ -77,17 +79,14 @@ export async function getStatus(userId: string): Promise<CharacterStatus | null>
  * @returns 结算结果
  */
 export async function settle(userId: string, durationSeconds: number): Promise<SettleResult> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // 事务内 advisory lock：串行化同用户并发结算，防止重复发放收益
     // 设计原因：与 upgradeCharacter 一致，路由层 checkIdempotency 在 Redis 故障时降级放行，
     // advisory lock 作为数据库层兜底，确保同用户串行结算
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
 
     // 获取角色状态和区域信息
-    const charResult = await client.query(
+    const charResult = await tx.query(
       `SELECT c.*, a.exp_rate, a.gold_rate
        FROM characters c
        LEFT JOIN idle_areas a ON a.id = c.area_id
@@ -116,7 +115,7 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
       Math.random() < FRAGMENT_DROP_RATE ? FRAGMENT_DROP_AMOUNT : 0;
 
     // 累加经验和金币到用户
-    await client.query(
+    await tx.query(
       `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
       [gainedExp, gainedCoins, userId]
     );
@@ -125,7 +124,7 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
     // 设计原因：settle 发放在线收益后必须重置 idle_since 时间基准，否则 claimOffline
     // 会从旧 idle_since 计算离线时长，导致在线期间已结算的收益被重复发放
     const newOfflineExp = char.offline_exp + gainedExp;
-    await client.query(
+    await tx.query(
       `UPDATE characters SET exp = exp + $1, offline_exp = $2, idle_since = NOW(), updated_at = NOW() WHERE user_id = $3`,
       [gainedExp, newOfflineExp, userId]
     );
@@ -145,13 +144,11 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
     if (newLevel > oldLevel) {
       leveledUp = true;
       // 更新角色等级和清零经验
-      await client.query(
+      await tx.query(
         `UPDATE characters SET level = $1, exp = $2, updated_at = NOW() WHERE user_id = $3`,
         [newLevel, currentExp, userId]
       );
     }
-
-    await client.query('COMMIT');
 
     return {
       gainedExp,
@@ -160,17 +157,7 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
       leveledUp,
       newLevel,
     };
-  } catch (err) {
-    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      // 复用 getErrorMessage 统一 unknown→string 兜底，与 transaction.ts 的 ROLLBACK 失败日志模式对齐
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -179,12 +166,9 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
  * @param areaId 区域ID
  */
 export async function switchArea(userId: string, areaId: number): Promise<void> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // 检查区域是否存在
-    const areaResult = await client.query(
+    const areaResult = await tx.query(
       'SELECT * FROM idle_areas WHERE id = $1',
       [areaId]
     );
@@ -194,7 +178,7 @@ export async function switchArea(userId: string, areaId: number): Promise<void> 
     }
 
     // 检查角色等级是否满足要求
-    const charResult = await client.query(
+    const charResult = await tx.query(
       'SELECT level FROM characters WHERE user_id = $1',
       [userId]
     );
@@ -211,23 +195,11 @@ export async function switchArea(userId: string, areaId: number): Promise<void> 
     }
 
     // 更新区域
-    await client.query(
+    await tx.query(
       `UPDATE characters SET area_id = $1, updated_at = NOW() WHERE user_id = $2`,
       [areaId, userId]
     );
-
-    await client.query('COMMIT');
-  } catch (err) {
-    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      // 复用 getErrorMessage 统一 unknown→string 兜底，与 transaction.ts 的 ROLLBACK 失败日志模式对齐
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
 
 /**
@@ -241,15 +213,12 @@ export async function upgradeCharacter(
   field: 'hp' | 'attack' | 'defense' | 'crit_rate' | 'crit_damage' | 'efficiency',
   _itemType?: string
 ): Promise<{ success: boolean; newValue: number }> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
+  return withTransaction(async (tx) => {
     // advisory lock 串行化同用户升级请求，防止并发请求双扣金币
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
 
     // 获取当前角色状态（JOIN users 表读取金币，characters 表无 gold 字段）
-    const charResult = await client.query(
+    const charResult = await tx.query(
       'SELECT c.*, u.gold FROM characters c JOIN users u ON u.id = c.user_id WHERE c.user_id = $1',
       [userId]
     );
@@ -303,28 +272,16 @@ export async function upgradeCharacter(
     }
 
     // 扣除金币并更新属性
-    await client.query(
+    await tx.query(
       `UPDATE users SET gold = gold - $1 WHERE id = $2`,
       [goldCost, userId]
     );
 
-    await client.query(
+    await tx.query(
       `UPDATE characters SET ${setClause}, updated_at = NOW() WHERE user_id = $1`,
       [userId]
     );
 
-    await client.query('COMMIT');
-
     return { success: true, newValue };
-  } catch (err) {
-    // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
-    try { await client.query('ROLLBACK'); } catch (rbErr) {
-      // 设计原因：使用结构化 logger 替代 raw console.error，保证事务回滚失败日志与全项目 JSON 格式统一
-      // 复用 getErrorMessage 统一 unknown→string 兜底，与 transaction.ts 的 ROLLBACK 失败日志模式对齐
-      logger.error('ROLLBACK 失败', { error: getErrorMessage(rbErr, '未知错误') });
-    }
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 }
