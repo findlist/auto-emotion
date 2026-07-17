@@ -11,12 +11,27 @@ const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY = 500;
 
 /**
+ * axios 抛错的最小可用形态
+ * 设计原因：isRetryableError 与 chat 末尾错误分类都依赖 code/response.status 两个字段，
+ * 抽取类型别名统一签名，避免两处 `as { code?: string; response?: { status?: number } }` 重复断言
+ */
+type AxiosErrorLike = { code?: string; response?: { status?: number } };
+
+/**
+ * 将 unknown 错误断言为 axios 错误形态
+ * 设计原因：仅做类型收窄不改变运行时行为；axios 抛出的错误实际包含更多字段，但本模块只用到这两个
+ */
+function asAxiosError(err: unknown): AxiosErrorLike {
+  return err as AxiosErrorLike;
+}
+
+/**
  * 判断错误是否可重试
  * 设计原因：仅对 transient 故障（网络抖动、服务端临时过载）重试，
  * 4xx 客户端错误（鉴权失败/参数错误/配额耗尽）重试无意义且浪费配额。
  */
 function isRetryableError(err: unknown): boolean {
-  const axiosError = err as { code?: string; response?: { status?: number } };
+  const axiosError = asAxiosError(err);
   // 网络层错误：超时、DNS 失败、连接重置等
   if (['ECONNABORTED', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNRESET', 'EAI_AGAIN'].includes(axiosError.code ?? '')) {
     return true;
@@ -80,7 +95,7 @@ export async function chat(prompt: string, systemPrompt?: string): Promise<strin
   }
 
   // 统一错误分类（与原逻辑保持兼容，便于上层针对性降级）
-  const axiosError = lastErr as { code?: string; response?: { status?: number } };
+  const axiosError = asAxiosError(lastErr);
   if (axiosError.code === 'ECONNABORTED' || axiosError.response?.status === 504) {
     throw new AppError(ErrorCode.INTERNAL_ERROR, 'AI 服务响应超时');
   }
