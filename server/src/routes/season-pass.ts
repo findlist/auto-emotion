@@ -3,6 +3,7 @@ import { getCurrentSeason, buySeasonPass, claimSeasonReward } from '../services/
 import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
+import { routeError } from '../utils/route-error.js';
 
 const router = Router();
 
@@ -18,8 +19,8 @@ router.get('/', async (req: Request, res: Response) => {
     const seasonPass = await getCurrentSeason(user.userId);
     success(res, seasonPass);
   } catch (err) {
-    const msg = getErrorMessage(err, '获取赛季通行证失败');
-    fail(res, 500, msg);
+    // GET 路由异常透传 AppError 错误码，普通 Error 兜底 500，与 leaderboard 路由同模式
+    routeError(res, err, '获取赛季通行证失败');
   }
 });
 

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { listSkills, unlockSkill, upgradeSkill, activateSkill } from '../services/skill-service.js';
 import { success, fail } from '../utils/response.js';
 import { getErrorMessage } from '../utils/error.js';
+import { routeError } from '../utils/route-error.js';
 
 const router = Router();
 
@@ -16,8 +17,8 @@ router.get('/list', async (req: Request, res: Response) => {
     const skills = await listSkills(user.userId);
     success(res, { skills });
   } catch (err) {
-    const msg = getErrorMessage(err, '获取技能列表失败');
-    fail(res, 500, msg);
+    // GET 路由异常透传 AppError 错误码，普通 Error 兜底 500，与 leaderboard 路由同模式
+    routeError(res, err, '获取技能列表失败');
   }
 });
 
