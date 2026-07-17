@@ -2,8 +2,7 @@ import { Router, Request, Response } from 'express';
 import { listPets, equipPet, buyPet } from '../services/pet-service.js';
 import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
-import { getErrorMessage } from '../utils/error.js';
-import { routeError } from '../utils/route-error.js';
+import { routeError, routeBusinessError } from '../utils/route-error.js';
 import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
@@ -35,8 +34,8 @@ router.post('/equip', async (req: Request, res: Response) => {
     const result = await equipPet(user.userId, petId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '装备宠物失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '装备宠物失败');
   }
 });
 
@@ -60,8 +59,8 @@ router.post('/buy', async (req: Request, res: Response) => {
     const result = await buyPet(user.userId, petId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '购买宠物失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '购买宠物失败');
   }
 });
 

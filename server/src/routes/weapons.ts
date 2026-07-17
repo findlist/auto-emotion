@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { listWeapons, upgradeWeapon, equipWeapon, buyWeapon } from '../services/weapon-service.js';
 import { success, fail } from '../utils/response.js';
-import { getErrorMessage } from '../utils/error.js';
-import { routeError } from '../utils/route-error.js';
+import { routeError, routeBusinessError } from '../utils/route-error.js';
 import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
@@ -34,8 +33,8 @@ router.post('/upgrade', async (req: Request, res: Response) => {
     const result = await upgradeWeapon(user.userId, weaponId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '升级武器失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '升级武器失败');
   }
 });
 
@@ -53,8 +52,8 @@ router.post('/equip', async (req: Request, res: Response) => {
     const result = await equipWeapon(user.userId, weaponId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '装备武器失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '装备武器失败');
   }
 });
 
@@ -72,8 +71,8 @@ router.post('/buy', async (req: Request, res: Response) => {
     const result = await buyWeapon(user.userId, weaponId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '购买武器失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '购买武器失败');
   }
 });
 

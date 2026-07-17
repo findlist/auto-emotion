@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getFriends, getPendingRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend } from '../services/friend-service.js';
 import { success, fail } from '../utils/response.js';
-import { getErrorMessage } from '../utils/error.js';
-import { routeError } from '../utils/route-error.js';
+import { routeError, routeBusinessError } from '../utils/route-error.js';
 import { firstParam } from '../utils/param.js';
 import { requireUser } from '../utils/auth-guard.js';
 
@@ -52,8 +51,8 @@ router.post('/request', async (req: Request, res: Response) => {
     const result = await sendFriendRequest(user.userId, targetUserId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '发送好友请求失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '发送好友请求失败');
   }
 });
 
@@ -73,8 +72,8 @@ router.post('/accept', async (req: Request, res: Response) => {
     const result = await acceptFriendRequest(user.userId, requestId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '接受好友请求失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '接受好友请求失败');
   }
 });
 
@@ -94,8 +93,8 @@ router.post('/reject', async (req: Request, res: Response) => {
     const result = await rejectFriendRequest(user.userId, requestId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '拒绝好友请求失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '拒绝好友请求失败');
   }
 });
 
@@ -115,8 +114,8 @@ router.delete('/:friendId', async (req: Request, res: Response) => {
     const result = await removeFriend(user.userId, friendId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '删除好友失败');
-    fail(res, 400, msg);
+    // DELETE 路由业务异常统一降级 400（不透传 AppError.code，保持 POST/DELETE 异常契约稳定）
+    routeBusinessError(res, err, '删除好友失败');
   }
 });
 

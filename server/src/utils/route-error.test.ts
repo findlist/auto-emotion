@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Response } from 'express';
 import { AppError, ErrorCode } from './error.js';
-import { routeError } from './route-error.js';
+import { routeError, routeBusinessError } from './route-error.js';
 
 // 复用 response.test.ts 的最小 mock 模式：链式 status().json()，记录每次调用
 function createMockResponse(): Response & {
@@ -78,6 +78,47 @@ describe('routeError 路由错误处理工具', () => {
     expect(res.calls[0].body).toEqual({
       code: 1007,
       message: '校验失败',
+      errors: undefined,
+    });
+  });
+});
+
+describe('routeBusinessError POST/DELETE 路由错误处理工具', () => {
+  it('普通 Error 实例强制 400，message 取自 err.message（与原 POST catch 模板完全等价）', () => {
+    const res = createMockResponse();
+    routeBusinessError(res, new Error('金币不足'), '购买失败');
+    expect(res.calls).toHaveLength(1);
+    expect(res.calls[0].status).toBe(400);
+    expect(res.calls[0].body).toEqual({ code: 400, message: '金币不足', errors: undefined });
+  });
+
+  it('非 Error 类型（如字符串、对象）强制 400，message 取兜底文案', () => {
+    const res = createMockResponse();
+    routeBusinessError(res, '事务回滚', '购买宠物失败');
+    expect(res.calls[0].status).toBe(400);
+    expect(res.calls[0].body).toEqual({
+      code: 400,
+      message: '购买宠物失败',
+      errors: undefined,
+    });
+  });
+
+  it('null 错误强制 400，message 取兜底文案', () => {
+    const res = createMockResponse();
+    routeBusinessError(res, null, '未知错误');
+    expect(res.calls[0].status).toBe(400);
+    expect(res.calls[0].body).toEqual({ code: 400, message: '未知错误', errors: undefined });
+  });
+
+  it('AppError 仍强制 400 不透传 code（POST 路由业务异常统一降级，保持契约稳定）', () => {
+    // 设计原因：POST 路由测试断言固定期望 HTTP 400（如 pets/skills 测试中 service reject
+    // Error 实例时断言 status === 400），透传 AppError.code 会破坏现有契约。
+    const res = createMockResponse();
+    routeBusinessError(res, new AppError(ErrorCode.NOT_FOUND, '宠物不存在'), '装备宠物失败');
+    expect(res.calls[0].status).toBe(400);
+    expect(res.calls[0].body).toEqual({
+      code: 400,
+      message: '宠物不存在',
       errors: undefined,
     });
   });

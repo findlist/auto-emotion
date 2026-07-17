@@ -2,8 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getShopItems, buyItem, getUserInventory } from '../services/shop-service.js';
 import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
-import { getErrorMessage } from '../utils/error.js';
-import { routeError } from '../utils/route-error.js';
+import { routeError, routeBusinessError } from '../utils/route-error.js';
 import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
@@ -46,8 +45,8 @@ router.post('/buy', async (req: Request, res: Response) => {
     const result = await buyItem(user.userId, itemId);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '购买失败');
-    fail(res, 400, msg);
+    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+    routeBusinessError(res, err, '购买失败');
   }
 });
 
