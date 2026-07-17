@@ -9,7 +9,7 @@ import {
 } from '../services/leaderboard-service.js';
 import { success, fail } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
-import { getErrorMessage } from '../utils/error.js';
+import { routeError } from '../utils/route-error.js';
 import { parsePagination, firstParam } from '../utils/param.js';
 
 const router = Router();
@@ -22,8 +22,7 @@ router.get('/power', async (req: Request, res: Response) => {
     const result = await getPowerLeaderboard(page, pageSize);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '获取战力榜失败');
-    fail(res, 500, msg);
+    routeError(res, err, '获取战力榜失败');
   }
 });
 
@@ -35,8 +34,7 @@ router.get('/battle', async (req: Request, res: Response) => {
     const result = await getBattleLeaderboard(page, pageSize);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '获取对战榜失败');
-    fail(res, 500, msg);
+    routeError(res, err, '获取对战榜失败');
   }
 });
 
@@ -48,8 +46,7 @@ router.get('/speed', async (req: Request, res: Response) => {
     const result = await getSpeedLeaderboard(page, pageSize);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '获取速度榜失败');
-    fail(res, 500, msg);
+    routeError(res, err, '获取速度榜失败');
   }
 });
 
@@ -67,8 +64,7 @@ router.get('/friends', authMiddleware, async (req: Request, res: Response) => {
     const result = await getFriendsLeaderboard(user.userId, page, pageSize);
     success(res, result);
   } catch (err) {
-    const msg = getErrorMessage(err, '获取好友榜失败');
-    fail(res, 500, msg);
+    routeError(res, err, '获取好友榜失败');
   }
 });
 
@@ -107,8 +103,7 @@ router.get('/:type/me', authMiddleware, async (req: Request, res: Response) => {
       fail(res, 404, '未找到排名');
     }
   } catch (err) {
-    const msg = getErrorMessage(err, '获取排名失败');
-    fail(res, 500, msg);
+    routeError(res, err, '获取排名失败');
   }
 });
 
