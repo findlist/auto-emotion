@@ -4,6 +4,7 @@ import * as userService from '../services/user-service.js';
 import { validate } from '../middleware/validate.js';
 import { success, fail } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { getErrorMessage } from '../utils/error.js';
 
 const router = Router();
 
@@ -68,9 +69,11 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     const result = await userService.register(req.body);
     success(res, result);
   } catch (err) {
-    const e = err as Error;
-    if (e.message?.includes('手机号已注册')) {
-      fail(res, 1005, e.message);
+    // 复用 getErrorMessage 统一 unknown→string 兜底，消除 `as Error` 类型断言
+    // 设计原因：service 抛 Error 时取 err.message 子串匹配，非 Error 时 fallback 进入 else throw err，与原 `?.includes` 行为等价
+    const msg = getErrorMessage(err, '操作失败');
+    if (msg.includes('手机号已注册')) {
+      fail(res, 1005, msg);
     } else {
       throw err;
     }
@@ -110,9 +113,10 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     const result = await userService.login(req.body);
     success(res, result);
   } catch (err) {
-    const e = err as Error;
-    if (e.message?.includes('手机号或密码错误')) {
-      fail(res, 1002, e.message);
+    // 同 register：复用 getErrorMessage 统一 unknown→string 兜底，消除 `as Error` 类型断言
+    const msg = getErrorMessage(err, '操作失败');
+    if (msg.includes('手机号或密码错误')) {
+      fail(res, 1002, msg);
     } else {
       throw err;
     }
