@@ -11,6 +11,7 @@ import { success, fail } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { routeError } from '../utils/route-error.js';
 import { parsePagination, firstParam } from '../utils/param.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
@@ -53,10 +54,7 @@ router.get('/speed', async (req: Request, res: Response) => {
 // GET /api/leaderboard/friends - 好友榜（需登录鉴权）
 router.get('/friends', authMiddleware, async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { page, pageSize } = parsePagination(req.query);
 
@@ -71,10 +69,7 @@ router.get('/friends', authMiddleware, async (req: Request, res: Response) => {
 // GET /api/leaderboard/:type/me - 获取个人排名（需登录鉴权）
 router.get('/:type/me', authMiddleware, async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   // type 为字符串枚举（power/battle/speed/friends），用 firstParam 收窄路由参数类型
   const type = firstParam(req.params.type);

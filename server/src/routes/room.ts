@@ -6,6 +6,7 @@ import { roomManager } from '../websocket/room-manager.js';
 import { success, fail } from '../utils/response.js';
 import { routeError } from '../utils/route-error.js';
 import { firstParam } from '../utils/param.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
@@ -16,10 +17,7 @@ const router = Router();
  */
 router.post('/create', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const { nickname, socketId } = req.body as { nickname?: string; socketId?: string };

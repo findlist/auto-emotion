@@ -4,16 +4,14 @@ import { success, fail } from '../utils/response.js';
 import { getErrorMessage } from '../utils/error.js';
 import { routeError } from '../utils/route-error.js';
 import { firstParam } from '../utils/param.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
 // GET /api/friends - 获取好友列表
 router.get('/', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const friends = await getFriends(user.userId);
@@ -27,10 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/friends/requests - 获取待处理的好友请求
 router.get('/requests', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const requests = await getPendingRequests(user.userId);
@@ -44,10 +39,7 @@ router.get('/requests', async (req: Request, res: Response) => {
 // POST /api/friends/request - 发送好友请求
 router.post('/request', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   // targetUserId 为 UUID 字符串（与 users.id 对齐），原 number 类型会导致 service 层接收截断数字
   const { targetUserId } = req.body as { targetUserId?: string };
@@ -68,10 +60,7 @@ router.post('/request', async (req: Request, res: Response) => {
 // POST /api/friends/accept - 接受好友请求
 router.post('/accept', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   // requestId 为 UUID 字符串（与 friendships.id 对齐）
   const { requestId } = req.body as { requestId?: string };
@@ -92,10 +81,7 @@ router.post('/accept', async (req: Request, res: Response) => {
 // POST /api/friends/reject - 拒绝好友请求
 router.post('/reject', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   // requestId 为 UUID 字符串（与 friendships.id 对齐）
   const { requestId } = req.body as { requestId?: string };
@@ -116,10 +102,7 @@ router.post('/reject', async (req: Request, res: Response) => {
 // DELETE /api/friends/:friendId - 删除好友
 router.delete('/:friendId', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   // friendId 为 UUID 字符串，用 firstParam 收窄路由参数（原 parseIdParam 会截断 UUID 导致 SQL 报错）
   const friendId = firstParam(req.params.friendId);

@@ -4,15 +4,13 @@ import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
 import { routeError } from '../utils/route-error.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
 router.get('/list', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const pets = await listPets(user.userId);
@@ -25,10 +23,7 @@ router.get('/list', async (req: Request, res: Response) => {
 
 router.post('/equip', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { petId } = req.body as { petId?: number };
   if (!petId) {
@@ -47,10 +42,7 @@ router.post('/equip', async (req: Request, res: Response) => {
 
 router.post('/buy', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { petId } = req.body as { petId?: number };
   if (!petId) {

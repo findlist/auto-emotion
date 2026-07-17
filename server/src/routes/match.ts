@@ -2,16 +2,14 @@ import { Router, Request, Response } from 'express';
 import { joinQuickMatch, leaveQuickMatch, getMatchStatus } from '../services/match-service.js';
 import { success, fail } from '../utils/response.js';
 import { routeError } from '../utils/route-error.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
 // POST /api/match/quick - 发起快速匹配
 router.post('/quick', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { nickname, socketId } = req.body as { nickname?: string; socketId?: string };
   if (!nickname || !socketId) {
@@ -31,10 +29,7 @@ router.post('/quick', async (req: Request, res: Response) => {
 // DELETE /api/match/cancel - 取消匹配
 router.delete('/cancel', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     await leaveQuickMatch(user.userId);
@@ -48,10 +43,7 @@ router.delete('/cancel', async (req: Request, res: Response) => {
 // GET /api/match/status - 获取匹配状态
 router.get('/status', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const status = await getMatchStatus(user.userId);

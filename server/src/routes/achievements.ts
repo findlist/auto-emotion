@@ -5,16 +5,15 @@ import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
 import { routeError } from '../utils/route-error.js';
 import { parseIdParam } from '../utils/param.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
 // GET /api/achievements - 获取成就列表
 router.get('/', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  // 鉴权兜底抽取到 requireUser，type guard 收窄 user 类型为 AuthPayload
+  if (!requireUser(res, user)) return;
 
   try {
     const achievements = await getAchievements(user.userId);
@@ -28,10 +27,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/achievements/:id/claim - 领取成就奖励
 router.post('/:id/claim', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const achievementId = parseIdParam(req.params.id);
   if (isNaN(achievementId)) {
