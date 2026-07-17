@@ -7,7 +7,7 @@ import { expForLevel } from './growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 // 设计原因：三处事务样板（settle/switchArea/upgradeCharacter）与全项目 19 处 withTransaction 调用范式对齐，
 // 统一由工具函数管理 BEGIN/COMMIT/ROLLBACK/release 与 ROLLBACK 失败日志，业务侧仅关心 work 回调内的 SQL
-import { withTransaction } from '../utils/transaction.js';
+import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 
 // 角色状态接口（与数据库结构对齐）
 export interface CharacterStatus {
@@ -83,7 +83,7 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
     // 事务内 advisory lock：串行化同用户并发结算，防止重复发放收益
     // 设计原因：与 upgradeCharacter 一致，路由层 checkIdempotency 在 Redis 故障时降级放行，
     // advisory lock 作为数据库层兜底，确保同用户串行结算
-    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+    await advisoryXactLock(tx, userId);
 
     // 获取角色状态和区域信息
     const charResult = await tx.query(
@@ -215,7 +215,7 @@ export async function upgradeCharacter(
 ): Promise<{ success: boolean; newValue: number }> {
   return withTransaction(async (tx) => {
     // advisory lock 串行化同用户升级请求，防止并发请求双扣金币
-    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+    await advisoryXactLock(tx, userId);
 
     // 获取当前角色状态（JOIN users 表读取金币，characters 表无 gold 字段）
     const charResult = await tx.query(

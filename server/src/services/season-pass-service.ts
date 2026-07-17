@@ -3,7 +3,7 @@
 
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
-import { withTransaction } from '../utils/transaction.js';
+import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 
 const SEASON_DURATION_DAYS = 28; // 4周
 const SEASON_MAX_LEVEL = 50;
@@ -198,7 +198,7 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
     // 事务内 advisory lock：基于 userId+level+isPremium 哈希获取事务级锁，串行化同用户同等级同类型并发领取
     // 设计原因：原实现检查在事务外，并发请求都查到未领取后进入事务，串行 INSERT 都成功都发奖
     // pg_advisory_xact_lock 在事务结束自动释放，无需 DDL 变更，是 PostgreSQL 标准并发控制方案
-    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${level}:${isPremium}`]);
+    await advisoryXactLock(tx, `${userId}:${level}:${isPremium}`);
 
     // 事务内权威检查：重新查询领取状态，advisory lock 串行化后前一个请求已 COMMIT
     const recheck = await tx.query(

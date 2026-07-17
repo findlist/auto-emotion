@@ -3,7 +3,7 @@
 
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
-import { withTransaction } from '../utils/transaction.js';
+import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
 
 interface Achievement {
@@ -188,7 +188,7 @@ export async function claimAchievementReward(userId: string, achievementId: numb
   return withTransaction(async (tx) => {
     // 事务内 advisory lock：串行化同用户同成就并发领取，防止重复发奖
     // 设计原因：原实现检查在事务外，并发请求都查到 claimed=false 后进入事务，串行 UPDATE 都设 claimed_at 但都发奖
-    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${userId}:${achievementId}`]);
+    await advisoryXactLock(tx, `${userId}:${achievementId}`);
 
     // 事务内权威复查：advisory lock 串行化后前一个请求已 COMMIT，重新确认未领取
     const recheck = await tx.query(

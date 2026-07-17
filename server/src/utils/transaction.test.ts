@@ -29,7 +29,7 @@ vi.mock('./logger.js', () => ({
   logger: loggerMock,
 }));
 
-import { withTransaction } from './transaction.js';
+import { withTransaction, advisoryXactLock } from './transaction.js';
 
 describe('withTransaction 事务工具', () => {
   beforeEach(() => {
@@ -154,5 +154,45 @@ describe('withTransaction 事务工具', () => {
     expect(result).toBeUndefined();
     expect(clientMock.query).toHaveBeenCalledWith('COMMIT');
     expect(clientMock.release).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('advisoryXactLock 事务级 advisory lock', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clientMock.query.mockResolvedValue({ rows: [] });
+  });
+
+  it('透传 SQL 与 key 参数给 tx.query', async () => {
+    // 模拟 withTransaction 回调内调用 advisoryXactLock 的真实场景
+    await withTransaction(async (tx) => {
+      await advisoryXactLock(tx, 'u1:task1');
+      return undefined;
+    });
+
+    // 验证 BEGIN → advisory lock → COMMIT 三次 query 的 SQL 与参数完全透传
+    expect(clientMock.query).toHaveBeenNthCalledWith(
+      2,
+      'SELECT pg_advisory_xact_lock(hashtext($1))',
+      ['u1:task1']
+    );
+  });
+
+  it('tx.query 抛错时透传原错误（不吞错）', async () => {
+    const lockError = new Error('锁获取失败');
+    clientMock.query
+      .mockResolvedValueOnce({ rows: [] }) // BEGIN
+      .mockRejectedValueOnce(lockError); // advisory lock 失败
+
+    // 错误应透传到 withTransaction 的 catch 触发 ROLLBACK，最终透传给调用方
+    await expect(
+      withTransaction(async (tx) => {
+        await advisoryXactLock(tx, 'u1');
+        return undefined;
+      })
+    ).rejects.toBe(lockError);
+
+    // 锁失败应触发 ROLLBACK，避免锁未释放前 COMMIT 误提交
+    expect(clientMock.query).toHaveBeenCalledWith('ROLLBACK');
   });
 });

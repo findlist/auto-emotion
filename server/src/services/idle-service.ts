@@ -8,7 +8,7 @@ import type { CharacterStatus, SettleResult } from '../idle/idle-engine.js';
 import type { OfflineResult } from '../idle/offline-calculator.js';
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
-import { withTransaction } from '../utils/transaction.js';
+import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 
 /**
  * 获取角色状态
@@ -33,7 +33,7 @@ export async function claimOffline(userId: string): Promise<OfflineResult> {
     // 设计原因：原实现事务外调用 calculateOffline 读取 idle_since 计算收益，并发请求都读到相同 idle_since
     // 计算相同收益，第一个请求 COMMIT 重置 idle_since=NOW() 后，第二个请求仍用旧收益发放导致双倍
     // pg_advisory_xact_lock 在事务结束自动释放，无需 DDL 变更，是 PostgreSQL 标准并发控制方案
-    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+    await advisoryXactLock(tx, userId);
 
     // 事务内重新计算离线收益：用 tx.query 在事务连接上读取最新 idle_since
     // advisory lock 串行化后，前一个并发请求已 COMMIT 重置 idle_since=NOW()，重算时间差接近 0 返回 0 收益

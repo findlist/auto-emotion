@@ -49,3 +49,22 @@ export async function withTransaction<T>(
     client.release();
   }
 }
+
+/**
+ * 在事务内获取 PostgreSQL 事务级 advisory lock
+ *
+ * 设计原因：service 层 7 处重复 `await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key])`
+ * 单行样板（idle-engine 2 处 + idle-service/achievement/season-pass/settle/task 各 1 处）。
+ * SQL 字符串完全一致仅 key 不同，复制粘贴易引入拼写错误（如漏写 _xact 后缀变为
+ * pg_advisory_lock 会话级锁，导致锁泄漏至连接释放才解开）。提取后调用方仅需
+ * `await advisoryXactLock(tx, key);`，语义更清晰，SQL 拼写错误集中消除。
+ *
+ * 注意：pg_advisory_xact_lock 在事务结束（COMMIT/ROLLBACK）自动释放，调用方必须
+ * 在 withTransaction 回调内调用；事务外调用会因连接已 release 而无效。
+ *
+ * @param tx 事务客户端（withTransaction 回调参数，类型为受限的 Tx，仅暴露 query）
+ * @param key 锁键（任意字符串，PostgreSQL hashtext 哈希为 int 作为 advisory lock 标识）
+ */
+export async function advisoryXactLock(tx: Tx, key: string): Promise<void> {
+  await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key]);
+}

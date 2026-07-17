@@ -3,7 +3,7 @@
 
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
-import { withTransaction } from '../utils/transaction.js';
+import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 import type { GameMode } from '../types/game.js';
 
 interface SettleInput {
@@ -54,7 +54,7 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
     // 事务内 advisory lock：基于 roomId 哈希获取事务级锁，串行化同房间并发结算请求
     // 设计原因：原实现幂等检查在事务外，并发请求都查到不存在后各自进入事务，串行 INSERT 会重复发奖
     // pg_advisory_xact_lock 在事务结束自动释放，无需 DDL 变更，是 PostgreSQL 标准并发控制方案
-    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [roomId]);
+    await advisoryXactLock(tx, roomId);
 
     // 事务内权威检查：advisory lock 串行化后，前一个请求已 COMMIT，此处能查到记录
     const recheck = await tx.query(
