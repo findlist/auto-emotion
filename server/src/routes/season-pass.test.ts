@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import express from 'express';
 import type { Server } from 'http';
-import { controllableAuth, getServerPort } from './__helpers__/test-server.js';
+import { controllableAuth, getServerPort, mockIdempotencyConflict } from './__helpers__/test-server.js';
 
 // mock 赛季通行证 service：route 测试聚焦参数校验与错误兜底，service 行为由 service 测试覆盖
 vi.mock('../services/season-pass-service.js', () => ({
@@ -27,7 +27,6 @@ vi.mock('../utils/idempotency.js', () => ({
 import router from './season-pass.js';
 import * as seasonPassService from '../services/season-pass-service.js';
 import { ErrorCode } from '../utils/error.js';
-import { fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 
 let server: Server;
@@ -118,12 +117,9 @@ describe('season-pass 赛季通行证路由', () => {
     });
 
     it('幂等拦截命中（5秒内重复提交）时返回 409，不调用 buySeasonPass', async () => {
-      // mock withIdempotency 命中拦截行为：调 fail 返回 409 + 返回 false 让路由 return
+      // mock withIdempotency 命中拦截：调用 fail 返回 409 + 返回 false 让路由 return
       // 真实 withIdempotency 行为（catch AppError → 调 fail → 返回 false）由 idempotency.test.ts 覆盖
-      (withIdempotency as ReturnType<typeof vi.fn>).mockImplementationOnce(async res => {
-        fail(res, ErrorCode.CONFLICT, '请求已存在，请稍后重试');
-        return false;
-      });
+      mockIdempotencyConflict(withIdempotency);
 
       const res = await fetch(`${baseURL}/buy`, {
         method: 'POST',
@@ -228,12 +224,9 @@ describe('season-pass 赛季通行证路由', () => {
     });
 
     it('幂等拦截命中（5秒内重复提交）时返回 409，不调用 claimSeasonReward', async () => {
-      // mock withIdempotency 命中拦截行为：调 fail 返回 409 + 返回 false 让路由 return
+      // mock withIdempotency 命中拦截：调用 fail 返回 409 + 返回 false 让路由 return
       // 真实 withIdempotency 行为（catch AppError → 调 fail → 返回 false）由 idempotency.test.ts 覆盖
-      (withIdempotency as ReturnType<typeof vi.fn>).mockImplementationOnce(async res => {
-        fail(res, ErrorCode.CONFLICT, '请求已存在，请稍后重试');
-        return false;
-      });
+      mockIdempotencyConflict(withIdempotency);
 
       const res = await fetch(`${baseURL}/claim`, {
         method: 'POST',
