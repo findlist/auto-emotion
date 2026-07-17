@@ -58,8 +58,10 @@ const app = express();
 // JSON 解析中间件
 app.use(express.json());
 
-// CORS - 开发期允许所有来源
-app.use(cors());
+// CORS - 来源由 CORS_ORIGIN 环境变量控制，与 WebSocket 侧 config.corsOrigin 保持一致
+// 设计原因：原 cors() 无参数允许所有来源，与 WebSocket 配置不一致；
+// 生产环境收紧 CORS_ORIGIN 后 WebSocket 已限制但 HTTP 仍允许任意来源，形成安全绕过
+app.use(cors({ origin: config.corsOrigin }));
 
 const swaggerOptions = {
   definition: {
@@ -194,9 +196,19 @@ void startServer();
 async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
   console.log(`收到 ${signal}，开始优雅关闭...`);
   // 1. 关闭 Socket.IO：停止接受新连接并断开现有（触发客户端 reconnect 逻辑）
-  io?.close();
+  // 设计原因：io.close 是异步操作（需断开所有客户端连接），原实现未 await 直接调用 httpServer.close，
+  // 可能导致 WebSocket 连接占用端口引发 httpServer.close 卡住；用 Promise 包装确保完全关闭后再继续
+  if (io) {
+    await new Promise<void>((resolve) => {
+      io.close(() => resolve());
+    });
+  }
   // 2. 关闭 HTTP 服务器：停止监听端口
-  httpServer.close();
+  // 设计原因：httpServer.close 是回调 API，未 await 会在端口未释放时就执行 pool.end/redis.quit，
+  // 新进程启动时可能因端口仍被占用而 listen 失败；用 Promise 包装确保端口释放完成
+  await new Promise<void>((resolve) => {
+    httpServer.close(() => resolve());
+  });
   try {
     // 3. 释放数据库连接池
     await pool.end();

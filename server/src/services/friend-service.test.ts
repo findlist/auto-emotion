@@ -79,7 +79,7 @@ describe('friend-service 好友服务', () => {
 
   describe('sendFriendRequest 发送好友请求', () => {
     it('添加自己为好友抛 BAD_REQUEST', async () => {
-      await expect(sendFriendRequest('1', 1)).rejects.toMatchObject({
+      await expect(sendFriendRequest('uuid-1', 'uuid-1')).rejects.toMatchObject({
         code: ErrorCode.BAD_REQUEST,
         message: '不能添加自己为好友',
       });
@@ -91,7 +91,7 @@ describe('friend-service 好友服务', () => {
       // SELECT id FROM users WHERE id → 空行
       mocks.queryMock.mockResolvedValueOnce({ rows: [] });
 
-      await expect(sendFriendRequest('1', 2)).rejects.toMatchObject({
+      await expect(sendFriendRequest('uuid-1', 'uuid-2')).rejects.toMatchObject({
         code: ErrorCode.NOT_FOUND,
         message: '用户不存在',
       });
@@ -99,10 +99,10 @@ describe('friend-service 好友服务', () => {
 
     it('已是好友抛 CONFLICT', async () => {
       mocks.queryMock
-        .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // 用户存在
-        .mockResolvedValueOnce({ rows: [{ id: 9 }] }); // 已是好友（status=1）
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-2' }] }) // 用户存在
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-9' }] }); // 已是好友（status=1）
 
-      await expect(sendFriendRequest('1', 2)).rejects.toMatchObject({
+      await expect(sendFriendRequest('uuid-1', 'uuid-2')).rejects.toMatchObject({
         code: ErrorCode.CONFLICT,
         message: '已是好友',
       });
@@ -110,11 +110,11 @@ describe('friend-service 好友服务', () => {
 
     it('已发送过好友请求抛 CONFLICT', async () => {
       mocks.queryMock
-        .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // 用户存在
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-2' }] }) // 用户存在
         .mockResolvedValueOnce({ rows: [] }) // 不是好友
-        .mockResolvedValueOnce({ rows: [{ id: 8 }] }); // 已发送过（status=0）
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-8' }] }); // 已发送过（status=0）
 
-      await expect(sendFriendRequest('1', 2)).rejects.toMatchObject({
+      await expect(sendFriendRequest('uuid-1', 'uuid-2')).rejects.toMatchObject({
         code: ErrorCode.CONFLICT,
         message: '已发送过好友请求',
       });
@@ -122,24 +122,24 @@ describe('friend-service 好友服务', () => {
 
     it('收到过对方请求时双向自动接受，事务内 UPDATE+INSERT 并 COMMIT', async () => {
       mocks.queryMock
-        .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // 用户存在
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-2' }] }) // 用户存在
         .mockResolvedValueOnce({ rows: [] }) // 不是好友
         .mockResolvedValueOnce({ rows: [] }) // 未发送过请求
-        .mockResolvedValueOnce({ rows: [{ id: 5 }] }); // 反向检查命中（对方发过请求）
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-5' }] }); // 反向检查命中（对方发过请求）
 
-      const result = await sendFriendRequest('1', 2);
+      const result = await sendFriendRequest('uuid-1', 'uuid-2');
 
       expect(result).toEqual({ success: true, autoAccepted: true });
       // 验证双向建立走事务保护：BEGIN → UPDATE 对方请求 → INSERT 自己侧 → COMMIT
       expect(mocks.clientQueryMock).toHaveBeenCalledWith('BEGIN');
-      // userId 为 string、targetUserId 为 number，参数透传保持原类型
+      // userId 与 targetUserId 均为 UUID 字符串，参数透传保持类型
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining("UPDATE friendships SET status = 'accepted'"),
-        [2, '1']
+        ['uuid-2', 'uuid-1']
       );
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO friendships'),
-        ['1', 2]
+        ['uuid-1', 'uuid-2']
       );
       expect(mocks.clientQueryMock).toHaveBeenCalledWith('COMMIT');
       expect(mocks.releaseMock).toHaveBeenCalled();
@@ -147,17 +147,17 @@ describe('friend-service 好友服务', () => {
 
     it('双向自动接受事务失败时 ROLLBACK 并 release 并透传错误', async () => {
       mocks.queryMock
-        .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // 用户存在
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-2' }] }) // 用户存在
         .mockResolvedValueOnce({ rows: [] }) // 不是好友
         .mockResolvedValueOnce({ rows: [] }) // 未发送过请求
-        .mockResolvedValueOnce({ rows: [{ id: 5 }] }); // 反向检查命中
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-5' }] }); // 反向检查命中
       const error = new Error('INSERT 失败');
       mocks.clientQueryMock
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
         .mockResolvedValueOnce({ rows: [] }) // UPDATE
         .mockRejectedValueOnce(error); // INSERT 抛错
 
-      await expect(sendFriendRequest('1', 2)).rejects.toThrow('INSERT 失败');
+      await expect(sendFriendRequest('uuid-1', 'uuid-2')).rejects.toThrow('INSERT 失败');
 
       expect(mocks.clientQueryMock).toHaveBeenCalledWith('ROLLBACK');
       expect(mocks.releaseMock).toHaveBeenCalled();
@@ -165,19 +165,19 @@ describe('friend-service 好友服务', () => {
 
     it('正常发送请求返回 requestId', async () => {
       mocks.queryMock
-        .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // 用户存在
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-2' }] }) // 用户存在
         .mockResolvedValueOnce({ rows: [] }) // 不是好友
         .mockResolvedValueOnce({ rows: [] }) // 未发送过请求
         .mockResolvedValueOnce({ rows: [] }) // 反向检查未命中
-        .mockResolvedValueOnce({ rows: [{ id: 10 }] }); // INSERT RETURNING id
+        .mockResolvedValueOnce({ rows: [{ id: 'uuid-10' }] }); // INSERT RETURNING id
 
-      const result = await sendFriendRequest('1', 2);
+      const result = await sendFriendRequest('uuid-1', 'uuid-2');
 
-      expect(result).toEqual({ success: true, requestId: 10 });
+      expect(result).toEqual({ success: true, requestId: 'uuid-10' });
       // 验证 INSERT status='pending'（待处理）
       expect(mocks.queryMock).toHaveBeenCalledWith(
         expect.stringContaining("VALUES ($1, $2, 'pending')"),
-        ['1', 2]
+        ['uuid-1', 'uuid-2']
       );
     });
   });
@@ -188,7 +188,7 @@ describe('friend-service 好友服务', () => {
       mocks.clientQueryMock
         .mockResolvedValueOnce({ rows: [] }); // SELECT 请求不存在
 
-      await expect(acceptFriendRequest('1', 99)).rejects.toMatchObject({
+      await expect(acceptFriendRequest('uuid-1', 'uuid-99')).rejects.toMatchObject({
         code: ErrorCode.NOT_FOUND,
         message: '请求不存在或已处理',
       });
@@ -201,12 +201,12 @@ describe('friend-service 好友服务', () => {
       mocks.clientQueryMock
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
         .mockResolvedValueOnce({
-          rows: [{ user_id: 2, friend_id: 1 }], // SELECT 请求存在
+          rows: [{ user_id: 'uuid-2', friend_id: 'uuid-1' }], // SELECT 请求存在
         })
         .mockResolvedValueOnce({ rows: [] }) // UPDATE
         .mockResolvedValueOnce({ rows: [] }); // INSERT
 
-      const result = await acceptFriendRequest('1', 5);
+      const result = await acceptFriendRequest('uuid-1', 'uuid-5');
 
       expect(result).toEqual({ success: true });
       // 验证事务序列
@@ -221,7 +221,7 @@ describe('friend-service 好友服务', () => {
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
         .mockRejectedValueOnce(error); // SELECT 抛错
 
-      await expect(acceptFriendRequest('1', 5)).rejects.toThrow('数据库连接中断');
+      await expect(acceptFriendRequest('uuid-1', 'uuid-5')).rejects.toThrow('数据库连接中断');
 
       // 验证 ROLLBACK 与 release 均被调用，防止连接泄漏
       expect(mocks.clientQueryMock).toHaveBeenCalledWith('ROLLBACK');
@@ -233,21 +233,21 @@ describe('friend-service 好友服务', () => {
     it('请求不存在抛 NOT_FOUND', async () => {
       mocks.queryMock.mockResolvedValueOnce({ rows: [] }); // DELETE RETURNING 空
 
-      await expect(rejectFriendRequest('1', 99)).rejects.toMatchObject({
+      await expect(rejectFriendRequest('uuid-1', 'uuid-99')).rejects.toMatchObject({
         code: ErrorCode.NOT_FOUND,
         message: '请求不存在或已处理',
       });
     });
 
     it('成功删除返回 success', async () => {
-      mocks.queryMock.mockResolvedValueOnce({ rows: [{ id: 5 }] }); // DELETE RETURNING
+      mocks.queryMock.mockResolvedValueOnce({ rows: [{ id: 'uuid-5' }] }); // DELETE RETURNING
 
-      const result = await rejectFriendRequest('1', 5);
+      const result = await rejectFriendRequest('uuid-1', 'uuid-5');
 
       expect(result).toEqual({ success: true });
       expect(mocks.queryMock).toHaveBeenCalledWith(
         expect.stringContaining('DELETE FROM friendships'),
-        [5, '1']
+        ['uuid-5', 'uuid-1']
       );
     });
   });
@@ -259,17 +259,17 @@ describe('friend-service 好友服务', () => {
         .mockResolvedValueOnce({ rows: [] }) // DELETE 正向
         .mockResolvedValueOnce({ rows: [] }); // DELETE 反向
 
-      const result = await removeFriend('1', 2);
+      const result = await removeFriend('uuid-1', 'uuid-2');
 
       expect(result).toEqual({ success: true });
-      // 验证双向删除：userId 为 string、friendId 为 number，参数透传保持原类型
+      // 验证双向删除：userId 与 friendId 均为 UUID 字符串，参数透传保持类型
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining('DELETE FROM friendships'),
-        ['1', 2]
+        ['uuid-1', 'uuid-2']
       );
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining('DELETE FROM friendships'),
-        [2, '1']
+        ['uuid-2', 'uuid-1']
       );
       expect(mocks.clientQueryMock).toHaveBeenCalledWith('COMMIT');
       expect(mocks.releaseMock).toHaveBeenCalled();
@@ -282,7 +282,7 @@ describe('friend-service 好友服务', () => {
         .mockResolvedValueOnce({ rows: [] }) // DELETE 正向
         .mockRejectedValueOnce(error); // DELETE 反向抛错
 
-      await expect(removeFriend('1', 2)).rejects.toThrow('写入失败');
+      await expect(removeFriend('uuid-1', 'uuid-2')).rejects.toThrow('写入失败');
 
       expect(mocks.clientQueryMock).toHaveBeenCalledWith('ROLLBACK');
       expect(mocks.releaseMock).toHaveBeenCalled();

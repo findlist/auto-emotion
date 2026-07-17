@@ -249,7 +249,11 @@ export const roomManager = {
           if (!latestRoom) return;
           latestRoom.status = 'ready';
           await redis.setex(`room:${room.id}`, ROOM_TTL, serializeRoom(latestRoom));
-        }).catch(() => {});
+        }).catch((recoverErr) => {
+          // 房间状态恢复失败时记录日志，便于排查房间卡死在 generating 的问题
+          // 不抛错以避免阻塞 finally 中的锁释放；房间仍可由 TTL 过期或玩家重连清理
+          logger.error('房间状态恢复失败', { error: getErrorMessage(recoverErr, '未知错误'), roomId: room.id });
+        });
         this.broadcast(room.id, RoomEvents.ERROR, { message: '开局失败，请重试' });
       })
       .finally(() => {

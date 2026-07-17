@@ -10,7 +10,8 @@ export type LeaderboardType = 'power' | 'battle' | 'speed';
 
 interface LeaderboardEntry {
   rank: number;
-  userId: number;
+  // users.id 为 UUID，pg 返回 string，类型对齐避免 parseInt 截断 UUID 导致 SQL 报错
+  userId: string;
   nickname: string;
   score: number;
 }
@@ -152,7 +153,8 @@ export async function getFriendsUserRank(userId: string): Promise<{ rank: number
   );
   const friendIds = friendsResult.rows.map(r => r.friend_id);
   // 包含自己，确保即使无好友也能返回第 1 名
-  friendIds.push(parseInt(userId, 10));
+  // userId 为 UUID 字符串，直接 push 与 friend_id 类型对齐；parseInt 会截断 UUID 导致 SQL 报错
+  friendIds.push(userId);
 
   // 在好友圈内按 power 计算当前用户名次
   const result = await pool.query(
@@ -196,7 +198,8 @@ export async function getFriendsLeaderboard(
   const friendIds = friendsResult.rows.map(r => r.friend_id);
 
   // 包含自己
-  friendIds.push(parseInt(userId, 10));
+  // userId 为 UUID 字符串，直接 push 与 friend_id 类型对齐；parseInt 会截断 UUID 导致 SQL 报错
+  friendIds.push(userId);
 
   if (friendIds.length === 0) {
     return { ranking: [], total: 0 };

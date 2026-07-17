@@ -156,7 +156,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-test-no-auth': '1' },
-        body: JSON.stringify({ targetUserId: 5 }),
+        body: JSON.stringify({ targetUserId: 'uuid-5' }),
       });
 
       expect(res.status).toBe(401);
@@ -180,20 +180,20 @@ describe('friends 好友路由', () => {
     it('参数齐全调用 sendFriendRequest(userId, targetUserId) 返回结果', async () => {
       (friendService.sendFriendRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
-        targetUserId: 5,
+        targetUserId: 'uuid-5',
       });
 
       const res = await fetch(`${baseURL}/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId: 5 }),
+        body: JSON.stringify({ targetUserId: 'uuid-5' }),
       });
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body.data).toEqual({ success: true, targetUserId: 5 });
-      // 验证 userId 来自 req.user，targetUserId 来自 body
-      expect(friendService.sendFriendRequest).toHaveBeenCalledWith('u1', 5);
+      expect(body.data).toEqual({ success: true, targetUserId: 'uuid-5' });
+      // 验证 userId 来自 req.user，targetUserId 来自 body（UUID 字符串）
+      expect(friendService.sendFriendRequest).toHaveBeenCalledWith('u1', 'uuid-5');
     });
 
     it('service 抛错时 fail 返回 400 + 错误消息（发送失败降级码）', async () => {
@@ -204,7 +204,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId: 1 }),
+        body: JSON.stringify({ targetUserId: 'uuid-1' }),
       });
       const body = await res.json();
 
@@ -220,7 +220,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId: 5 }),
+        body: JSON.stringify({ targetUserId: 'uuid-5' }),
       });
       const body = await res.json();
 
@@ -235,7 +235,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-test-no-auth': '1' },
-        body: JSON.stringify({ requestId: 7 }),
+        body: JSON.stringify({ requestId: 'uuid-7' }),
       });
       const body = await res.json();
 
@@ -260,19 +260,20 @@ describe('friends 好友路由', () => {
     it('参数齐全调用 acceptFriendRequest(userId, requestId) 返回结果', async () => {
       (friendService.acceptFriendRequest as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
-        friendId: 7,
+        friendId: 'uuid-7',
       });
 
       const res = await fetch(`${baseURL}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: 7 }),
+        body: JSON.stringify({ requestId: 'uuid-7' }),
       });
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body.data).toEqual({ success: true, friendId: 7 });
-      expect(friendService.acceptFriendRequest).toHaveBeenCalledWith('u1', 7);
+      expect(body.data).toEqual({ success: true, friendId: 'uuid-7' });
+      // requestId 为 UUID 字符串（与 friendships.id 对齐）
+      expect(friendService.acceptFriendRequest).toHaveBeenCalledWith('u1', 'uuid-7');
     });
 
     it('service 抛错时 fail 返回 400 + 错误消息', async () => {
@@ -283,7 +284,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: 99 }),
+        body: JSON.stringify({ requestId: 'uuid-99' }),
       });
       const body = await res.json();
 
@@ -298,7 +299,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: 7 }),
+        body: JSON.stringify({ requestId: 'uuid-7' }),
       });
       const body = await res.json();
 
@@ -312,7 +313,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-test-no-auth': '1' },
-        body: JSON.stringify({ requestId: 8 }),
+        body: JSON.stringify({ requestId: 'uuid-8' }),
       });
       const body = await res.json();
 
@@ -342,13 +343,14 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: 8 }),
+        body: JSON.stringify({ requestId: 'uuid-8' }),
       });
       const body = await res.json();
 
       expect(res.status).toBe(200);
       expect(body.data).toEqual({ success: true });
-      expect(friendService.rejectFriendRequest).toHaveBeenCalledWith('u1', 8);
+      // requestId 为 UUID 字符串（与 friendships.id 对齐）
+      expect(friendService.rejectFriendRequest).toHaveBeenCalledWith('u1', 'uuid-8');
     });
 
     it('service 抛错时 fail 返回 400 + 错误消息', async () => {
@@ -359,7 +361,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: 8 }),
+        body: JSON.stringify({ requestId: 'uuid-8' }),
       });
       const body = await res.json();
 
@@ -374,7 +376,7 @@ describe('friends 好友路由', () => {
       const res = await fetch(`${baseURL}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: 8 }),
+        body: JSON.stringify({ requestId: 'uuid-8' }),
       });
       const body = await res.json();
 
@@ -385,7 +387,7 @@ describe('friends 好友路由', () => {
 
   describe('DELETE /:friendId 删除好友', () => {
     it('未授权返回 401', async () => {
-      const res = await fetch(`${baseURL}/5`, {
+      const res = await fetch(`${baseURL}/uuid-5`, {
         method: 'DELETE',
         headers: { 'x-test-no-auth': '1' },
       });
@@ -394,37 +396,27 @@ describe('friends 好友路由', () => {
       expect(friendService.removeFriend).not.toHaveBeenCalled();
     });
 
-    it('无效 ID（非数字）返回 400 "无效的好友ID"', async () => {
-      const res = await fetch(`${baseURL}/abc`, { method: 'DELETE' });
-      const body = await res.json();
-
-      expect(res.status).toBe(400);
-      expect(body.code).toBe(400);
-      expect(body.message).toBe('无效的好友ID');
-      expect(friendService.removeFriend).not.toHaveBeenCalled();
-    });
-
-    it('合法 ID 调用 removeFriend(userId, friendId) 返回结果', async () => {
+    it('合法 UUID 调用 removeFriend(userId, friendId) 返回结果', async () => {
       (friendService.removeFriend as ReturnType<typeof vi.fn>).mockResolvedValue({
         success: true,
-        friendId: 5,
+        friendId: 'uuid-5',
       });
 
-      const res = await fetch(`${baseURL}/5`, { method: 'DELETE' });
+      const res = await fetch(`${baseURL}/uuid-5`, { method: 'DELETE' });
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body.data).toEqual({ success: true, friendId: 5 });
-      // 验证 userId 来自 req.user，friendId 来自路径参数解析
-      expect(friendService.removeFriend).toHaveBeenCalledWith('u1', 5);
+      expect(body.data).toEqual({ success: true, friendId: 'uuid-5' });
+      // 验证 userId 来自 req.user，friendId 来自路径参数（UUID 字符串，不再 parseInt）
+      expect(friendService.removeFriend).toHaveBeenCalledWith('u1', 'uuid-5');
     });
 
-    it('service 抛错时 fail 返回 400 + 错误消息', async () => {
+    it('service 抛错时 fail 返回 400 + 错误消息（如非法 UUID 被 DB 拒绝）', async () => {
       (friendService.removeFriend as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('好友关系不存在')
       );
 
-      const res = await fetch(`${baseURL}/99`, { method: 'DELETE' });
+      const res = await fetch(`${baseURL}/uuid-99`, { method: 'DELETE' });
       const body = await res.json();
 
       expect(res.status).toBe(400);
@@ -435,7 +427,7 @@ describe('friends 好友路由', () => {
       // 覆盖 catch 块三元 false 分支：reject 非 Error 值时使用兜底文案
       (friendService.removeFriend as ReturnType<typeof vi.fn>).mockRejectedValue('数据库锁冲突');
 
-      const res = await fetch(`${baseURL}/99`, { method: 'DELETE' });
+      const res = await fetch(`${baseURL}/uuid-99`, { method: 'DELETE' });
       const body = await res.json();
 
       expect(res.status).toBe(400);

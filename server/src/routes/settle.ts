@@ -34,6 +34,18 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
+  // 校验 durationSeconds：必须是正数且在合理范围内（1-3600 秒，即最长 1 小时对局）
+  // 设计原因：原实现无校验，可传负数、0 或超大值，导致下游 service 按时长计算的奖励倍率失真
+  if (durationSeconds !== undefined && (
+    typeof durationSeconds !== 'number' ||
+    !Number.isFinite(durationSeconds) ||
+    durationSeconds <= 0 ||
+    durationSeconds > 3600
+  )) {
+    fail(res, 400, '对局时长不合法');
+    return;
+  }
+
   // 授权校验：调用者本人必须包含在结算玩家列表中，防止给任意账号发放奖励
   const callerInPlayers = players.some((p) => p.userId === user.userId);
   if (!callerInPlayers) {

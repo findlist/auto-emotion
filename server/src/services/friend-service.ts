@@ -16,7 +16,8 @@ interface FriendRow {
 
 // 待处理请求行：对应 getPendingRequests 的 SQL 查询结果
 interface PendingRequestRow {
-  id: number;
+  // friendships.id 为 UUID，pg 返回 string，类型对齐避免 number 截断
+  id: string;
   from_user_id: string;
   nickname: string;
   avatar_url: string | null;
@@ -65,9 +66,11 @@ export async function getPendingRequests(userId: string): Promise<PendingRequest
 // 联合类型：双向已存在请求时走自动接受分支返回 autoAccepted，否则走新建请求分支返回 requestId
 export async function sendFriendRequest(
   userId: string,
-  targetUserId: number
-): Promise<{ success: true; autoAccepted: true } | { success: true; requestId: number }> {
-  if (userId === targetUserId.toString()) {
+  // users.id 为 UUID，targetUserId 改为 string 与 schema 对齐；
+  // 原声明 number 会导致 UUID 字符串经 parseInt 截断后传给 SQL 报 invalid input syntax for type uuid
+  targetUserId: string
+): Promise<{ success: true; autoAccepted: true } | { success: true; requestId: string }> {
+  if (userId === targetUserId) {
     throw new AppError(ErrorCode.BAD_REQUEST, '不能添加自己为好友');
   }
 
@@ -134,7 +137,8 @@ export async function sendFriendRequest(
  */
 export async function acceptFriendRequest(
   userId: string,
-  requestId: number
+  // friendships.id 为 UUID，requestId 改为 string 与 schema 对齐
+  requestId: string
 ): Promise<{ success: true }> {
   // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release，AppError 抛出会触发 ROLLBACK 并透传
   return withTransaction(async (tx) => {
@@ -173,7 +177,8 @@ export async function acceptFriendRequest(
  */
 export async function rejectFriendRequest(
   userId: string,
-  requestId: number
+  // friendships.id 为 UUID，requestId 改为 string 与 schema 对齐
+  requestId: string
 ): Promise<{ success: true }> {
   const result = await pool.query(
     `DELETE FROM friendships WHERE id = $1 AND friend_id = $2 AND status = 'pending' RETURNING id`,
@@ -190,7 +195,9 @@ export async function rejectFriendRequest(
 /**
  * 删除好友
  */
-export async function removeFriend(userId: string, friendId: number): Promise<{ success: true }> {
+// friendId 改为 string 与 users.id UUID 类型对齐；
+// 原声明 number 会导致路由层 parseIdParam 截断 UUID 后传入 SQL 报 invalid input syntax for type uuid
+export async function removeFriend(userId: string, friendId: string): Promise<{ success: true }> {
   // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release
   return withTransaction(async (tx) => {
     // 删除双向好友关系

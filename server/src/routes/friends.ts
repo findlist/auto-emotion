@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { getFriends, getPendingRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend } from '../services/friend-service.js';
 import { success, fail } from '../utils/response.js';
 import { getErrorMessage } from '../utils/error.js';
-import { parseIdParam } from '../utils/param.js';
 
 const router = Router();
 
@@ -48,7 +47,8 @@ router.post('/request', async (req: Request, res: Response) => {
     return;
   }
 
-  const { targetUserId } = req.body as { targetUserId?: number };
+  // targetUserId 为 UUID 字符串（与 users.id 对齐），原 number 类型会导致 service 层接收截断数字
+  const { targetUserId } = req.body as { targetUserId?: string };
   if (!targetUserId) {
     fail(res, 400, '缺少目标用户ID');
     return;
@@ -71,7 +71,8 @@ router.post('/accept', async (req: Request, res: Response) => {
     return;
   }
 
-  const { requestId } = req.body as { requestId?: number };
+  // requestId 为 UUID 字符串（与 friendships.id 对齐）
+  const { requestId } = req.body as { requestId?: string };
   if (!requestId) {
     fail(res, 400, '缺少请求ID');
     return;
@@ -94,7 +95,8 @@ router.post('/reject', async (req: Request, res: Response) => {
     return;
   }
 
-  const { requestId } = req.body as { requestId?: number };
+  // requestId 为 UUID 字符串（与 friendships.id 对齐）
+  const { requestId } = req.body as { requestId?: string };
   if (!requestId) {
     fail(res, 400, '缺少请求ID');
     return;
@@ -117,8 +119,9 @@ router.delete('/:friendId', async (req: Request, res: Response) => {
     return;
   }
 
-  const friendId = parseIdParam(req.params.friendId);
-  if (isNaN(friendId)) {
+  // friendId 为 UUID 字符串，直接取路由参数（原 parseIdParam 会截断 UUID 导致 SQL 报错）
+  const friendId = Array.isArray(req.params.friendId) ? req.params.friendId[0] : req.params.friendId;
+  if (!friendId) {
     fail(res, 400, '无效的好友ID');
     return;
   }

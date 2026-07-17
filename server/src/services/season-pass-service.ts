@@ -155,6 +155,14 @@ export async function addSeasonExp(userId: string, exp: number): Promise<void> {
  * 领取赛季奖励
  */
 export async function claimSeasonReward(userId: string, level: number, isPremium: boolean): Promise<{ success: true }> {
+  // 查询当前赛季 ID：与 getCurrentSeason 一致，避免硬编码 season_id=0 导致跨赛季奖励领取阻塞
+  // 设计原因：原实现三处硬编码 0，但 getCurrentSeason 已用真实 season.id 查询，
+  // 导致领取记录与显示查询错位，新赛季开始后老赛季奖励被记到 season_id=0 形成跨赛季污染
+  const seasonResult = await pool.query(
+    `SELECT id FROM seasons WHERE started_at <= NOW() AND ends_at > NOW() ORDER BY started_at DESC LIMIT 1`
+  );
+  const seasonId = seasonResult.rows[0]?.id ?? 0;
+
   // 事务外 fast-fail 预检查：避免无谓获取事务客户端，改善 UX
   // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在事务内 advisory lock 后的权威检查
   const userResult = await pool.query(
@@ -179,7 +187,7 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
   // 检查是否已领取（预检查）
   const claimedResult = await pool.query(
     `SELECT id FROM user_season_rewards WHERE user_id = $1 AND season_id = $2 AND level = $3 AND is_premium = $4`,
-    [userId, 0, level, isPremium] // season_id 为 0 表示当前赛季
+    [userId, seasonId, level, isPremium]
   );
 
   if (claimedResult.rows.length > 0) {
@@ -195,7 +203,7 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
     // 事务内权威检查：重新查询领取状态，advisory lock 串行化后前一个请求已 COMMIT
     const recheck = await tx.query(
       `SELECT id FROM user_season_rewards WHERE user_id = $1 AND season_id = $2 AND level = $3 AND is_premium = $4`,
-      [userId, 0, level, isPremium]
+      [userId, seasonId, level, isPremium]
     );
 
     if (recheck.rows.length > 0) {
@@ -206,7 +214,7 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
     await tx.query(
       `INSERT INTO user_season_rewards (user_id, season_id, level, is_premium)
        VALUES ($1, $2, $3, $4)`,
-      [userId, 0, level, isPremium]
+      [userId, seasonId, level, isPremium]
     );
 
     // 发放奖励

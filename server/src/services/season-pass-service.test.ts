@@ -158,7 +158,9 @@ describe('season-pass-service 赛季通行证服务', () => {
 
   describe('claimSeasonReward 领取赛季奖励', () => {
     it('用户不存在抛 NOT_FOUND', async () => {
-      mocks.queryMock.mockResolvedValueOnce({ rows: [] }); // users 查询空
+      mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // 当前赛季查询
+        .mockResolvedValueOnce({ rows: [] }); // users 查询空
 
       await expect(claimSeasonReward('u1', 1, false)).rejects.toMatchObject({
         code: ErrorCode.NOT_FOUND,
@@ -168,9 +170,11 @@ describe('season-pass-service 赛季通行证服务', () => {
     });
 
     it('等级不足抛 BAD_REQUEST', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ season_level: 3, is_premium: false }],
-      });
+      mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // 当前赛季查询
+        .mockResolvedValueOnce({
+          rows: [{ season_level: 3, is_premium: false }],
+        });
 
       await expect(claimSeasonReward('u1', 5, false)).rejects.toMatchObject({
         code: ErrorCode.BAD_REQUEST,
@@ -179,9 +183,11 @@ describe('season-pass-service 赛季通行证服务', () => {
     });
 
     it('领取高级奖励但无通行证抛 BAD_REQUEST', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ season_level: 5, is_premium: false }],
-      });
+      mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // 当前赛季查询
+        .mockResolvedValueOnce({
+          rows: [{ season_level: 5, is_premium: false }],
+        });
 
       await expect(claimSeasonReward('u1', 3, true)).rejects.toMatchObject({
         code: ErrorCode.BAD_REQUEST,
@@ -191,6 +197,7 @@ describe('season-pass-service 赛季通行证服务', () => {
 
     it('已领取抛 CONFLICT', async () => {
       mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // 当前赛季查询
         .mockResolvedValueOnce({ rows: [{ season_level: 5, is_premium: false }] }) // users
         .mockResolvedValueOnce({ rows: [{ id: 1 }] }); // 已领记录存在
 
@@ -202,6 +209,7 @@ describe('season-pass-service 赛季通行证服务', () => {
 
     it('领取免费奖励执行 INSERT + 发放金币 + COMMIT', async () => {
       mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // 当前赛季查询
         .mockResolvedValueOnce({ rows: [{ season_level: 5, is_premium: false }] }) // users
         .mockResolvedValueOnce({ rows: [] }); // 未领取
       mocks.clientQueryMock
@@ -212,10 +220,10 @@ describe('season-pass-service 赛季通行证服务', () => {
       const result = await claimSeasonReward('u1', 1, false);
 
       expect(result).toEqual({ success: true });
-      // 验证记录领取（season_id=0 表示当前赛季）
+      // 验证记录领取（season_id=7 为当前赛季 ID，与 getCurrentSeason 查询一致）
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO user_season_rewards'),
-        ['u1', 0, 1, false]
+        ['u1', 7, 1, false]
       );
       // 验证发放金币（免费奖励是 gold 类型）
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
@@ -228,6 +236,7 @@ describe('season-pass-service 赛季通行证服务', () => {
 
     it('领取高级奖励执行 INSERT + 发放道具 + COMMIT', async () => {
       mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // 当前赛季查询
         .mockResolvedValueOnce({ rows: [{ season_level: 5, is_premium: true }] }) // users
         .mockResolvedValueOnce({ rows: [] }); // 未领取
       mocks.clientQueryMock
@@ -238,10 +247,10 @@ describe('season-pass-service 赛季通行证服务', () => {
       const result = await claimSeasonReward('u1', 2, true);
 
       expect(result).toEqual({ success: true });
-      // 验证记录领取（is_premium=true）
+      // 验证记录领取（is_premium=true, season_id=7 为当前赛季 ID）
       expect(mocks.clientQueryMock).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO user_season_rewards'),
-        ['u1', 0, 2, true]
+        ['u1', 7, 2, true]
       );
       // 验证发放道具（高级奖励是 skin 类型，写入背包）
       const inventoryCalls = mocks.clientQueryMock.mock.calls.filter(([sql]) =>
@@ -254,6 +263,7 @@ describe('season-pass-service 赛季通行证服务', () => {
 
     it('事务失败时 ROLLBACK + release + 透传错误', async () => {
       mocks.queryMock
+        .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // 当前赛季查询
         .mockResolvedValueOnce({ rows: [{ season_level: 5, is_premium: false }] })
         .mockResolvedValueOnce({ rows: [] });
       const error = new Error('INSERT 失败');
