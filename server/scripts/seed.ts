@@ -18,6 +18,9 @@
 import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import pg from 'pg';
+// 复用 src 端统一错误消息提取工具，避免 scripts 内重复实现 as Error 模式
+// 设计原因：error.ts 为纯函数无副作用，scripts 引入 src 工具与项目错误处理范式保持一致
+import { getErrorMessage } from '../src/utils/error.js';
 
 const { Pool } = pg;
 
@@ -172,7 +175,8 @@ async function main() {
   } catch (err) {
     // ROLLBACK 加 try/catch 保护，避免 ROLLBACK 抛错掩盖原始业务错误
     try { await client.query('ROLLBACK'); } catch (rbErr) {
-      console.error('ROLLBACK 失败:', (rbErr as Error).message);
+      // 复用 getErrorMessage 统一 unknown→string 兜底，rbErr 非 Error 实例时返回有意义文案而非 undefined
+      console.error('ROLLBACK 失败:', getErrorMessage(rbErr, '未知错误'));
     }
     console.error('[错误] 种子数据创建失败:', err);
     process.exit(1);
