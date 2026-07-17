@@ -9,6 +9,18 @@ const LEADERBOARD_KEY_PREFIX = 'leaderboard:';
 
 export type LeaderboardType = 'power' | 'battle' | 'speed';
 
+/**
+ * 排行榜类型 → 数据库字段名映射
+ * 设计原因：getLeaderboard/getUserRank/updateUserScore 三处按 type 选择 users 表字段，
+ * 字段名为白名单常量（power/battle_score/speed_score）与 LeaderboardType 一一对应，
+ * 抽取为 helper 集中映射，避免散落三元在新增 type 时漏改；返回字面量联合类型可让 SQL 模板字符串获得字面量提示。
+ */
+function getScoreField(type: LeaderboardType): 'power' | 'battle_score' | 'speed_score' {
+  if (type === 'power') return 'power';
+  if (type === 'battle') return 'battle_score';
+  return 'speed_score';
+}
+
 interface LeaderboardEntry {
   rank: number;
   // users.id 为 UUID，pg 返回 string，类型对齐避免 parseInt 截断 UUID 导致 SQL 报错
@@ -26,9 +38,7 @@ export async function getLeaderboard(
   pageSize: number = 20
 ): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   const offset = (page - 1) * pageSize;
-  const scoreField = type === 'power' ? 'power' 
-    : type === 'battle' ? 'battle_score' 
-    : 'speed_score';
+  const scoreField = getScoreField(type);
 
   // 从数据库获取排行数据
   const result = await pool.query(
@@ -60,9 +70,7 @@ export async function getLeaderboard(
  * 获取用户排名
  */
 export async function getUserRank(userId: string, type: LeaderboardType): Promise<{ rank: number; score: number } | null> {
-  const scoreField = type === 'power' ? 'power' 
-    : type === 'battle' ? 'battle_score' 
-    : 'speed_score';
+  const scoreField = getScoreField(type);
 
   const result = await pool.query(
     `SELECT rank FROM (
@@ -130,9 +138,7 @@ export async function updateUserScore(
   await redis.zadd(key, score, userId);
   
   // 更新数据库对应字段
-  const scoreField = type === 'power' ? 'power' 
-    : type === 'battle' ? 'battle_score' 
-    : 'speed_score';
+  const scoreField = getScoreField(type);
 
   await pool.query(
     `UPDATE users SET ${scoreField} = $1 WHERE id = $2`,
