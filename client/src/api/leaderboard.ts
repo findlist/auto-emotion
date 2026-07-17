@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -20,28 +21,24 @@ export interface UserRank {
 export type LeaderboardType = 'power' | 'battle' | 'speed' | 'friends';
 
 export const leaderboardApi = {
-  async getPower(page: number = 1, pageSize: number = 20): Promise<LeaderboardResponse> {
-    const res = await http.get('/leaderboard/power', { params: { page, pageSize } });
-    return res.data;
+  // 注：返回 Promise<LeaderboardResponse>，无需 async/await 临时变量
+  getPower(page: number = 1, pageSize: number = 20): Promise<LeaderboardResponse> {
+    return unwrap(http.get('/leaderboard/power', { params: { page, pageSize } }));
   },
 
-  async getBattle(page: number = 1, pageSize: number = 20): Promise<LeaderboardResponse> {
-    const res = await http.get('/leaderboard/battle', { params: { page, pageSize } });
-    return res.data;
+  getBattle(page: number = 1, pageSize: number = 20): Promise<LeaderboardResponse> {
+    return unwrap(http.get('/leaderboard/battle', { params: { page, pageSize } }));
   },
 
-  async getSpeed(page: number = 1, pageSize: number = 20): Promise<LeaderboardResponse> {
-    const res = await http.get('/leaderboard/speed', { params: { page, pageSize } });
-    return res.data;
+  getSpeed(page: number = 1, pageSize: number = 20): Promise<LeaderboardResponse> {
+    return unwrap(http.get('/leaderboard/speed', { params: { page, pageSize } }));
   },
 
-  async getFriends(page: number = 1, pageSize: number = 20): Promise<LeaderboardResponse> {
-    const res = await http.get('/leaderboard/friends', { params: { page, pageSize } });
-    return res.data;
+  getFriends(page: number = 1, pageSize: number = 20): Promise<LeaderboardResponse> {
+    return unwrap(http.get('/leaderboard/friends', { params: { page, pageSize } }));
   },
 
-  async getUserRank(type: LeaderboardType): Promise<UserRank> {
-    const res = await http.get(`/leaderboard/${type}/me`);
-    return res.data;
+  getUserRank(type: LeaderboardType): Promise<UserRank> {
+    return unwrap(http.get(`/leaderboard/${type}/me`));
   },
 };

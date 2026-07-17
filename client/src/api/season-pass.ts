@@ -1,4 +1,5 @@
 import http from './http';
+import { unwrap } from './unwrap';
 
 export interface SeasonReward {
   level: number;
@@ -24,18 +25,16 @@ export interface SeasonPass {
 }
 
 export const seasonPassApi = {
-  async get(): Promise<SeasonPass> {
-    const res = await http.get('/season-pass');
-    return res.data;
+  // 注：返回 Promise<T>，无需 async/await 临时变量
+  get(): Promise<SeasonPass> {
+    return unwrap(http.get('/season-pass'));
   },
 
-  async buy(): Promise<{ success: boolean }> {
-    const res = await http.post('/season-pass/buy');
-    return res.data;
+  buy(): Promise<{ success: boolean }> {
+    return unwrap(http.post('/season-pass/buy'));
   },
 
-  async claim(level: number, isPremium: boolean): Promise<{ success: boolean }> {
-    const res = await http.post('/season-pass/claim', { level, isPremium });
-    return res.data;
+  claim(level: number, isPremium: boolean): Promise<{ success: boolean }> {
+    return unwrap(http.post('/season-pass/claim', { level, isPremium }));
   },
 };
