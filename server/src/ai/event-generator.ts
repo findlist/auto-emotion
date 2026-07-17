@@ -1,6 +1,8 @@
 // server/src/ai/event-generator.ts
 // 随机事件生成：预设事件池 + 随机抽取
 
+import { shuffle } from '../utils/shuffle.js';
+
 // 游戏事件结构
 export interface GameEvent {
   id: string;
@@ -98,14 +100,8 @@ export function generateEvents(
   startTime: number = 30,
   interval: number = 20,
 ): GameEvent[] {
-  // Fisher-Yates 洗牌：从后往前遍历与随机位置交换，保证均匀分布
-  // 设计原因：原 .sort(() => Math.random() - 0.5) 依赖排序引擎比较结果，
-  // 分布有偏（某些元素停留在原位的概率更高），非真正的 Fisher-Yates
-  const shuffled = [...PRESET_EVENTS];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
+  // Fisher-Yates 洗牌：抽取到 utils/shuffle.ts，保证均匀分布
+  const shuffled = shuffle(PRESET_EVENTS);
   const selected = shuffled.slice(0, count);
 
   return selected.map((event, i) => ({

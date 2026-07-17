@@ -8,6 +8,7 @@ import {
   type StressKeywordEntry,
   type SkillTemplate,
 } from './dict/stress-keywords.js';
+import { shuffle } from '../utils/shuffle.js';
 
 // 生成器输入
 export interface MonsterGenerateInput {
@@ -138,14 +139,4 @@ function buildAppearance(
     shape: firstEntry.shape,
     size: 0.5 + difficulty * 0.5,
   };
-}
-
-// Fisher-Yates 洗牌：原地打乱数组顺序
-function shuffle<T>(arr: T[]): T[] {
-  const result = [...arr];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
 }

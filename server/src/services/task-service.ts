@@ -5,6 +5,7 @@ import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
+import { shuffle } from '../utils/shuffle.js';
 
 interface DailyTask {
   id: number;
@@ -56,8 +57,9 @@ async function ensureDailyTasksExist(): Promise<void> {
     return; // 今日任务已生成
   }
 
-  // 随机选择3个任务模板
-  const shuffled = [...DAILY_TASK_TEMPLATES].sort(() => Math.random() - 0.5);
+  // 随机选择3个任务模板：Fisher-Yates 洗牌保证均匀分布
+  // 原 .sort(() => Math.random() - 0.5) 分布有偏，已迁移到 utils/shuffle.ts
+  const shuffled = shuffle(DAILY_TASK_TEMPLATES);
   const selected = shuffled.slice(0, 3);
 
   // 插入今日任务
