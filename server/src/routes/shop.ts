@@ -4,16 +4,14 @@ import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
 import { routeError } from '../utils/route-error.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
 // GET /api/shop/items - 获取商品列表
 router.get('/items', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { type } = req.query;
 
@@ -29,10 +27,7 @@ router.get('/items', async (req: Request, res: Response) => {
 // POST /api/shop/buy - 购买商品
 router.post('/buy', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { itemId } = req.body as { itemId?: number };
   if (!itemId) {
@@ -59,10 +54,7 @@ router.post('/buy', async (req: Request, res: Response) => {
 // GET /api/shop/inventory - 获取用户背包
 router.get('/inventory', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const inventory = await getUserInventory(user.userId);

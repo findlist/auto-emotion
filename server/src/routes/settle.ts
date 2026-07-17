@@ -3,6 +3,7 @@ import { settleGame } from '../services/settle-service.js';
 import { success, fail } from '../utils/response.js';
 import { routeError } from '../utils/route-error.js';
 import type { GameMode } from '../types/game.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
@@ -17,10 +18,7 @@ interface PlayerScore {
 // POST /api/settle - 结算对局
 router.post('/', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { roomId, mode, durationSeconds, players } = req.body as {
     roomId?: string;

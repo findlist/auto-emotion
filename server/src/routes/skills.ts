@@ -3,15 +3,13 @@ import { listSkills, unlockSkill, upgradeSkill, activateSkill } from '../service
 import { success, fail } from '../utils/response.js';
 import { getErrorMessage } from '../utils/error.js';
 import { routeError } from '../utils/route-error.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
 router.get('/list', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const skills = await listSkills(user.userId);
@@ -24,10 +22,7 @@ router.get('/list', async (req: Request, res: Response) => {
 
 router.post('/unlock', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { skillId } = req.body as { skillId?: number };
   if (!skillId) {
@@ -46,10 +41,7 @@ router.post('/unlock', async (req: Request, res: Response) => {
 
 router.post('/upgrade', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { skillId } = req.body as { skillId?: number };
   if (!skillId) {
@@ -68,10 +60,7 @@ router.post('/upgrade', async (req: Request, res: Response) => {
 
 router.post('/activate', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { skillId, active } = req.body as { skillId?: number; active?: boolean };
   if (!skillId) {

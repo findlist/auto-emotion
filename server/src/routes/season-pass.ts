@@ -4,16 +4,14 @@ import { success, fail } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
 import { routeError } from '../utils/route-error.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
 // GET /api/season-pass - 获取赛季通行证信息
 router.get('/', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const seasonPass = await getCurrentSeason(user.userId);
@@ -27,10 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
 // POST /api/season-pass/buy - 购买通行证
 router.post('/buy', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   // 幂等控制：5秒窗口防重复提交，避免高频调用重复扣款
   // 命中拦截（CONFLICT）返回 409；Redis 异常按降级规则放行不阻塞核心业务
@@ -50,10 +45,7 @@ router.post('/buy', async (req: Request, res: Response) => {
 // POST /api/season-pass/claim - 领取奖励
 router.post('/claim', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const { level, isPremium } = req.body as { level?: number; isPremium?: boolean };
   if (!level) {

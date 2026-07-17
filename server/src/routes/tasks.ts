@@ -5,16 +5,14 @@ import { withIdempotency } from '../utils/idempotency.js';
 import { getErrorMessage } from '../utils/error.js';
 import { routeError } from '../utils/route-error.js';
 import { parseIdParam } from '../utils/param.js';
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
 // GET /api/tasks/daily - 获取每日任务
 router.get('/daily', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   try {
     const tasks = await getDailyTasks(user.userId);
@@ -28,10 +26,7 @@ router.get('/daily', async (req: Request, res: Response) => {
 // POST /api/tasks/:id/claim - 领取任务奖励
 router.post('/:id/claim', async (req: Request, res: Response) => {
   const user = req.user;
-  if (!user) {
-    fail(res, 401, '未授权');
-    return;
-  }
+  if (!requireUser(res, user)) return;
 
   const taskId = parseIdParam(req.params.id);
   if (isNaN(taskId)) {
