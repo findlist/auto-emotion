@@ -4,6 +4,7 @@
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
+import { parseCount } from '../utils/param.js';
 
 interface DailyTask {
   id: number;
@@ -51,7 +52,7 @@ async function ensureDailyTasksExist(): Promise<void> {
     [today]
   );
 
-  if (parseInt(existingResult.rows[0].count, 10) > 0) {
+  if (parseCount(existingResult.rows[0]) > 0) {
     return; // 今日任务已生成
   }
 

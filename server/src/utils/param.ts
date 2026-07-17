@@ -76,3 +76,24 @@ export function parsePagination(
     pageSize: rawPageSize || defaultPageSize,
   };
 }
+
+/**
+ * 从 pg 查询结果行中解析 COUNT 聚合值
+ *
+ * 设计原因：service 层多处重复 `parseInt(xxx.rows[0].count, 10)` 单行样板，
+ * 且不同业务别名不一致（4 处用 `as count`、1 处用 `as total`），复制粘贴
+ * 易引入字段名/进制参数漂移。提取后通过 field 参数兼容两种别名，
+ * 统一 service 层行数统计模式。
+ *
+ * @param row pg 查询结果的首行（xxx.rows[0]）
+ * @param field 聚合字段名，缺省 'count'，传 'total' 兼容 leaderboard 模式
+ * @returns 解析后的整数行数（pg COUNT(*) 返回 string，parseInt 转为 number）
+ */
+export function parseCount(
+  row: Record<string, unknown>,
+  field: string = 'count'
+): number {
+  // pg COUNT(*) 默认返回 string，parseInt 兼容 string/number 输入；
+  // 字段缺失或类型异常时 parseInt 返回 NaN，调用方按业务语义判断（> 0 / 直接使用）
+  return parseInt(row[field] as string, 10);
+}

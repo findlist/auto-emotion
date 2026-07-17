@@ -4,6 +4,7 @@
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
+import { parseCount } from '../utils/param.js';
 
 interface Achievement {
   id: number;
@@ -65,7 +66,7 @@ const ACHIEVEMENT_TEMPLATES: Omit<Achievement, 'id'>[] = [
  */
 async function ensureAchievementsExist(): Promise<void> {
   const existing = await pool.query('SELECT COUNT(*) as count FROM achievements');
-  if (parseInt(existing.rows[0].count, 10) > 0) {
+  if (parseCount(existing.rows[0]) > 0) {
     return;
   }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseIdParam, parsePagination, firstParam } from './param.js';
+import { parseIdParam, parsePagination, firstParam, parseCount } from './param.js';
 
 describe('parseIdParam 路由参数解析', () => {
   it('传入数字字符串返回对应数字', () => {
@@ -82,5 +82,32 @@ describe('parsePagination 分页参数解析', () => {
     expect(
       parsePagination({}, { defaultPage: 2, defaultPageSize: 15 })
     ).toEqual({ page: 2, pageSize: 15 });
+  });
+});
+
+describe('parseCount 行数统计解析', () => {
+  it('默认字段 count 解析数字字符串', () => {
+    // pg COUNT(*) 默认返回 string 类型，parseInt 转换为 number
+    expect(parseCount({ count: '42' })).toBe(42);
+  });
+
+  it('指定 field 为 total 时正确解析（leaderboard 模式）', () => {
+    // leaderboard-service 使用 `as total` 别名，需通过 field 参数兼容
+    expect(parseCount({ total: '100' }, 'total')).toBe(100);
+  });
+
+  it('传入数字类型时 parseInt 兼容返回数字', () => {
+    // 部分 pg 驱动配置可能返回 number，parseInt 兼容处理
+    expect(parseCount({ count: 7 })).toBe(7);
+  });
+
+  it('字段缺失时返回 NaN（调用方按业务语义判断）', () => {
+    // 字段名拼写错误或查询未返回该字段时，parseInt(undefined) 返回 NaN
+    expect(parseCount({ other: '5' })).toBeNaN();
+  });
+
+  it('传入非数字字符串时返回 NaN', () => {
+    // 兜底测试：异常输入返回 NaN，调用方需配合 isNaN 判断
+    expect(parseCount({ count: 'abc' })).toBeNaN();
   });
 });

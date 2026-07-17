@@ -3,6 +3,7 @@
 
 import pool from '../config/database.js';
 import redis from '../config/redis.js';
+import { parseCount } from '../utils/param.js';
 
 const LEADERBOARD_KEY_PREFIX = 'leaderboard:';
 
@@ -43,7 +44,7 @@ export async function getLeaderboard(
   const countResult = await pool.query(
     `SELECT COUNT(*) as total FROM users WHERE status = 0`
   );
-  const total = parseInt(countResult.rows[0].total, 10);
+  const total = parseCount(countResult.rows[0], 'total');
 
   const ranking = result.rows.map((row, index) => ({
     rank: offset + index + 1,
