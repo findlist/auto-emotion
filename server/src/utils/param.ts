@@ -1,5 +1,9 @@
 // server/src/utils/param.ts
-// 路由参数解析工具：统一 Express 路由参数的整数 ID、字符串参数与分页参数解析逻辑
+// 路由参数解析工具：统一 Express 路由参数的整数 ID、字符串参数、分页参数与请求体校验逻辑
+
+import { Response } from 'express';
+import { ZodSchema } from 'zod';
+import { fail } from './response.js';
 
 /**
  * 解析路由参数为整数 ID
@@ -96,4 +100,36 @@ export function parseCount(
   // pg COUNT(*) 默认返回 string，parseInt 兼容 string/number 输入；
   // 字段缺失或类型异常时 parseInt 返回 NaN，调用方按业务语义判断（> 0 / 直接使用）
   return parseInt(row[field] as string, 10);
+}
+
+/**
+ * 校验请求体并自动发送 422 失败响应
+ *
+ * 设计原因：routes 层多处重复 `const parsed = schema.safeParse(req.body);
+ * if (!parsed.success) { fail(res, 422, '参数校验失败', parsed.error.issues); return; }`
+ * 4 行样板（idle.ts 3 处 + ai.ts 1 处），状态码 422、文案 "参数校验失败"、errors 透传
+ * 三要素需保持一致。提取为 helper 后调用方仅需两行：
+ *   `const parsed = parseBody(schema, req.body, res);`
+ *   `if (!parsed) return;`
+ * 避免新增路由时复制粘贴导致文案漂移（如 "参数错误" / "校验失败" 等变体）。
+ *
+ * 注意：仅适用于 422 参数校验场景。生成结果校验等非 422 场景（如 ai.ts 怪兽配置生成
+ * 异常返回 500）应保留原 safeParse + fail 写法，避免强行统一导致语义混淆。
+ *
+ * @param schema zod schema 实例
+ * @param body 请求体（req.body）
+ * @param res Express 响应对象，校验失败时直接发送 422 响应
+ * @returns 校验成功返回 data（类型 T 由 schema 推断），失败返回 null（调用方配合 if (!parsed) return 判断）
+ */
+export function parseBody<T>(
+  schema: ZodSchema<T>,
+  body: unknown,
+  res: Response
+): T | null {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    fail(res, 422, '参数校验失败', parsed.error.issues);
+    return null;
+  }
+  return parsed.data;
 }

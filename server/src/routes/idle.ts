@@ -9,6 +9,7 @@ import { success, fail } from '../utils/response.js';
 import { routeError } from '../utils/route-error.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { withIdempotency } from '../utils/idempotency.js';
+import { parseBody } from '../utils/param.js';
 
 const router = Router();
 
@@ -37,11 +38,8 @@ const settleBodySchema = z.object({
 router.post('/settle', authMiddleware, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const parsed = settleBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      fail(res, 422, '参数校验失败', parsed.error.issues);
-      return;
-    }
+    const parsed = parseBody(settleBodySchema, req.body, res);
+    if (!parsed) return;
 
     // 幂等控制：5秒窗口防重复提交，避免高频调用重复发放挂机收益
     // 设计原因：settle 直接发放金币经验，无拦截时客户端可短时间内重复调用导致收益翻倍
@@ -50,7 +48,7 @@ router.post('/settle', authMiddleware, async (req, res) => {
       return;
     }
 
-    const { durationSeconds } = parsed.data;
+    const { durationSeconds } = parsed;
     const data = await idleService.settle(userId, durationSeconds);
     success(res, data);
   } catch (err) {
@@ -79,13 +77,10 @@ const switchAreaBodySchema = z.object({
 router.post('/switch-area', authMiddleware, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const parsed = switchAreaBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      fail(res, 422, '参数校验失败', parsed.error.issues);
-      return;
-    }
+    const parsed = parseBody(switchAreaBodySchema, req.body, res);
+    if (!parsed) return;
 
-    const { areaId } = parsed.data;
+    const { areaId } = parsed;
     const data = await idleService.switchArea(userId, areaId);
     success(res, data);
   } catch (err) {
@@ -103,13 +98,10 @@ const upgradeBodySchema = z.object({
 router.post('/upgrade', authMiddleware, async (req, res) => {
   try {
     const userId = req.user!.userId;
-    const parsed = upgradeBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      fail(res, 422, '参数校验失败', parsed.error.issues);
-      return;
-    }
+    const parsed = parseBody(upgradeBodySchema, req.body, res);
+    if (!parsed) return;
 
-    const { field, itemType } = parsed.data;
+    const { field, itemType } = parsed;
     const data = await idleService.upgradeCharacter(userId, field, itemType);
     success(res, data);
   } catch (err) {
