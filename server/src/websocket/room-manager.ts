@@ -310,14 +310,16 @@ export const roomManager = {
       : [];
 
     // 记录失败的生成器，改用结构化 logger 保证与全项目 JSON 日志格式一致，便于生产环境日志聚合
+    // 复用 getErrorMessage 统一 unknown→string 兜底，与 L244 关卡生成失败 catch 同文件保持一致，
+    // reason 非 Error 实例时返回有意义的兜底文案（原 as Error 取 message 会得到 undefined）
     if (monsterResult.status === 'rejected') {
-      logger.warn('怪兽生成失败，使用兜底数据', { reason: (monsterResult.reason as Error).message, roomId: room.id });
+      logger.warn('怪兽生成失败，使用兜底数据', { reason: getErrorMessage(monsterResult.reason, '怪兽生成失败'), roomId: room.id });
     }
     if (levelResult.status === 'rejected') {
-      logger.warn('关卡生成失败，使用兜底数据', { reason: (levelResult.reason as Error).message, roomId: room.id });
+      logger.warn('关卡生成失败，使用兜底数据', { reason: getErrorMessage(levelResult.reason, '关卡生成失败'), roomId: room.id });
     }
     if (eventsResult.status === 'rejected') {
-      logger.warn('事件生成失败，使用兜底数据', { reason: (eventsResult.reason as Error).message, roomId: room.id });
+      logger.warn('事件生成失败，使用兜底数据', { reason: getErrorMessage(eventsResult.reason, '事件生成失败'), roomId: room.id });
     }
 
     // 情绪标签取首个压力关键词：stressTags 是玩家输入的压力来源（如"加班""KPI"），
