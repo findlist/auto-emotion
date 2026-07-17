@@ -36,21 +36,30 @@ export default function RecordsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   // 详情弹窗容器 ref：用于焦点陷阱查询可聚焦元素与初始聚焦
   const detailDialogRef = useRef<HTMLDivElement>(null);
+  // 请求竞态守卫：每次翻页递增 requestId，仅最新请求的结果会写入 state
+  // 设计原因：原实现快速翻页时旧请求可能后返回，覆盖新请求的结果导致显示与页码错位
+  const loadRequestIdRef = useRef(0);
 
   const totalPages = Math.ceil(total / pageSize);
 
   // 加载战绩列表：声明在 useEffect 之前，避免 react-hooks/immutability 规则报错
   // （变量在被 useEffect 引用前必须先声明）
   async function loadRecords() {
+    const currentRequestId = ++loadRequestIdRef.current;
     setLoading(true);
     try {
       const result = await recordApi.list(page, pageSize);
+      // 守卫：若期间已触发新翻页请求，丢弃本次过时结果，避免覆盖最新数据
+      if (currentRequestId !== loadRequestIdRef.current) return;
       setRecords(result.records);
       setTotal(result.total);
     } catch (err) {
+      if (currentRequestId !== loadRequestIdRef.current) return;
       logger.error('加载战绩失败', err);
     } finally {
-      setLoading(false);
+      if (currentRequestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }
 
