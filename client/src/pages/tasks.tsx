@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { taskApi, type DailyTask } from '@/api/tasks';
+import { useAsyncEffect } from '@/hooks/use-async-effect';
 import { showToast } from '@/utils/toast';
 import { showApiError } from '@/utils/api-error';
 import { showConfirm } from '@/utils/confirm';
@@ -33,22 +34,15 @@ export default function TasksPage({ onBack }: TasksPageProps) {
     }
   }
 
-  // 内联初始加载：避免 eslint 跨过程分析标记 loadTasks 调用
-  // cancelled 标志防止组件卸载后 setState（React 19 推荐模式）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await taskApi.getDailyTasks();
-        if (!cancelled) setTasks(data);
-      } catch (err) {
-        logger.error('加载任务失败', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // 初始加载：useAsyncEffect 内部维护 cancelled 守卫，避免组件卸载后 setState 警告
+  useAsyncEffect(
+    async () => taskApi.getDailyTasks(),
+    setTasks,
+    {
+      onError: (err) => logger.error('加载任务失败', err),
+      onFinally: () => setLoading(false),
+    }
+  );
 
   async function handleClaim(task: DailyTask) {
     // 任务奖励领取属于关键操作，二次确认避免误触
@@ -123,7 +117,9 @@ export default function TasksPage({ onBack }: TasksPageProps) {
               return (
                 <div
                   key={task.id}
-                  className={`bg-cream border-2 ${
+                  // 加 task-bar-{type} 左侧色条按任务类型（对战/挂机/社交）区分色相
+                  // 与挂机页 attr-bar-* 模式一致，玩家扫一眼即可定位目标任务类型
+                  className={`bg-cream border-2 task-bar-${task.type} ${
                     // 已领取用 ink/40 灰阶表示归档态，与可领取(mint)形成清晰区分（原 green-500 脱离调色板）
                     status === 'claimed'
                       ? 'border-ink/40'

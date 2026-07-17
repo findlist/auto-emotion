@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { seasonPassApi, type SeasonPass } from '@/api/season-pass';
+import { useAsyncEffect } from '@/hooks/use-async-effect';
 import { showToast } from '@/utils/toast';
 import { showApiError } from '@/utils/api-error';
 import { showConfirm } from '@/utils/confirm';
@@ -35,22 +36,15 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
     }
   }
 
-  // 内联初始加载：避免 eslint 跨过程分析标记 loadSeasonPass 调用
-  // cancelled 标志防止组件卸载后 setState（React 19 推荐模式）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await seasonPassApi.get();
-        if (!cancelled) setSeasonPass(data);
-      } catch (err) {
-        logger.error('加载赛季通行证失败', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // 初始加载：useAsyncEffect 内部维护 cancelled 守卫，避免组件卸载后 setState 警告
+  useAsyncEffect(
+    async () => seasonPassApi.get(),
+    setSeasonPass,
+    {
+      onError: (err) => logger.error('加载赛季通行证失败', err),
+      onFinally: () => setLoading(false),
+    }
+  );
 
   async function handleBuy() {
     // 购买高级通行证属于关键付费操作，需二次确认

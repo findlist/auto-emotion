@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { achievementApi, type Achievement } from '@/api/achievements';
+import { useAsyncEffect } from '@/hooks/use-async-effect';
 import { showToast } from '@/utils/toast';
 import { showApiError } from '@/utils/api-error';
 import { showConfirm } from '@/utils/confirm';
@@ -43,22 +44,15 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
     }
   }
 
-  // 内联初始加载：避免 eslint 跨过程分析标记 loadAchievements 调用
-  // cancelled 标志防止组件卸载后 setState（React 19 推荐模式）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await achievementApi.getAchievements();
-        if (!cancelled) setAchievements(data);
-      } catch (err) {
-        logger.error('加载成就失败', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // 初始加载：useAsyncEffect 内部维护 cancelled 守卫，避免组件卸载后 setState 警告
+  useAsyncEffect(
+    async () => achievementApi.getAchievements(),
+    setAchievements,
+    {
+      onError: (err) => logger.error('加载成就失败', err),
+      onFinally: () => setLoading(false),
+    }
+  );
 
   async function handleClaim(achievement: Achievement) {
     // 成就奖励领取属于关键操作，二次确认避免误触
@@ -119,11 +113,29 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
         </span>
       </header>
 
-      {/* 成就统计：加 border-b 增强与列表的分隔层次 */}
+      {/* 成就统计：加 border-b 增强与列表的分隔层次
+          迷你进度条 inline 展示完成率，玩家一眼感知整体进度
+          设计原因：原仅文字"已完成 X 个 | 已领取 Y 个奖励"无法直观感知比例，
+          内嵌 4px 高迷你进度条让完成率可视化，黄色填充与统计栏 text-yellow 数字色呼应 */}
       <div className="bg-pink text-cream px-4 py-3 border-b-2 border-ink">
         <p className="font-cn text-sm">
           已完成 <span className="font-bold text-yellow">{completedCount}</span> 个 | 已领取 <span className="font-bold text-yellow">{claimedCount}</span> 个奖励
         </p>
+        {achievements.length > 0 && (
+          <div
+            className="mini-progress"
+            role="progressbar"
+            aria-label="成就完成进度"
+            aria-valuenow={completedCount}
+            aria-valuemin={0}
+            aria-valuemax={achievements.length}
+          >
+            <div
+              className="mini-progress-fill"
+              style={{ width: `${(completedCount / achievements.length) * 100}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* 成就列表：scrollbar-brutal 统一滚动条风格 */}
@@ -137,7 +149,7 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
           <div className="space-y-6">
             {Object.entries(groupedAchievements).map(([typeName, typeAchievements]) => (
               <div key={typeName} className="animate-stagger">
-                <h3 className="font-cn text-ink font-bold mb-3 flex items-center gap-2 text-lg drop-shadow-[1px_1px_0_rgba(255,107,53,0.2)]">
+                <h3 className={`font-cn text-ink font-bold mb-3 flex items-center gap-2 text-lg drop-shadow-[1px_1px_0_rgba(255,107,53,0.2)] ach-group-bar-${typeAchievements[0]?.type ?? 0} pl-2`}>
                   {/* 分组类型 emoji 与后跟类型名语义重复，aria-hidden 屏蔽装饰图标 */}
                   <span aria-hidden="true">{TYPE_LABELS[typeAchievements[0]?.type]?.emoji || '❓'}</span>
                   {typeName}
@@ -153,7 +165,9 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                     return (
                       <div
                         key={achievement.id}
-                        className={`bg-cream border-2 ${
+                        // 加 ach-bar-{type} 左侧色条按成就类型（对战/破坏/挂机/社交/等级/战力）区分色相
+                        // 与分组头部 ach-group-bar-* 同色呼应，形成"组别色带"帮助玩家定位
+                        className={`bg-cream border-2 ach-bar-${achievement.type} ${
                           // 已领取用 ink/40 灰阶表示归档态（原 green-500 脱离调色板）
                           achievement.claimed
                             ? 'border-ink/40'

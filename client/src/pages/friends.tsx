@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { friendApi, type Friend, type FriendRequest } from '@/api/friends';
+import { useAsyncEffect } from '@/hooks/use-async-effect';
 import { showToast } from '@/utils/toast';
 import { showApiError } from '@/utils/api-error';
 import { showConfirm } from '@/utils/confirm';
@@ -38,28 +39,25 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
     }
   }
 
-  // 内联初始加载：避免 eslint 跨过程分析标记 loadData 调用
-  // cancelled 标志防止组件卸载后 setState（React 19 推荐模式）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [friendsData, requestsData] = await Promise.all([
-          friendApi.getFriends().catch(() => []),
-          friendApi.getRequests().catch(() => []),
-        ]);
-        if (!cancelled) {
-          setFriends(friendsData);
-          setRequests(requestsData);
-        }
-      } catch (err) {
-        logger.error('加载好友数据失败', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // 初始加载：useAsyncEffect 内部维护 cancelled 守卫，避免组件卸载后 setState 警告
+  // 双请求并行触发后通过元组返回值一次性传递给 onSuccess，保持与原 Promise.all 语义一致
+  useAsyncEffect(
+    async () => {
+      const [friendsData, requestsData] = await Promise.all([
+        friendApi.getFriends().catch(() => []),
+        friendApi.getRequests().catch(() => []),
+      ]);
+      return [friendsData, requestsData] as const;
+    },
+    ([friendsData, requestsData]) => {
+      setFriends(friendsData);
+      setRequests(requestsData);
+    },
+    {
+      onError: (err) => logger.error('加载好友数据失败', err),
+      onFinally: () => setLoading(false),
+    }
+  );
 
   // 添加好友
   async function handleAddFriend() {
