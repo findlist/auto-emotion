@@ -16,6 +16,14 @@ import type {
   ActionInput,
   ScoreUpdateInput,
   FinishInput,
+  // 服务端→客户端事件 payload 契约：用于 emit 站点结构校验，避免内联对象字面量漂移
+  StatePayload,
+  ErrorPayload,
+  PlayerOfflinePayload,
+  GameStartPayload,
+  ActionPayload,
+  ScoreUpdatePayload,
+  FinishPayload,
 } from './events.js';
 import type { roomManager, Room } from './room-manager.js';
 import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
@@ -51,7 +59,8 @@ export interface Broadcaster {
  * 仅在 handlers.ts 内部使用，不对外导出，避免影响外部依赖图。
  */
 function broadcastRoomState(io: Broadcaster, room: Room): void {
-  io.to(room.id).emit(RoomEvents.STATE, { room });
+  // satisfies 校验内联对象结构匹配 StatePayload 契约，编译期擦除无运行时影响
+  io.to(room.id).emit(RoomEvents.STATE, { room } satisfies StatePayload);
 }
 
 /** handler 依赖：注入 socket/user/roomManager/io 便于测试替换 */
@@ -78,11 +87,11 @@ async function withErrorHandling<T>(
     await fn();
   } catch (err) {
     if (err instanceof AppError) {
-      socket.emit(RoomEvents.ERROR, { code: err.code, message: err.message });
+      socket.emit(RoomEvents.ERROR, { code: err.code, message: err.message } satisfies ErrorPayload);
     } else {
       // 复用 routes 层 getErrorMessage 工具：统一 unknown→string 兜底逻辑，避免散落三元
       const msg = getErrorMessage(err, fallbackMsg);
-      socket.emit(RoomEvents.ERROR, { message: msg });
+      socket.emit(RoomEvents.ERROR, { message: msg } satisfies ErrorPayload);
     }
   }
 }
@@ -168,7 +177,7 @@ export async function handleStart(data: StartInput, deps: HandlerDeps): Promise<
   await withErrorHandling(async () => {
     const room = await deps.roomManager.startGame(data.roomId, deps.user.userId);
     broadcastRoomState(deps.io, room);
-    deps.io.to(room.id).emit(GameEvents.START, { roomId: room.id });
+    deps.io.to(room.id).emit(GameEvents.START, { roomId: room.id } satisfies GameStartPayload);
   }, deps.socket, '开始游戏失败');
 }
 
@@ -187,7 +196,7 @@ export async function handleAction(
       action: data.action,
       payload: data.payload,
       timestamp: Date.now(),
-    });
+    } satisfies ActionPayload);
   }, deps.socket, '操作失败');
 }
 
@@ -206,7 +215,7 @@ export async function handleScoreUpdate(
       score: data.score,
       combo: data.combo || 0,
       timestamp: Date.now(),
-    });
+    } satisfies ScoreUpdatePayload);
   }, deps.socket, '分数上报失败');
 }
 
@@ -225,7 +234,7 @@ export async function handleFinish(
       finalScore: data.finalScore,
       result: data.result,
       timestamp: Date.now(),
-    });
+    } satisfies FinishPayload);
   }, deps.socket, '游戏结束处理失败');
 }
 
@@ -242,7 +251,7 @@ export function handleDisconnect(reason: string, deps: HandlerDeps): void {
   for (const roomId of deps.socket.rooms) {
     if (roomId === deps.socket.id) continue;
     try {
-      deps.socket.to(roomId).emit(RoomEvents.PLAYER_OFFLINE, { userId: deps.user.userId });
+      deps.socket.to(roomId).emit(RoomEvents.PLAYER_OFFLINE, { userId: deps.user.userId } satisfies PlayerOfflinePayload);
     } catch (err) {
       // 设计原因：使用结构化 logger 替代 raw console.error，与前序 websocket/index.ts 修复一致，
       // 保证 per-connection 断线广播失败日志与全项目 JSON 格式统一，便于生产环境日志聚合
