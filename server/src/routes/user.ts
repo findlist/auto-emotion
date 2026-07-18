@@ -4,6 +4,8 @@ import * as userService from '../services/user-service.js';
 import { validate } from '../middleware/validate.js';
 import { success } from '../utils/response.js';
 import { authMiddleware } from '../middleware/auth.js';
+// requireUser 与其他 12 个 routes 文件保持同一鉴权兜底范式，消除 req.user! 非空断言
+import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
@@ -31,8 +33,9 @@ const updateProfileSchema = z.object({
 
 // GET /api/users/profile
 router.get('/profile', authMiddleware, async (req, res) => {
-  const userId = req.user!.userId;
-  const profile = await userService.getProfile(userId);
+  const user = req.user;
+  if (!requireUser(res, user)) return;
+  const profile = await userService.getProfile(user.userId);
   success(res, profile);
 });
 
@@ -66,8 +69,9 @@ router.get('/profile', authMiddleware, async (req, res) => {
 
 // PUT /api/users/profile
 router.put('/profile', authMiddleware, validate(updateProfileSchema), async (req, res) => {
-  const userId = req.user!.userId;
-  const profile = await userService.updateProfile(userId, req.body);
+  const user = req.user;
+  if (!requireUser(res, user)) return;
+  const profile = await userService.updateProfile(user.userId, req.body);
   success(res, profile);
 });
 
@@ -88,8 +92,9 @@ router.put('/profile', authMiddleware, validate(updateProfileSchema), async (req
 
 // GET /api/users/pressure-stats
 router.get('/pressure-stats', authMiddleware, async (req, res) => {
-  const userId = req.user!.userId;
-  const stats = await userService.getPressureStats(userId);
+  const user = req.user;
+  if (!requireUser(res, user)) return;
+  const stats = await userService.getPressureStats(user.userId);
   success(res, stats);
 });
 
