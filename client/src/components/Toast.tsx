@@ -83,4 +83,5 @@ export function Toast({ type, message, duration = 3000, onClose }: ToastProps) {
   );
 }
 
-export type { ToastType, ToastProps };
+// 仅导出 ToastType：ToastProps 是组件内部实现契约，全仓零外部引用，无需暴露
+export type { ToastType };

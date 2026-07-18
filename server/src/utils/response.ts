@@ -1,20 +1,11 @@
 // server/src/utils/response.ts
 // 统一 API 响应封装：所有接口返回值需符合 ApiResponse 结构
+// 注：server 端不再单独声明 ApiResponse / ApiErrorResponse 接口——
+// client 端 client/src/types/api.ts 已有同结构定义并唯一被 http.ts 使用，
+// server 端 success/fail 函数直接以字面量形式输出响应体，避免双源维护漂移
 
 import { Response } from 'express';
 import { ErrorCode, errorCodeToHttpStatus } from './error.js';
-
-// 统一响应结构
-export interface ApiResponse<T = unknown> {
-  code: number;
-  message: string;
-  data: T | null;
-}
-
-// 错误响应结构（含校验错误明细）
-export interface ApiErrorResponse extends ApiResponse<null> {
-  errors?: unknown;
-}
 
 // 直接发送成功响应到客户端
 export function success<T>(res: Response, data?: T, message = 'ok'): void {

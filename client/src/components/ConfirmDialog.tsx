@@ -175,4 +175,5 @@ export function ConfirmDialog({
   );
 }
 
-export type { ConfirmDialogProps, ConfirmType };
+// 仅导出 ConfirmType：ConfirmDialogProps 是组件内部实现契约，全仓零外部引用，无需暴露
+export type { ConfirmType };

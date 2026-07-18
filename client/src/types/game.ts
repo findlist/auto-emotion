@@ -1,12 +1,8 @@
 /**
  * AI 生成契约（与后端 server/src/ai 对齐）
+ * 注：MonsterGenerateInput 已收敛到 server/src/ai/monster-generator.ts 单一源
+ * （client 端零引用且后端已独立定义同名接口，避免双源维护漂移）
  */
-
-/** 情绪怪兽生成输入 */
-export interface MonsterGenerateInput {
-  stressKeywords: string[];
-  difficulty: number; // 1-5
-}
 
 /** 怪兽技能 */
 export interface MonsterSkill {
