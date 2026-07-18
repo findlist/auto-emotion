@@ -5,6 +5,7 @@ import { SceneManager } from '@/game/core/scene-manager';
 import { AssetLoader } from '@/game/core/asset-loader';
 import { BattleScene } from '@/game/scenes/battle-scene';
 import type { EffectTier } from '@/game/effects/particle';
+import type { GameMode } from '@/types/game';
 import Loading from '@/components/Loading';
 import { getSocket, roomActions } from '@/websocket';
 import { useUserStore } from '@/stores/user-store';
@@ -12,9 +13,6 @@ import { logger } from '@/utils/logger';
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
-
-/** 游戏模式 */
-type GameMode = 'boss' | 'brawl' | 'speed';
 
 /** 档位中文标签 */
 const TIER_LABEL: Record<EffectTier, string> = {

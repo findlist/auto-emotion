@@ -7,6 +7,7 @@ import { BossGame, type BossLevelData } from '@/game/games/boss-game';
 import { BrawlGame, type BrawlLevelData } from '@/game/games/brawl-game';
 import { SpeedGame } from '@/game/games/speed-game';
 import type { EffectTier } from '@/game/effects/particle';
+import type { GameMode } from '@/types/game';
 
 /** 调色板 */
 const PALETTE = [0xff3d7f, 0xffd93d, 0xff6b35, 0x3dd9b5];
@@ -32,9 +33,6 @@ interface GameActionPayload {
   payload?: unknown;
   timestamp: number;
 }
-
-/** 游戏模式 */
-type GameMode = 'boss' | 'brawl' | 'speed';
 
 /**
  * 对战战斗场景（多人）
