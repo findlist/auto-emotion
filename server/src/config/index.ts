@@ -5,14 +5,10 @@
 // 加载 .env 文件到 process.env（必须在读取环境变量之前执行）
 import 'dotenv/config';
 
-interface DbConfig {
-  host: string;
-  port: number;
-  user: string;
-  password: string;
-  name: string;
-}
-
+// 设计原因：database.ts 直接通过 getEnv 读取 DB_* 环境变量，原 DbConfig 接口与
+// config.db 字段全仓零引用，且默认值与 database.ts 不一致（'postgres' vs 'localhost'）
+// 构成双源维护漂移反模式，按 YAGNI 原则删除；如未来需统一 DB 配置入口，应让
+// database.ts 改用 config.db 而非反向保留死代码
 interface RedisConfig {
   host: string;
   port: number;
@@ -31,7 +27,6 @@ interface Config {
   jwtSecret: string;
   // WebSocket CORS 允许来源：生产环境应配置具体域名，开发环境默认 * 便于本地调试
   corsOrigin: string;
-  db: DbConfig;
   redis: RedisConfig;
   ai: AiConfig;
 }
@@ -71,13 +66,6 @@ export const config: Config = {
   // 用 trim() || '*' 而非 ?? '*'：?? 仅处理 null/undefined，用户 cp .env.example .env 后
   // CORS_ORIGIN 为空字符串（falsy），?? 不会触发 fallback 导致 corsOrigin=''，Socket.IO 会拒绝所有跨域握手
   corsOrigin: process.env.CORS_ORIGIN?.trim() || '*',
-  db: {
-    host: process.env.DB_HOST ?? 'postgres',
-    port: toInt(process.env.DB_PORT, 5432),
-    user: process.env.DB_USER ?? 'emotion',
-    password: process.env.DB_PASSWORD as string,
-    name: process.env.DB_NAME ?? 'emotion_burst',
-  },
   redis: {
     host: process.env.REDIS_HOST ?? 'redis',
     port: toInt(process.env.REDIS_PORT, 6379),
