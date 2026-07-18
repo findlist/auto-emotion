@@ -28,7 +28,7 @@ const HTTP_STATUS_TOAST_MAP: Record<number, ApiErrorToastConfig> = {
  * 设计原因：拦截器 reject 的是普通对象（非 Error 实例），业务层 catch (err) 中 err 为 unknown，
  * 需类型守卫收敛后才能安全读取 httpStatus/message，避免 TS 报错
  */
-function isErrorResponse(err: unknown): err is ErrorResponse {
+export function isErrorResponse(err: unknown): err is ErrorResponse {
   return typeof err === 'object' && err !== null && 'message' in err;
 }
 

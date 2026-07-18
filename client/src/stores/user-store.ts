@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { authApi, userApi } from '@/api/auth';
 import { disconnect as disconnectSocket } from '@/websocket';
-import type { ErrorResponse } from '@/types/api';
+import { isErrorResponse } from '@/utils/api-error';
 import type { LoginResult, User } from '@/types/user';
 
 /**
@@ -101,8 +101,8 @@ export const useUserStore = create<UserState>((set) => ({
       // 区分错误类型：仅 401（token 真正失效）才清理并重新游客登录
       // 网络错误（httpStatus === undefined，如服务器宕机/超时/DNS 失败）保留 token，
       // 让用户下次操作时重试，避免网络波动导致已登录用户被误登出
-      const httpStatus = (err as ErrorResponse | undefined)?.httpStatus;
-      if (httpStatus === 401) {
+      // 用 isErrorResponse 类型守卫收敛 unknown，替代 as ErrorResponse 类型断言
+      if (isErrorResponse(err) && err.httpStatus === 401) {
         disconnectSocket();
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
