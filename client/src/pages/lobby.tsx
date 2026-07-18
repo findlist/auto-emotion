@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { useUserStore } from '@/stores/user-store';
-import { useRoomStore } from '@/stores/room-store';
+import { useRoomStore, type Player } from '@/stores/room-store';
 import { connect, roomActions, waitForConnection } from '@/websocket/index';
 import http from '@/api/http';
 import { getErrorMessage } from '@/utils/error';
@@ -37,8 +37,13 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
       // 通过 API 创建房间
       // 设计原因:改用 http 实例复用 axios 拦截器,自动注入 JWT 与解包 ApiResponse,
       // 避免原生 fetch 手动读 token 的鉴权风险与响应格式不一致问题
-      const res = await http.post('/room/create', { nickname: user?.nickname });
-      const data = res.data as { roomId: string; hostId: string; players: never[] };
+      // 设计原因：用 http.post<T> 泛型让 TS 自动推导 res.data 类型，替代 as 类型断言；
+      // players 类型修正为 Player[]（后端 createRoom 实际返回房主一人，原 never[] 是类型 lie）
+      const res = await http.post<{ roomId: string; hostId: string; players: Player[] }>(
+        '/room/create',
+        { nickname: user?.nickname }
+      );
+      const data = res.data;
 
       useRoomStore.getState().setRoom({
         roomId: data.roomId,
@@ -102,11 +107,16 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
         throw new Error('WebSocket 连接异常，未能获取 socketId');
       }
 
-      const res = await http.post('/match/quick', {
-        nickname: user?.nickname,
-        socketId,
-      });
-      const data = res.data as { roomId?: string; inQueue?: boolean; queueCount?: number };
+      // 设计原因：用 http.post<T> 泛型让 TS 自动推导 res.data 类型，替代 as 类型断言；
+      // 与 /room/create 调用保持同一类型参数化范式
+      const res = await http.post<{ roomId?: string; inQueue?: boolean; queueCount?: number }>(
+        '/match/quick',
+        {
+          nickname: user?.nickname,
+          socketId,
+        }
+      );
+      const data = res.data;
 
       // 匹配未满 4 人:后端返回 { inQueue: true, queueCount },不进入房间页等待 socket 同步
       if (data.inQueue) {
