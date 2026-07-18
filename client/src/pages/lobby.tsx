@@ -62,13 +62,19 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
   }
 
   /** 加入房间 */
-  function handleJoinRoom() {
+  async function handleJoinRoom() {
     if (!roomCode.trim()) return;
     try {
       // resetRoom 先于 setLoading，避免 reset 覆盖 loading 状态（同 handleCreateRoom）
       resetRoom();
       setLoading(true);
       connect();
+      // 等待连接完成以获取有效 socket.id：connect() 同步返回时 socket.id 尚未就绪，
+      // socket.io 连接握手是异步的，需等待 connect 事件后 socket.id 才可用。
+      // 后端 room:join 处理依赖 socket.id 关联用户与房间，若 emit 在 connect 事件前到达，
+      // 后端可能因 socketId 未就绪而无法正确关联，造成房间状态错乱
+      // 与 handleQuickMatch 保持一致（H-13 修复同类问题）
+      await waitForConnection();
       roomActions.joinRoom(roomCode.trim().toUpperCase(), user?.nickname ?? '未知');
       onEnterRoom();
     } catch (err) {

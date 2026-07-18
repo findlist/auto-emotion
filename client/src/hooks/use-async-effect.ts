@@ -30,10 +30,14 @@ export function useAsyncEffect<T>(
   const onErrorRef = useRef(options.onError);
   const onFinallyRef = useRef(options.onFinally);
 
-  effectRef.current = effect;
-  onSuccessRef.current = onSuccess;
-  onErrorRef.current = options.onError;
-  onFinallyRef.current = options.onFinally;
+  // 每次渲染 commit 后同步更新 ref，确保 effect 内部读取的回调始终为最新版本
+  // 放在 useEffect 内避免 render 期间访问 ref（React 19 react-hooks/refs 规则）
+  useEffect(() => {
+    effectRef.current = effect;
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = options.onError;
+    onFinallyRef.current = options.onFinally;
+  });
 
   useEffect(() => {
     let cancelled = false;

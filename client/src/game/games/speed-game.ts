@@ -336,6 +336,9 @@ export class SpeedGame {
   private switchMiniGame(type: MiniGameType) {
     this.currentMiniGame = type;
     this.miniGameTimer = 0;
+    // 重置 spawnTimer：避免切换瞬间残留旧值（可能已远超 1000ms）立即生成目标，
+    // 破坏"每秒生成一个"的节奏，玩家无反应时间
+    this.spawnTimer = 0;
 
     // 清理旧小游戏的延迟移除定时器，防止定时器触发时操作已销毁的目标抛 PixiJS 错误
     this.pendingTimers.forEach(clearTimeout);
@@ -410,6 +413,9 @@ export class SpeedGame {
   private onBubbleHit(bubble: Bubble) {
     bubble.hit = true;
     this.world.removeChild(bubble.container);
+    // 显式 destroy 释放 Container 内 Sprite/Graphics 的 GPU 资源：
+    // removeChild 只是从显示列表移除，不释放纹理；长时间游玩会累积 GPU 内存
+    bubble.destroy();
     this.targets = this.targets.filter((t) => t !== bubble);
 
     this.particles.spawn(bubble.x, bubble.y, 0xff69b4, 'mid');
@@ -426,6 +432,8 @@ export class SpeedGame {
     const timer = setTimeout(() => {
       this.pendingTimers.delete(timer);
       this.world.removeChild(tape.container);
+      // 显式 destroy 释放 GPU 资源，避免长时间游玩累积 Container/Sprite 内存泄漏
+      tape.destroy();
       this.targets = this.targets.filter((t) => t !== tape);
     }, 500);
     this.pendingTimers.add(timer);
@@ -443,6 +451,8 @@ export class SpeedGame {
     const timer = setTimeout(() => {
       this.pendingTimers.delete(timer);
       this.world.removeChild(watermelon.container);
+      // 显式 destroy 释放 GPU 资源，避免长时间游玩累积 Container/Sprite 内存泄漏
+      watermelon.destroy();
       this.targets = this.targets.filter((t) => t !== watermelon);
     }, 300);
     this.pendingTimers.add(timer);
@@ -481,6 +491,9 @@ export class SpeedGame {
     if (!this.isRunning) return;
 
     const { x, y } = e;
+
+    // 切换小游戏瞬间 targets 短暂为空，此时点击不应误判为"未命中"清空 combo
+    if (this.targets.length === 0) return;
 
     // 检查是否命中目标
     for (const target of this.targets) {

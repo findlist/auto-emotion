@@ -287,6 +287,10 @@ export class BrawlGame {
   }
 
   private handlePointerDown(e: FederatedPointerEvent): void {
+    // 状态守卫：游戏结算后 isRunning=false，禁止再射击避免：
+    // 1) 投射物加入 projectiles 但 update 不再执行导致残留；
+    // 2) shootToward 触发 onLocalShoot 把已结束游戏中的"射击"上报后端，造成幽灵操作
+    if (!this.isRunning) return;
     if (e.button === 0) {
       this.shootToward(this.localPlayerId, this.mouse.x, this.mouse.y);
     }

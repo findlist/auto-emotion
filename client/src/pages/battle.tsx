@@ -380,6 +380,15 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       if (sceneManagerRef.current) sceneManagerRef.current.destroy();
       if (assetsRef.current) assetsRef.current.destroy();
       if (engineRef.current) engineRef.current.destroy();
+      // 显式置空 ref：React 19 StrictMode 下 effect 执行 mount→cleanup→mount 序列，
+      // useRef 在同一组件实例中持久化不会自动重置。若不置空，第二次 mount 时
+      // battleSceneRef.current 仍指向已 destroy 的旧 BattleScene，onLevelReady 内
+      // `if (battleSceneRef.current) return;` 会跳过重建，导致游戏画面无法初始化
+      battleSceneRef.current = null;
+      sceneManagerRef.current = null;
+      assetsRef.current = null;
+      engineRef.current = null;
+      tickerCallbackRef.current = null;
     };
   // 依赖 roomId/mode，避免重渲染时重复注册监听；nickname 通过 ref 读取无需作为依赖（M-19），
   // socket 实例由 getSocket 全局单例保证
@@ -416,8 +425,13 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
   }
 
   if (isLoading) {
+    // loading 容器加 bg-ink bg-glow-pink 氛围层
+    // 设计原因：Loading 组件本身专为深色背景设计（text-cream/60 + border-cream border-t-pink），
+    // 原 cream 背景导致 cream 色文字/spinner 几乎不可见。改用 bg-ink + bg-glow-pink 后：
+    // 1) Loading 组件可读性恢复正常；2) 与 login/register 页深色氛围一致；
+    // 3) "等待 AI 生成关卡"作为对战前奏，深色氛围强化"进入战斗"的沉浸感
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-ink bg-glow-pink">
         <Loading size="lg" text="等待 AI 生成关卡数据..." />
       </div>
     );
@@ -567,13 +581,14 @@ export function SettlementPopup({ settlement, onBack }: { settlement: Settlement
   // MVP 取分数最高者（原逻辑依赖后端下发的 mvpPlayerId，现由前端按分数计算）
   const mvp = sorted[0];
 
-  // 前三名奖牌色：与排行榜保持一致的金/银/铜
-  // 银/铜改用 ink 灰阶与 orange，避免 gray-400/amber-700 脱离 Neo-brutalism 调色板
-  const medalClass = (idx: number) => {
-    if (idx === 0) return 'text-yellow';
-    if (idx === 1) return 'text-ink/50';
-    if (idx === 2) return 'text-orange';
-    return 'text-ink';
+  // 前三名奖牌样式：与排行榜保持一致的 medal-gold/silver/bronze 圆形奖牌
+  // 设计原因：原仅文字色区分（text-yellow/ink/50/orange），与排行榜 Top3 视觉语言不一致；
+  // 复用 medal-* 类让结算弹窗与排行榜同语义（Top3 排名）共享视觉模式
+  const medalBadgeClass = (idx: number) => {
+    if (idx === 0) return 'medal-gold medal-shine text-ink';
+    if (idx === 1) return 'medal-silver medal-shine text-ink';
+    if (idx === 2) return 'medal-bronze medal-shine text-cream';
+    return 'bg-cream text-ink border-2 border-ink/30';
   };
 
   return (
@@ -608,10 +623,21 @@ export function SettlementPopup({ settlement, onBack }: { settlement: Settlement
                   : 'border-ink/20'
               }`}
             >
-              <span className={`font-cn ${medalClass(idx)} ${idx === 0 ? 'font-bold' : ''}`}>
-                {idx + 1}. {p.nickname}
-              </span>
-              <span className="font-mono font-bold">{p.score} 分</span>
+              {/* 排名圆形奖牌 badge：与排行榜 Top3 视觉一致
+                  Top1/2/3 用 medal-gold/silver/bronze + medal-shine 光泽；
+                  4+ 名用 cream + ink/30 边框作为"未获奖"中性态 */}
+              <div className="flex items-center gap-2 min-w-0">
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center font-mono font-bold text-xs flex-shrink-0 ${medalBadgeClass(idx)}`}
+                  aria-hidden="true"
+                >
+                  {idx + 1}
+                </div>
+                <span className={`font-cn text-ink truncate ${idx === 0 ? 'font-bold' : ''}`}>
+                  {p.nickname}
+                </span>
+              </div>
+              <span className="font-mono font-bold flex-shrink-0 ml-2">{p.score} 分</span>
             </div>
           ))}
         </div>
