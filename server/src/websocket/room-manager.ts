@@ -249,6 +249,10 @@ export const roomManager = {
           if (!latestRoom) return;
           latestRoom.status = 'ready';
           await redis.setex(`room:${room.id}`, ROOM_TTL, serializeRoom(latestRoom));
+          // 广播 STATE 通知前端房间已恢复 ready 状态：客户端 UI 据此切回准备界面允许重试
+          // 设计原因：原仅广播 ERROR，前端虽知开局失败但 status 仍停留在 generating，
+          // 导致准备/开始按钮永久禁用，房间实质卡死
+          this.broadcast(room.id, RoomEvents.STATE, { room: latestRoom });
         }).catch((recoverErr) => {
           // 房间状态恢复失败时记录日志，便于排查房间卡死在 generating 的问题
           // 不抛错以避免阻塞 finally 中的锁释放；房间仍可由 TTL 过期或玩家重连清理

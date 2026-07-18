@@ -5,6 +5,10 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import redis from '../config/redis.js';
 import { ErrorCode, AppError } from '../utils/error.js';
+// 引入 config：复用启动校验后的 jwtSecret，避免散落 process.env.JWT_SECRET 读取
+// 设计原因：config 在启动时已 assertRequired 校验过 JWT_SECRET 非空，运行时直接读取
+// 减少对 process.env 的散点访问，便于后续替换为密钥管理服务
+import { config } from '../config/index.js';
 
 export interface AuthPayload {
   userId: string;
@@ -41,7 +45,8 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET!) as AuthPayload;
+    // 复用 config.jwtSecret：启动时已校验非空，避免运行时 process.env 读取散点
+    const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
     req.user = payload;
     next();
   } catch {

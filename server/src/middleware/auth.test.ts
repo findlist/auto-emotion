@@ -19,6 +19,15 @@ vi.mock('jsonwebtoken', () => ({
   },
 }));
 
+// mock config：authMiddleware 改用 config.jwtSecret 后，vi.stubEnv 在 beforeEach 中设置
+// 已无法影响模块加载时读取的 config 值（config 在 import 时即固化），故直接 mock config 模块
+// 设计原因：测试只关心 jwt.verify 收到的 secret 与配置一致，不依赖环境变量加载顺序
+vi.mock('../config/index.js', () => ({
+  config: {
+    jwtSecret: 'test-secret',
+  },
+}));
+
 import { authMiddleware } from './auth.js';
 import redis from '../config/redis.js';
 import jwt from 'jsonwebtoken';
@@ -33,7 +42,6 @@ function createMockRequest(authHeader?: string): Request {
 describe('auth JWT 认证中间件', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('JWT_SECRET', 'test-secret');
   });
 
   describe('令牌缺失场景', () => {

@@ -55,6 +55,12 @@ import shopRouter from './routes/shop.js';
 const app = express();
 // 端口从 config 读取（已在 config 中完成解析与默认值处理）
 
+// trust proxy：生产环境通常位于 Nginx/CDN 后，未设置时 req.ip 会取代理 IP 而非真实客户端 IP
+// 设计原因：限流中间件依赖 req.ip 区分用户，未启用 trust proxy 时所有请求 IP 都显示为代理服务器
+// 导致限流把所有用户当作同一 IP，单用户限流失效或全员被误限；'loopback, linklocal, uniquelocal'
+// 信任本机/内网代理（生产 Nginx 在同 K8s 集群内），公网 IP 不被自动信任避免伪造
+app.set('trust proxy', 'loopback, linklocal, uniquelocal');
+
 // JSON 解析中间件
 app.use(express.json());
 
@@ -193,7 +199,18 @@ void startServer();
  * 顺序关闭 io → httpServer → pool → redis，可让房间内玩家收到 disconnect 通知，
  * 未完成请求正常响应，避免连接粗暴断开导致脏数据。
  */
+// shuttingDown 标记：收到 SIGTERM/SIGINT 后置 true，中间件据此拒绝新请求快速失败
+// 设计原因：未标记时优雅关闭期间仍接收新请求，httpServer.close 会等待所有 keep-alive
+// 连接释放后才退出，可能导致进程长时间卡在退出阶段超出 K8s 宽限期被 SIGKILL 强杀
+let shuttingDown = false;
+export function isShuttingDown(): boolean {
+  return shuttingDown;
+}
+
 async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
+  // 防止重复触发：SIGTERM 后 K8s 可能再发 SIGINT，第二次进入会重复执行 io.close 等
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.log(`收到 ${signal}，开始优雅关闭...`);
   // 1. 关闭 Socket.IO：停止接受新连接并断开现有（触发客户端 reconnect 逻辑）
   // 设计原因：io.close 是异步操作（需断开所有客户端连接），原实现未 await 直接调用 httpServer.close，
@@ -206,8 +223,16 @@ async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
   // 2. 关闭 HTTP 服务器：停止监听端口
   // 设计原因：httpServer.close 是回调 API，未 await 会在端口未释放时就执行 pool.end/redis.quit，
   // 新进程启动时可能因端口仍被占用而 listen 失败；用 Promise 包装确保端口释放完成
+  // 加超时兜底：连接保持 keep-alive 时 close 会等到所有连接释放，超时后强制退出避免进程卡死
   await new Promise<void>((resolve) => {
-    httpServer.close(() => resolve());
+    const forceExitTimer = setTimeout(() => {
+      console.warn('httpServer.close 超时 10s，强制继续关闭流程');
+      resolve();
+    }, 10000);
+    httpServer.close(() => {
+      clearTimeout(forceExitTimer);
+      resolve();
+    });
   });
   try {
     // 3. 释放数据库连接池
@@ -224,3 +249,32 @@ async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
 
 process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
+
+// httpServer 错误处理：未监听时 EADDRINUSE 等错误会冒泡到进程导致 uncaughtException
+// 设计原因：listen 后端口冲突、连接重置等错误需结构化日志便于排查；
+// 注册 listener 防止进程因未处理 error 事件崩溃
+httpServer.on('error', (err: NodeJS.ErrnoException) => {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      message: 'HTTP 服务器错误',
+      error: err.message,
+      code: err.code,
+      timestamp: new Date().toISOString(),
+    }),
+  );
+});
+
+// 未捕获的 Promise rejection 兜底：避免 Node 默认行为（打印后继续）掩盖致命错误
+// 设计原因：原实现依赖 defaultUnhandledRejection 行为，生产环境 async 路由抛错若无 catch 会变 unhandledRejection，
+// 注册 listener 让错误显式记录便于监控告警；不在生产环境 process.exit(1) 避免单请求异常拖垮整个进程
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      message: '未处理的 Promise 拒绝',
+      error: reason instanceof Error ? reason.message : String(reason),
+      timestamp: new Date().toISOString(),
+    }),
+  );
+});

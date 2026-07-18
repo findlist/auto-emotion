@@ -127,34 +127,33 @@ export async function getAchievements(userId: string): Promise<AchievementWithPr
  * 更新成就进度
  */
 export async function updateAchievementProgress(userId: string, type: number, delta: number): Promise<void> {
-  // 获取该类型的成就
-  const result = await pool.query(
-    `SELECT a.id, a.target, COALESCE(ua.progress, 0) as progress, ua.is_completed as completed, ua.id as user_achievement_id
-     FROM achievements a
-     LEFT JOIN user_achievements ua ON ua.achievement_id = a.id AND ua.user_id = $1
-     WHERE a.type = $2`,
-    [userId, type]
-  );
+  // 事务 + advisory lock 串行化同用户同类型的并发进度更新
+  // 设计原因：原实现 SELECT→计算→UPDATE 非原子，并发请求读到相同 progress 后各自 +delta，
+  // 后写覆盖先写导致进度丢失（如同时 +1 应为 +2，实际只 +1）
+  return withTransaction(async (tx) => {
+    await advisoryXactLock(tx, `${userId}:${type}`);
 
-  for (const row of result.rows) {
-    if (row.completed) continue;
+    const result = await tx.query(
+      `SELECT id, target FROM achievements WHERE type = $1`,
+      [type]
+    );
 
-    const newProgress = row.progress + delta;
-    const completed = newProgress >= row.target;
-
-    if (row.user_achievement_id) {
-      await pool.query(
-        `UPDATE user_achievements SET progress = $1, is_completed = $2 WHERE id = $3`,
-        [newProgress, completed, row.user_achievement_id]
-      );
-    } else {
-      await pool.query(
+    for (const row of result.rows) {
+      // ON CONFLICT 原子 UPSERT：已存在则累加 progress；不存在则插入初始 progress
+      // WHERE NOT user_achievements.is_completed 跳过已完成的成就，避免重复累加
+      // 设计原因：原 SELECT+UPDATE 两步操作在事务外执行，并发请求各自计算 newProgress 后写覆盖；
+      // 改为单条 SQL 让数据库在锁内原子累加，消除 read-then-write 竞态
+      await tx.query(
         `INSERT INTO user_achievements (user_id, achievement_id, progress, is_completed)
-         VALUES ($1, $2, $3, $4)`,
-        [userId, row.id, newProgress, completed]
+         VALUES ($1, $2, $3, ($3 >= $4))
+         ON CONFLICT (user_id, achievement_id) DO UPDATE SET
+           progress = user_achievements.progress + $3,
+           is_completed = (user_achievements.progress + $3 >= $4)
+         WHERE NOT user_achievements.is_completed`,
+        [userId, row.id, delta, row.target]
       );
     }
-  }
+  });
 }
 
 /**

@@ -161,11 +161,15 @@ export async function acceptFriendRequest(
       [requestId]
     );
 
-    // 创建双向好友关系
+    // 创建反向好友关系：原 pending 记录方向为 (fromUserId → toUserId)，
+    // UPDATE 已将其设为 accepted；此处 INSERT 需建立反向记录 (toUserId → fromUserId)
+    // 才能让接收者在 getFriends 中查到（f.user_id = 接收者）。
+    // 原参数 [fromUserId, toUserId] 会触发 UNIQUE(user_id, friend_id) ON CONFLICT DO NOTHING 被忽略，
+    // 导致接收者接受请求后看不到对方为好友（单向好友关系）
     await tx.query(
       `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, 'accepted')
        ON CONFLICT DO NOTHING`,
-      [fromUserId, toUserId]
+      [toUserId, fromUserId]
     );
 
     return { success: true };

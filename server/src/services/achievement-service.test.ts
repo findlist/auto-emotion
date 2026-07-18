@@ -96,81 +96,66 @@ describe('achievement-service 成就服务', () => {
   });
 
   describe('updateAchievementProgress 进度更新', () => {
-    it('已完成的成就跳过更新', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ id: 1, target: 100, progress: 100, completed: true, user_achievement_id: 5 }],
-      });
-
-      await updateAchievementProgress('u1', 0, 10);
-
-      // 仅类型查询 1 次，无后续 UPDATE/INSERT
-      expect(mocks.queryMock).toHaveBeenCalledTimes(1);
-    });
-
-    it('已有记录走 UPDATE 路径，未达目标 completed=false', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ id: 1, target: 100, progress: 50, completed: false, user_achievement_id: 5 }],
-      });
+    it('单条成就：事务内执行 advisory lock + INSERT...ON CONFLICT 原子累加', async () => {
+      // 事务序列：BEGIN → advisory lock → SELECT type → INSERT ON CONFLICT → COMMIT
+      // 按 clientQueryMock 调用顺序依次 mock 返回，SELECT 返回单个成就触发一次 INSERT
+      mocks.clientQueryMock
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // SELECT pg_advisory_xact_lock
+        .mockResolvedValueOnce({ rows: [{ id: 1, target: 100 }] }) // SELECT type
+        .mockResolvedValueOnce({ rows: [] }); // INSERT ON CONFLICT
 
       await updateAchievementProgress('u1', 0, 30);
 
-      // newProgress = 50 + 30 = 80, completed = 80 >= 100 ? false
-      expect(mocks.queryMock).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE user_achievements'),
-        [80, false, 5]
-      );
+      const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql);
+      expect(sqls[0]).toBe('BEGIN');
+      expect(sqls[1]).toContain('pg_advisory_xact_lock');
+      expect(sqls[2]).toContain('SELECT id, target FROM achievements WHERE type =');
+      expect(sqls[3]).toContain('INSERT INTO user_achievements');
+      expect(sqls[3]).toContain('ON CONFLICT (user_id, achievement_id)');
+      expect(sqls[4]).toBe('COMMIT');
+      // release 必须调用，避免连接泄漏
+      expect(mocks.releaseMock).toHaveBeenCalled();
     });
 
-    it('已有记录达到目标 completed=true', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ id: 1, target: 100, progress: 50, completed: false, user_achievement_id: 5 }],
-      });
-
-      await updateAchievementProgress('u1', 0, 60);
-
-      // newProgress = 110, completed = 110 >= 100 ? true
-      expect(mocks.queryMock).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE user_achievements'),
-        [110, true, 5]
-      );
-    });
-
-    it('无记录走 INSERT 路径', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [{ id: 1, target: 100, progress: 0, completed: false, user_achievement_id: null }],
-      });
-
-      await updateAchievementProgress('u1', 0, 30);
-
-      expect(mocks.queryMock).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO user_achievements'),
-        ['u1', 1, 30, false]
-      );
-    });
-
-    it('多个成就循环：已完成跳过、已有 UPDATE、无记录 INSERT 并存', async () => {
-      mocks.queryMock.mockResolvedValueOnce({
-        rows: [
-          { id: 1, target: 100, progress: 100, completed: true, user_achievement_id: 5 }, // 跳过
-          { id: 2, target: 50, progress: 20, completed: false, user_achievement_id: 6 }, // UPDATE
-          { id: 3, target: 10, progress: 0, completed: false, user_achievement_id: null }, // INSERT
-        ],
-      });
+    it('多个成就循环：每个成就都执行 INSERT...ON CONFLICT', async () => {
+      mocks.clientQueryMock
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // SELECT pg_advisory_xact_lock
+        .mockResolvedValueOnce({
+          rows: [
+            { id: 1, target: 100 },
+            { id: 2, target: 50 },
+            { id: 3, target: 10 },
+          ],
+        }) // SELECT type 返回 3 个成就
+        .mockResolvedValueOnce({ rows: [] }) // INSERT 1
+        .mockResolvedValueOnce({ rows: [] }) // INSERT 2
+        .mockResolvedValueOnce({ rows: [] }); // INSERT 3
 
       await updateAchievementProgress('u1', 0, 5);
 
-      // 共 3 次调用：1 次类型查询 + 1 次 UPDATE + 1 次 INSERT
-      expect(mocks.queryMock).toHaveBeenCalledTimes(3);
-      // UPDATE 成就2：25, false
-      expect(mocks.queryMock).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE user_achievements'),
-        [25, false, 6]
+      // 3 个成就 = 3 次 INSERT ON CONFLICT
+      const inserts = mocks.clientQueryMock.mock.calls.filter(([sql]) =>
+        typeof sql === 'string' && sql.includes('INSERT INTO user_achievements')
       );
-      // INSERT 成就3
-      expect(mocks.queryMock).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO user_achievements'),
-        ['u1', 3, 5, false]
-      );
+      expect(inserts).toHaveLength(3);
+      // 验证 COMMIT 与 release
+      const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql);
+      expect(sqls[sqls.length - 1]).toBe('COMMIT');
+      expect(mocks.releaseMock).toHaveBeenCalled();
+    });
+
+    it('事务失败触发 ROLLBACK 并透传错误', async () => {
+      mocks.clientQueryMock
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockRejectedValueOnce(new Error('advisory lock 失败'));
+
+      await expect(updateAchievementProgress('u1', 0, 5)).rejects.toThrow('advisory lock 失败');
+
+      const sqls = mocks.clientQueryMock.mock.calls.map(([sql]) => sql);
+      expect(sqls).toContain('ROLLBACK');
+      expect(mocks.releaseMock).toHaveBeenCalled();
     });
   });
 

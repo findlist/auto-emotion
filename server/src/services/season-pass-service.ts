@@ -143,10 +143,14 @@ export async function buySeasonPass(userId: string): Promise<{ success: true }> 
 /**
  * 添加赛季经验
  */
-// 仅更新用户赛季经验，无返回值；调用方按 fire-and-forget 处理
+// 仅更新用户赛季经验并处理等级提升，无返回值；调用方按 fire-and-forget 处理
 export async function addSeasonExp(userId: string, exp: number): Promise<void> {
+  // 设计原因：原实现仅累加 season_exp 不更新 season_level，导致用户经验持续增长但等级始终为 1，
+  // 后续 claimSeasonReward 校验 user.season_level < level 永远抛"等级不足"，奖励无法领取
+  // 此处在 UPDATE 时根据累加后的 season_exp 重算 season_level（每级 100 exp），
+  // 用 GREATEST 防止降级；season_level/season_exp 均为 INT，PostgreSQL 整数除法直接得整级数
   await pool.query(
-    `UPDATE users SET season_exp = season_exp + $1 WHERE id = $2`,
+    `UPDATE users SET season_exp = season_exp + $1, season_level = GREATEST(season_level, (season_exp + $1) / 100 + 1) WHERE id = $2`,
     [exp, userId]
   );
 }
