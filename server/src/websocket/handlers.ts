@@ -24,6 +24,8 @@ import type {
   ActionPayload,
   ScoreUpdatePayload,
   FinishPayload,
+  // handleJoin 重连恢复时补发 LEVEL_READY 用到的 payload 契约
+  LevelReadyPayload,
 } from './events.js';
 import type { roomManager, Room } from './room-manager.js';
 import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
@@ -111,7 +113,8 @@ export async function handleJoin(
     // 重连恢复：playing 状态下能成功 joinRoom 的必为断线重连玩家（新玩家会被 joinRoom 拒绝）
     // 此时 room.levelData 已由 generateLevelAndEvents 生成，补发给重连玩家以重建场景
     if (room.status === 'playing' && room.levelData) {
-      deps.socket.emit(GameEvents.LEVEL_READY, room.levelData);
+      // satisfies 校验 emit payload 契约，与 handlers.ts 其他 8 处 emit 站点保持同一范式
+      deps.socket.emit(GameEvents.LEVEL_READY, room.levelData satisfies LevelReadyPayload);
     }
   }, deps.socket, '加入房间失败');
 }
