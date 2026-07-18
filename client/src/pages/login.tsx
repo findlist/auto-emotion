@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { useUserStore } from '@/stores/user-store';
+import { getErrorMessage } from '@/utils/error';
 
 interface LoginPageProps {
   onNavigateToRegister: () => void;
@@ -25,7 +26,8 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
       await login(phone, password);
       onLoginSuccess();
     } catch (err) {
-      setError((err as Error).message || '登录失败');
+      // err 实际是 axios 拦截器 reject 的 ErrorResponse 对象，由 getErrorMessage 内部读取 message 字段
+      setError(getErrorMessage(err, '登录失败'));
     }
   };
 
@@ -105,8 +107,10 @@ export default function LoginPage({ onNavigateToRegister, onLoginSuccess }: Logi
             </button>
           </form>
 
-          {/* 注册链接 */}
-          <div className="mt-6 text-center">
+          {/* 注册链接：上方加虚线分隔，区分"主操作（登录）"与"次要切换（去注册）"
+              设计原因：原链接直接跟在提交按钮下方，视觉上与主操作混在一起；
+              虚线分隔比实线轻量，不喧宾夺主，让用户先聚焦主操作再考虑切换 */}
+          <div className="mt-6 pt-4 divider-dashed text-center">
             <span className="text-ink/60 font-mono text-sm">还没有账号？</span>
             <button
               onClick={onNavigateToRegister}

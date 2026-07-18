@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { useUserStore } from '@/stores/user-store';
+import { getErrorMessage } from '@/utils/error';
 
 interface RegisterPageProps {
   onNavigateToLogin: () => void;
@@ -40,7 +41,8 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
       await register(phone, password, nickname);
       onRegisterSuccess();
     } catch (err) {
-      setError((err as Error).message || '注册失败');
+      // err 实际是 axios 拦截器 reject 的 ErrorResponse 对象，由 getErrorMessage 内部读取 message 字段
+      setError(getErrorMessage(err, '注册失败'));
     }
   };
 
@@ -156,8 +158,9 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
             </button>
           </form>
 
-          {/* 登录链接 */}
-          <div className="mt-6 text-center">
+          {/* 登录链接：上方加虚线分隔，与登录页保持视觉一致性
+              设计原因：与 login.tsx 同步，统一"主操作（注册）"与"次要切换（去登录）"的视觉层次 */}
+          <div className="mt-6 pt-4 divider-dashed text-center">
             <span className="text-ink/60 font-mono text-sm">已有账号？</span>
             <button
               onClick={onNavigateToLogin}
