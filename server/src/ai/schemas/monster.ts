@@ -42,6 +42,7 @@ export const monsterGenerateBodySchema = z.object({
   difficulty: z.number().int().min(1).max(5, '难度档位为 1-5'),
 });
 
-// 推导出的 TS 类型：供生成器与路由复用
-export type MonsterSchema = z.infer<typeof monsterSchema>;
-export type MonsterGenerateBody = z.infer<typeof monsterGenerateBodySchema>;
+// 设计原因：原 z.infer 推导的 MonsterSchema/MonsterGenerateBody 类型全仓零引用
+// （生成器 monster-generator.ts 自定义 MonsterGenerateInput/MonsterConfig/MonsterAppearance
+// 接口，路由 ai.ts 仅用 schema 常量做 safeParse 不取推导类型），按 YAGNI 原则删除
+// 避免双源维护漂移；如未来需要类型注解应直接复用 schema 推导或 generator 现有接口
