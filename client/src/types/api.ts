@@ -35,19 +35,3 @@ export interface ErrorResponse {
   httpStatus?: number;
   errors?: Array<{ field: string; message: string }>;
 }
-
-/**
- * 业务错误码
- */
-export const ErrorCode = {
-  SUCCESS: 200,
-  CREATED: 201,
-  BAD_REQUEST: 400,
-  UNAUTHORIZED: 401,
-  FORBIDDEN: 403,
-  NOT_FOUND: 404,
-  CONFLICT: 409,
-  VALIDATION_FAILED: 422,
-  TOO_MANY_REQUESTS: 429,
-  SERVER_ERROR: 500,
-} as const;
