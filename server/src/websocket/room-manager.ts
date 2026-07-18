@@ -42,6 +42,11 @@ interface Player {
 
 const ROOM_TTL = 5 * 60; // 5分钟 TTL
 
+// 兜底数据常量：AI 生成失败时使用的默认压力源与怪兽名，集中管理便于后续统一调整
+// 设计原因：原为散落字面量，多处修改易遗漏；命名常量使兜底语义在调用处自解释
+const FALLBACK_STRESS_SOURCE = '工作压力';
+const FALLBACK_MONSTER_NAME = '压力怪兽';
+
 /** 生成6位房间号 */
 function generateRoomId(): string {
   // 使用 crypto.randomBytes 替代 Math.random，降低房间 ID 碰撞概率与可预测性
@@ -272,7 +277,7 @@ export const roomManager = {
   async generateLevelAndEvents(room: Room): Promise<void> {
     const stressSources = Object.values(room.stressSources);
     if (stressSources.length === 0) {
-      stressSources.push('工作压力');
+      stressSources.push(FALLBACK_STRESS_SOURCE);
     }
 
     const difficulty = Math.min(5, Math.max(1, room.players.length));
@@ -288,7 +293,7 @@ export const roomManager = {
     const monster = monsterResult.status === 'fulfilled'
       ? monsterResult.value
       : {
-          name: '压力怪兽',
+          name: FALLBACK_MONSTER_NAME,
           avatar: '👾',
           hp: difficulty * 1000,
           attack: 50 + difficulty * 10,
