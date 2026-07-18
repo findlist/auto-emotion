@@ -2,8 +2,11 @@
 // Express 全局错误处理
 
 import { Request, Response, NextFunction } from 'express';
-import { AppError, ErrorCode, errorCodeToHttpStatus } from '../utils/error.js';
+import { AppError, ErrorCode } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
+// 复用 fail 工具统一错误响应封装：与 routes 层 fail 调用保持同一出口，
+// 避免 errorHandler 内联字面量与 response.ts 形成两套错误响应范式
+import { fail } from '../utils/response.js';
 
 export function errorHandler(
   err: Error,
@@ -12,18 +15,12 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   if (err instanceof AppError) {
-    // 按 ErrorCode 语义映射 HTTP 状态码（401/403/404/409/429 等），替代原统一降级 400
-    res.status(errorCodeToHttpStatus(err.code)).json({
-      code: err.code,
-      message: err.message,
-      errors: err.errors,
-    });
+    // fail 内部按 code >= 1000 走 errorCodeToHttpStatus 映射 HTTP 状态码，
+    // 与原 res.status(errorCodeToHttpStatus(err.code)) 行为完全等价
+    fail(res, err.code, err.message, err.errors);
     return;
   }
 
   logger.error('Unhandled error', { message: err.message, stack: err.stack });
-  res.status(500).json({
-    code: ErrorCode.INTERNAL_ERROR,
-    message: '服务器内部错误',
-  });
+  fail(res, ErrorCode.INTERNAL_ERROR, '服务器内部错误');
 }
