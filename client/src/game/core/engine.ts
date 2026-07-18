@@ -1,6 +1,11 @@
 import { Application, Container } from 'pixi.js';
 import type { Rectangle, Renderer, Ticker } from 'pixi.js';
 
+/** 画布默认尺寸：与 PixiJS Application init() 默认参数对齐，
+ *  各对战页面共用，避免分散定义导致漂移（如未来改比例只需改一处） */
+export const CANVAS_WIDTH = 800;
+export const CANVAS_HEIGHT = 600;
+
 /** 引擎初始化选项 */
 export interface EngineOptions {
   width: number;

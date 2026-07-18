@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Ticker } from 'pixi.js';
-import { GameEngine } from '@/game/core/engine';
+import { GameEngine, CANVAS_WIDTH, CANVAS_HEIGHT } from '@/game/core/engine';
 import { SceneManager } from '@/game/core/scene-manager';
 import { AssetLoader } from '@/game/core/asset-loader';
 import { BattleScene } from '@/game/scenes/battle-scene';
@@ -10,9 +10,6 @@ import Loading from '@/components/Loading';
 import { getSocket, roomActions } from '@/websocket';
 import { useUserStore } from '@/stores/user-store';
 import { logger } from '@/utils/logger';
-
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
 
 /** 档位中文标签 */
 const TIER_LABEL: Record<EffectTier, string> = {

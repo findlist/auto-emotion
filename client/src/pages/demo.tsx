@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { Ticker } from 'pixi.js';
-import { GameEngine } from '@/game/core/engine';
+import { GameEngine, CANVAS_WIDTH, CANVAS_HEIGHT } from '@/game/core/engine';
 import { SceneManager } from '@/game/core/scene-manager';
 import { AssetLoader } from '@/game/core/asset-loader';
 import { BattleScene } from '@/game/scenes/battle-scene';
 import type { EffectTier } from '@/game/effects/particle';
-
-/** 画布尺寸 */
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
 
 /** 结算奖励计算 */
 const SETTLEMENT_TIME_LIMIT_MS = 60000; // 60秒一场
