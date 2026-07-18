@@ -2,11 +2,13 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../config/database.js';
 import redis from '../config/redis.js';
+import { config } from '../config/index.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 
 const SALT_ROUNDS = 10;
-const JWT_SECRET = process.env.JWT_SECRET!;
+// JWT 密钥统一从 config 模块读取，与 middleware/auth.ts、websocket/index.ts 保持同一入口，
+// 由 config/index.ts 启动时 assertRequired 校验非空，避免散落的 process.env 读取导致校验遗漏
 const JWT_EXPIRES_IN = '7d';
 const REFRESH_EXPIRES_IN = '30d';
 
@@ -21,8 +23,8 @@ const REFRESH_EXPIRES_IN = '30d';
  * refreshToken 路径仅签 access 不签 refresh，调用此函数会浪费签发，故保留原样。
  */
 function signTokenPair(user: { id: string; phone: string }): { token: string; refreshToken: string } {
-  const token = jwt.sign({ userId: user.id, phone: user.phone }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-  const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_EXPIRES_IN });
+  const token = jwt.sign({ userId: user.id, phone: user.phone }, config.jwtSecret, { expiresIn: JWT_EXPIRES_IN });
+  const refreshToken = jwt.sign({ userId: user.id, type: 'refresh' }, config.jwtSecret, { expiresIn: REFRESH_EXPIRES_IN });
   return { token, refreshToken };
 }
 
@@ -208,7 +210,7 @@ export async function refreshToken(token: string): Promise<{ token: string }> {
   // 否则 errorHandler 会按未知错误返回 500 而非 401，与 API 声明不符
   let payload: { userId: string; type: string };
   try {
-    payload = jwt.verify(token, JWT_SECRET) as { userId: string; type: string };
+    payload = jwt.verify(token, config.jwtSecret) as { userId: string; type: string };
   } catch {
     throw new AppError(ErrorCode.UNAUTHORIZED, '无效的刷新令牌');
   }
@@ -235,7 +237,7 @@ export async function refreshToken(token: string): Promise<{ token: string }> {
   }
 
   const user = userResult.rows[0];
-  const newToken = jwt.sign({ userId: user.id, phone: user.phone }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  const newToken = jwt.sign({ userId: user.id, phone: user.phone }, config.jwtSecret, { expiresIn: JWT_EXPIRES_IN });
   return { token: newToken };
 }
 

@@ -6,9 +6,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ErrorCode } from '../utils/error.js';
 
-// 在模块加载前注入 JWT_SECRET，避免 const JWT_SECRET = process.env.JWT_SECRET! 读到 undefined
-// 设计原因：被测模块在顶层读取环境变量，vi.stubEnv 在 hoist 阶段尚未生效，需直接写 process.env
-process.env.JWT_SECRET = 'test-secret-for-jwt';
+// user-service 改用 config.jwtSecret 后，需 mock config 模块避免触发 config/index.ts 顶层 assertRequired
+// （assertRequired 会读取 DB_PASSWORD 等其他必填变量，测试环境未设置会 process.exit(1)）
+// 设计原因：与 middleware/auth.test.ts L25-29 保持同一 mock 范式，测试只关心 jwt.sign/verify 收到的
+// secret 与配置一致，不依赖环境变量加载顺序
+vi.mock('../config/index.js', () => ({
+  config: {
+    jwtSecret: 'test-secret-for-jwt',
+  },
+}));
 
 // 使用 vi.hoisted 提升 mock，确保 vi.mock 工厂能引用
 const mocks = vi.hoisted(() => ({
