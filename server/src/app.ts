@@ -199,13 +199,12 @@ void startServer();
  * 顺序关闭 io → httpServer → pool → redis，可让房间内玩家收到 disconnect 通知，
  * 未完成请求正常响应，避免连接粗暴断开导致脏数据。
  */
-// shuttingDown 标记：收到 SIGTERM/SIGINT 后置 true，中间件据此拒绝新请求快速失败
-// 设计原因：未标记时优雅关闭期间仍接收新请求，httpServer.close 会等待所有 keep-alive
-// 连接释放后才退出，可能导致进程长时间卡在退出阶段超出 K8s 宽限期被 SIGKILL 强杀
+// shuttingDown 标记：收到 SIGTERM/SIGINT 后置 true，仅 gracefulShutdown 内部防重复触发使用
+// 设计原因：SIGTERM 后 K8s 可能再发 SIGINT，未标记会重复执行 io.close 等 cleanup 操作
+// 注：原 isShuttingDown() export 函数已删除（设计意图"中间件据此拒绝新请求"从未落地，
+// 全仓零调用，YAGNI 原则收敛；若未来需在 gracefulShutdown 期间拒绝新请求，应新增中间件
+// 直接读取本变量，而非恢复 export 函数）
 let shuttingDown = false;
-export function isShuttingDown(): boolean {
-  return shuttingDown;
-}
 
 async function gracefulShutdown(signal: NodeJS.Signals): Promise<void> {
   // 防止重复触发：SIGTERM 后 K8s 可能再发 SIGINT，第二次进入会重复执行 io.close 等
