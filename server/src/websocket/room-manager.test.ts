@@ -52,6 +52,9 @@ vi.mock('../ai/event-generator.js', () => ({
 
 import { roomManager, type Room } from './room-manager.js';
 import { ErrorCode } from '../utils/error.js';
+// 设计原因：测试中涉及 room:error/game:level-ready/game:start 事件断言，统一引用 events.ts
+// 常量替代字符串字面量，避免事件名拼写漂移，与 handlers/room-manager 生产代码保持同一范式
+import { RoomEvents, GameEvents } from './events.js';
 
 describe('room-manager 房间管理器', () => {
   beforeEach(() => {
@@ -476,7 +479,7 @@ describe('room-manager 房间管理器', () => {
       });
       // 广播 room:error 通知前端开局失败
       expect(mocks.toEmitMock).toHaveBeenCalledWith(
-        'room:error', expect.objectContaining({ message: '开局失败，请重试' })
+        RoomEvents.ERROR, expect.objectContaining({ message: '开局失败，请重试' })
       );
     });
   });
@@ -535,7 +538,7 @@ describe('room-manager 房间管理器', () => {
       expect(mocks.toMock).toHaveBeenCalledWith('R1');
       expect(mocks.toEmitMock).toHaveBeenCalled();
       const [event, data] = mocks.toEmitMock.mock.calls[0];
-      expect(event).toBe('game:level-ready');
+      expect(event).toBe(GameEvents.LEVEL_READY);
       const levelReady = data as {
         monster: { name: string; attack: number; emotion: string };
         level: { bossPoint: { x: number } };
@@ -668,10 +671,10 @@ describe('room-manager 房间管理器', () => {
 
   describe('broadcast 广播事件', () => {
     it('调用 io.to(roomId).emit(event, data) 链式接口', () => {
-      roomManager.broadcast('R1', 'game:start', { foo: 'bar' });
+      roomManager.broadcast('R1', GameEvents.START, { foo: 'bar' });
 
       expect(mocks.toMock).toHaveBeenCalledWith('R1');
-      expect(mocks.toEmitMock).toHaveBeenCalledWith('game:start', { foo: 'bar' });
+      expect(mocks.toEmitMock).toHaveBeenCalledWith(GameEvents.START, { foo: 'bar' });
     });
   });
 
