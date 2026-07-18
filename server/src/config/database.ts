@@ -26,7 +26,9 @@ export async function testConnection(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('SELECT 1');
-    console.log('✓ PostgreSQL connected');
+    // 设计原因：本文件 L7 已 import logger 且 L21 pool.on('error') 已使用 logger.error，
+    // 此处保持同文件日志方式一致；logger 在 database.ts 加载时已可用（pool.on 回调也依赖它）
+    logger.info('✓ PostgreSQL connected');
   } finally {
     client.release();
   }
