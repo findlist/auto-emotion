@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // vi.hoisted 让 mock 工厂引用的运行时可变状态在 vi.mock 提升后仍可访问。
 // error/roomState 在不同用例中动态调整，setter 写入后下次渲染读取最新值。
@@ -12,6 +12,9 @@ const { storeState, setError } = vi.hoisted(() => {
     },
   };
 });
+
+// showConfirm mock：默认返回 true，单测可覆盖 false 验证取消分支
+const confirmMock = vi.hoisted(() => ({ showConfirm: vi.fn() }));
 
 vi.mock('@/stores/user-store', () => ({
   useUserStore: () => ({ id: 1, nickname: '小明' }),
@@ -51,11 +54,16 @@ vi.mock('@/websocket/index', () => ({
   },
 }));
 
+vi.mock('@/utils/confirm', () => ({ showConfirm: confirmMock.showConfirm }));
+
+import { roomActions } from '@/websocket/index';
 import RoomPage from '@/pages/room';
 
 describe('RoomPage 房间页无障碍', () => {
   beforeEach(() => {
     setError(null);
+    confirmMock.showConfirm.mockReset();
+    confirmMock.showConfirm.mockResolvedValue(true);
   });
 
   it('压力源输入框有 aria-label="压力来源描述"（仅有 placeholder 屏幕阅读器无法识别字段含义）', () => {
@@ -73,5 +81,34 @@ describe('RoomPage 房间页无障碍', () => {
   it('无 error 时不渲染 role=alert 元素，避免屏幕阅读器误读空白错误', () => {
     render(<RoomPage onBack={vi.fn()} />);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('RoomPage 房主开始游戏确认弹窗', () => {
+  beforeEach(() => {
+    confirmMock.showConfirm.mockReset();
+    confirmMock.showConfirm.mockResolvedValue(true);
+    // roomActions.startGame 是 vi.mock 模块级单例，跨用例共享需手动清理调用记录
+    vi.mocked(roomActions.startGame).mockClear();
+  });
+
+  it('房主点击开始游戏弹出二次确认，确认后触发 startGame', async () => {
+    render(<RoomPage onBack={vi.fn()} />);
+    const startBtn = screen.getByText('开始游戏');
+    fireEvent.click(startBtn);
+    await waitFor(() => {
+      expect(confirmMock.showConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({ title: '开始游戏', confirmText: '开始' })
+      );
+    });
+    expect(roomActions.startGame).toHaveBeenCalledWith('ROOM1');
+  });
+
+  it('用户取消确认时不触发 startGame', async () => {
+    confirmMock.showConfirm.mockResolvedValue(false);
+    render(<RoomPage onBack={vi.fn()} />);
+    fireEvent.click(screen.getByText('开始游戏'));
+    await waitFor(() => expect(confirmMock.showConfirm).toHaveBeenCalled());
+    expect(roomActions.startGame).not.toHaveBeenCalled();
   });
 });

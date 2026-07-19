@@ -6,6 +6,7 @@ import { useUserStore } from '@/stores/user-store';
 import { useRoomStore } from '@/stores/room-store';
 import { useShallow } from 'zustand/react/shallow';
 import { roomActions } from '@/websocket/index';
+import { showConfirm } from '@/utils/confirm';
 import type { GameMode } from '@/types/game';
 
 interface RoomPageProps {
@@ -92,9 +93,20 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
     roomActions.setMode(roomStore.roomId, mode);
   }
 
-  /** 开始游戏（仅房主） */
-  function handleStartGame() {
+  /** 开始游戏（仅房主）
+   *  设计原因：房主点击开始游戏是不可逆操作——一旦发出 room:start，
+   *  后端会立即生成关卡并将全房玩家推入对局，玩家无法中途退出而不影响他人体验。
+   *  与 idle/shop/season-pass 等高危操作保持一致的二次确认模式，避免房主误触。 */
+  async function handleStartGame() {
     if (!roomStore.roomId || !isHost) return;
+    const modeLabel = GAME_MODES.find((m) => m.value === selectedMode)?.label ?? '当前模式';
+    const ok = await showConfirm({
+      type: 'warning',
+      title: '开始游戏',
+      message: `确认以「${modeLabel}」开始游戏？将带领全房玩家进入对局，无法中途取消。`,
+      confirmText: '开始',
+    });
+    if (!ok) return;
     roomActions.startGame(roomStore.roomId);
   }
 
@@ -142,6 +154,20 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
               } ${player.userId === user?.id.toString() ? 'bg-yellow/20' : 'bg-cream'}`}
             >
               <div className="flex items-center gap-2.5">
+                {/* 玩家就绪状态指示圆点：左侧色点一眼可扫描全房准备情况
+                    房主用 yellow（特殊身份），普通玩家 ready=mint / pending=ink/40
+                    设计原因：原仅右侧文字"✓ 已准备/未准备"，扫视需逐行阅读；
+                    左侧色点提供视觉锚点，与挂机/任务/成就页色条模式同源（颜色编码状态） */}
+                <span
+                  aria-hidden="true"
+                  className={`ready-dot ${
+                    player.userId === roomStore.hostId
+                      ? 'ready-dot-host'
+                      : player.isReady
+                      ? 'ready-dot-ready'
+                      : 'ready-dot-pending'
+                  }`}
+                />
                 {/* 玩家首字母 avatar：与首页/挂机页头像风格统一，提升识别度 */}
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-bold ${
                   player.userId === roomStore.hostId
