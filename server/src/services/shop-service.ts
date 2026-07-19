@@ -4,6 +4,7 @@
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
+import type { Tx } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
 
 interface ShopItem {
@@ -14,6 +15,49 @@ interface ShopItem {
   price: number;
   price_type: string; // gold 或 gems
   emoji: string;
+}
+
+// 商城支持的货币类型：gold 金币 / gems 钻石
+type Currency = 'gold' | 'gems';
+
+/**
+ * 事务内原子扣减金币或钻石：通过 SQL 守卫 AND ${currency} >= $1 防止并发扣减使余额变负。
+ *
+ * 设计原因：buyItem 内 gold/gems 两分支 SQL 与守卫完全同构，仅货币字段名与错误文案不同，
+ * 共 17 行样板重复。抽取后消除分支重复，统一维护"商城双货币扣减"语义。
+ *
+ * 不与 utils/gold.ts 的 deductGold 合并的设计权衡：
+ * 1. 错误码不同：本 helper 抛 BAD_REQUEST（与 shop-service.test.ts 既有断言一致），
+ *    deductGold 抛 FORBIDDEN；
+ * 2. 文案不同：本 helper 用短文案「金币不足」/「钻石不足」（与 shop-service.test.ts 既有断言一致），
+ *    deductGold 用含金额文案「金币不足，需要 X 金币」；
+ * 3. 强行统一会破坏 shop-service.test.ts 的 4 处断言（L120/L131/L149-152/L176-179）。
+ *
+ * 行为等价：SQL 文本、参数顺序 [amount, userId]、RETURNING 验证、0 行守卫完全保持；
+ * currency 用 'gold' | 'gems' 字面量联合类型约束，编译期杜绝 SQL 注入风险。
+ *
+ * @param tx 事务客户端（由 withTransaction 提供，仅暴露 query）
+ * @param userId 用户 ID
+ * @param currency 货币类型（gold 或 gems）
+ * @param amount 扣减金额（必须为正数）
+ * @throws AppError(BAD_REQUEST) 余额不足或已被并发事务扣减时抛出
+ */
+async function deductCurrency(
+  tx: Tx,
+  userId: string,
+  currency: Currency,
+  amount: number
+): Promise<void> {
+  const result = await tx.query(
+    `UPDATE users SET ${currency} = ${currency} - $1 WHERE id = $2 AND ${currency} >= $1 RETURNING ${currency}`,
+    [amount, userId]
+  );
+  if (result.rows.length === 0) {
+    throw new AppError(
+      ErrorCode.BAD_REQUEST,
+      currency === 'gold' ? '金币不足' : '钻石不足'
+    );
+  }
 }
 
 // 用户背包项：聚合 user_inventory 与多张商品/成就/宠物/武器表的名称
@@ -127,26 +171,10 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
 
   // 事务内扣款 + 入库（withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release）
   return withTransaction(async (tx) => {
-    // 扣除货币（原子守卫：WHERE 余额 >= 价格 防止并发购买导致余额变负，RETURNING 验证扣减成功）
-    // 设计原因：事务外的余额检查只读快照，并发请求都读到充足余额后各自进入事务，
-    // 若 UPDATE 无 AND gold >= $1 守卫，串行执行会使金币变负。RETURNING 返回 0 行表示余额已不足
-    if (item.price_type === 'gold') {
-      const deductResult = await tx.query(
-        `UPDATE users SET gold = gold - $1 WHERE id = $2 AND gold >= $1 RETURNING gold`,
-        [item.price, userId]
-      );
-      if (deductResult.rows.length === 0) {
-        throw new AppError(ErrorCode.BAD_REQUEST, '金币不足');
-      }
-    } else {
-      const deductResult = await tx.query(
-        `UPDATE users SET gems = gems - $1 WHERE id = $2 AND gems >= $1 RETURNING gems`,
-        [item.price, userId]
-      );
-      if (deductResult.rows.length === 0) {
-        throw new AppError(ErrorCode.BAD_REQUEST, '钻石不足');
-      }
-    }
+    // 扣除货币：事务外的余额检查只读快照，并发请求都读到充足余额后各自进入事务，
+    // 故 helper 内 UPDATE 必须带 AND ${currency} >= $1 守卫，RETURNING 0 行表示并发场景下
+    // 余额已被其他事务扣减，抛 BAD_REQUEST 触发 ROLLBACK
+    await deductCurrency(tx, userId, item.price_type as Currency, item.price);
 
     // 添加到背包
     await tx.query(
