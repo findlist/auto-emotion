@@ -9,6 +9,40 @@ const LEADERBOARD_KEY_PREFIX = 'leaderboard:';
 
 export type LeaderboardType = 'power' | 'battle' | 'speed';
 
+// 排行榜查询返回行结构：所有 SELECT 均通过 AS 别名统一为 user_id/nickname/score
+interface LeaderboardRow {
+  user_id: string;
+  nickname: string;
+  score: number | null;
+}
+
+// 排行榜项结构：API 对外返回的 rank/userId/nickname/score
+interface RankingItem {
+  rank: number;
+  userId: string;
+  nickname: string;
+  score: number;
+}
+
+/**
+ * 将数据库查询行批量映射为排行榜项：rank 按偏移量+索引计算，score 为 null 时兜底 0。
+ *
+ * 设计原因：getLeaderboard 与 getFriendsLeaderboard 两处 result.rows.map 模板完全逐字相同
+ * （6 行重复），抽取后消除重复，集中维护"DB 行 → API 项"的字段映射与兜底逻辑。
+ * score 为 null 兜底 0 保持原 `row.score || 0` 语义（用户未参与对应玩法时 score 为 NULL）。
+ *
+ * @param rows 数据库查询行（须通过 AS 别名暴露 user_id/nickname/score 字段）
+ * @param offset 分页偏移量（rank = offset + index + 1）
+ */
+function mapRanking(rows: LeaderboardRow[], offset: number): RankingItem[] {
+  return rows.map((row, index) => ({
+    rank: offset + index + 1,
+    userId: row.user_id,
+    nickname: row.nickname,
+    score: row.score || 0,
+  }));
+}
+
 /**
  * 排行榜类型 → 数据库字段名映射
  * 设计原因：getLeaderboard/getUserRank/updateUserScore 三处按 type 选择 users 表字段，
@@ -96,12 +130,7 @@ export async function getLeaderboard(
   );
   const total = parseCount(countResult.rows[0], 'total');
 
-  const ranking = result.rows.map((row, index) => ({
-    rank: offset + index + 1,
-    userId: row.user_id,
-    nickname: row.nickname,
-    score: row.score || 0,
-  }));
+  const ranking = mapRanking(result.rows as LeaderboardRow[], offset);
 
   return { ranking, total };
 }
@@ -235,12 +264,7 @@ export async function getFriendsLeaderboard(
     [friendIds, pageSize, offset]
   );
 
-  const ranking = result.rows.map((row, index) => ({
-    rank: offset + index + 1,
-    userId: row.user_id,
-    nickname: row.nickname,
-    score: row.score || 0,
-  }));
+  const ranking = mapRanking(result.rows as LeaderboardRow[], offset);
 
   return { ranking, total: friendIds.length };
 }
