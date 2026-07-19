@@ -259,6 +259,11 @@ describe('idle-engine 挂机引擎', () => {
         if (typeof sql === 'string' && sql.includes('FROM characters')) {
           return Promise.resolve({ rows: [{ level: 2, gold: 1000, attack: 10 }] });
         }
+        // 模拟 deductGold 的 UPDATE...RETURNING gold 返回扣减后余额（1000-200=800），
+        // 符合真实 SQL RETURNING 语义；空 rows 会被 deductGold 误判为余额不足抛 FORBIDDEN
+        if (typeof sql === 'string' && sql.includes('RETURNING gold')) {
+          return Promise.resolve({ rows: [{ gold: 800 }] });
+        }
         return Promise.resolve({ rows: [] });
       });
 
@@ -296,6 +301,10 @@ describe('idle-engine 挂机引擎', () => {
       mocks.clientQueryMock.mockImplementation((sql: string) => {
         if (typeof sql === 'string' && sql.includes('FROM characters')) {
           return Promise.resolve({ rows: [{ level: 2, gold: 1000, ...charFields }] });
+        }
+        // 同 attack 升级测试：deductGold 的 UPDATE...RETURNING gold 需返回非空 rows
+        if (typeof sql === 'string' && sql.includes('RETURNING gold')) {
+          return Promise.resolve({ rows: [{ gold: 800 }] });
         }
         return Promise.resolve({ rows: [] });
       });

@@ -8,8 +8,9 @@ import { AppError, ErrorCode } from '../utils/error.js';
 // 设计原因：三处事务样板（settle/switchArea/upgradeCharacter）与全项目 19 处 withTransaction 调用范式对齐，
 // 统一由工具函数管理 BEGIN/COMMIT/ROLLBACK/release 与 ROLLBACK 失败日志，业务侧仅关心 work 回调内的 SQL
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
-// 奖励发放统一封装：settle 在线结算累加经验金币，与 idle-service/task-service 同源对称
-import { addExperienceAndGold } from '../utils/gold.js';
+// 金币工具统一封装：addExperienceAndGold 用于 settle 累加经验金币（与 idle-service/task-service 同源对称），
+// deductGold 用于 upgradeCharacter 原子扣减金币（与 pet/skill/weapon 服务 4 处扣金币模式对齐）
+import { addExperienceAndGold, deductGold } from '../utils/gold.js';
 
 // 角色状态接口（与数据库结构对齐）
 export interface CharacterStatus {
@@ -270,11 +271,10 @@ export async function upgradeCharacter(
         throw new AppError(ErrorCode.BAD_REQUEST, '无效的属性字段');
     }
 
-    // 扣除金币并更新属性
-    await tx.query(
-      `UPDATE users SET gold = gold - $1 WHERE id = $2`,
-      [goldCost, userId]
-    );
+    // 扣除金币：复用 deductGold 原子守卫（AND gold >= $1 RETURNING gold），与 pet/skill/weapon 服务 4 处扣金币模式对齐。
+    // 预检查 L236-238 已 fast-fail，advisoryXactLock L217 已串行化同用户并发，守卫几乎不触发；
+    // 即使并发触发，deductGold 抛 FORBIDDEN + 含金额文案，与预检查错误码/文案完全一致，对前端透明
+    await deductGold(tx, userId, goldCost);
 
     await tx.query(
       `UPDATE characters SET ${setClause}, updated_at = NOW() WHERE user_id = $1`,
