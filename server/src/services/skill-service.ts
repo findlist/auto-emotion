@@ -5,7 +5,44 @@ import pool from '../config/database.js';
 import { skillUnlockLevel } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
+import type { Tx } from '../utils/transaction.js';
 import { deductGold, getUserGold } from '../utils/gold.js';
+
+/**
+ * 用户技能记录：user_skills 表的查询结果类型
+ * 设计原因：getUserSkill helper 返回值类型，仅暴露调用方实际读取的字段（upgradeSkill
+ * 读取 level），其他 SELECT * 字段（user_id/skill_id/is_active/created_at/updated_at）
+ * 由 pg 返回但未在接口暴露，避免过度设计；调用方仅做存在性判断时使用 null 守卫。
+ * 与 weapon-service 的 UserWeaponRow / pet-service 的 UserPetRow 保持对称模式。
+ */
+interface UserSkillRow {
+  level: number;
+}
+
+/**
+ * 查询用户技能记录
+ *
+ * 设计原因：unlockSkill + upgradeSkill + activateSkill 三处重复
+ * `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2` SQL 模板，
+ * 抽取后调用方按业务语义守卫（未解锁抛 NOT_FOUND / 已解锁抛 CONFLICT），
+ * 消除 SQL 文本漂移风险。返回 null 而非抛错，让调用方灵活守卫。
+ *
+ * 与 utils/gold.ts 的 getUserGold 区别：getUserGold 用户不存在时统一抛 NOT_FOUND
+ * （业务上 JWT 鉴权保证用户存在），本 helper 调用方守卫各异（unlock 正向抛
+ * CONFLICT '已解锁该技能'，upgrade/activate 反向抛 NOT_FOUND '未解锁该技能'），
+ * 统一在 helper 内抛错会破坏 unlock 的 CONFLICT 语义，故仅返回 null 由调用方守卫。
+ */
+async function getUserSkill(
+  tx: Tx,
+  userId: string,
+  skillId: number
+): Promise<UserSkillRow | null> {
+  const result = await tx.query(
+    `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2`,
+    [userId, skillId]
+  );
+  return result.rows[0] ?? null;
+}
 
 // 技能列表行：对应 listSkills 的 SQL 查询结果
 // level/is_active 来自 LEFT JOIN user_skills，未解锁时为 null
@@ -60,12 +97,9 @@ export async function unlockSkill(
     // skillResult.rows[0] 已通过长度检查
 
     // 检查是否已解锁
-    const ownedResult = await tx.query(
-      `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2`,
-      [userId, skillId]
-    );
+    const owned = await getUserSkill(tx, userId, skillId);
 
-    if (ownedResult.rows.length > 0) {
+    if (owned) {
       throw new AppError(ErrorCode.CONFLICT, '已解锁该技能');
     }
 
@@ -107,16 +141,12 @@ export async function upgradeSkill(
   // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release
   return withTransaction(async (tx) => {
     // 检查是否拥有该技能
-    const ownedResult = await tx.query(
-      `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2`,
-      [userId, skillId]
-    );
+    const userSkill = await getUserSkill(tx, userId, skillId);
 
-    if (ownedResult.rows.length === 0) {
+    if (!userSkill) {
       throw new AppError(ErrorCode.NOT_FOUND, '未解锁该技能');
     }
 
-    const userSkill = ownedResult.rows[0];
     const currentLevel = userSkill.level;
 
     // 计算升级消耗（金币 = 100 * level）
@@ -164,12 +194,9 @@ export async function activateSkill(
   // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release
   return withTransaction(async (tx) => {
     // 检查是否拥有该技能
-    const ownedResult = await tx.query(
-      `SELECT * FROM user_skills WHERE user_id = $1 AND skill_id = $2`,
-      [userId, skillId]
-    );
+    const owned = await getUserSkill(tx, userId, skillId);
 
-    if (ownedResult.rows.length === 0) {
+    if (!owned) {
       throw new AppError(ErrorCode.NOT_FOUND, '未解锁该技能');
     }
 
