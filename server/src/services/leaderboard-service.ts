@@ -38,6 +38,29 @@ async function getFriendIdsIncludingSelf(userId: string): Promise<string[]> {
   return friendIds;
 }
 
+/**
+ * 查询用户在指定榜单字段上的分数
+ *
+ * 设计原因：getUserRank 与 getFriendsUserRank 两处重复
+ * `SELECT ${scoreField} as score FROM users WHERE id = $1` + 读取 `rows[0]?.score || 0`
+ * 共 4 行样板。scoreField 为白名单字段（power/battle_score/speed_score），由 getScoreField
+ * 类型收窄或好友榜硬编码 'power' 传入，参数化后消除 SQL 文本与读取逻辑的双重重复。
+ *
+ * 返回 0 兜底而非抛 NOT_FOUND：调用方已先经过 rank 子查询的存在性过滤（rows.length === 0
+ * 时上层直接 return null），此 helper 仅在用户确实存在分支被调用，0 兜底保持原
+ * `userResult.rows[0]?.score || 0` 语义，避免新增 NOT_FOUND 改变调用方行为契约。
+ *
+ * 与 utils/gold.ts 的 getUserGold 区别：getUserGold 用于事务内金币预检查（用户不存在抛
+ * NOT_FOUND 是业务语义需要），本 helper 仅用于排行榜分数读取（0 兜底是显示语义需要）。
+ */
+async function getUserScoreForLeaderboard(userId: string, scoreField: string): Promise<number> {
+  const userResult = await pool.query(
+    `SELECT ${scoreField} as score FROM users WHERE id = $1`,
+    [userId]
+  );
+  return userResult.rows[0]?.score || 0;
+}
+
 interface LeaderboardEntry {
   rank: number;
   // users.id 为 UUID，pg 返回 string，类型对齐避免 parseInt 截断 UUID 导致 SQL 报错
@@ -100,14 +123,9 @@ export async function getUserRank(userId: string, type: LeaderboardType): Promis
 
   if (result.rows.length === 0) return null;
 
-  const userResult = await pool.query(
-    `SELECT ${scoreField} as score FROM users WHERE id = $1`,
-    [userId]
-  );
-
   return {
     rank: result.rows[0].rank,
-    score: userResult.rows[0]?.score || 0,
+    score: await getUserScoreForLeaderboard(userId, scoreField),
   };
 }
 
@@ -184,14 +202,10 @@ export async function getFriendsUserRank(userId: string): Promise<{ rank: number
 
   if (result.rows.length === 0) return null;
 
-  const userResult = await pool.query(
-    `SELECT power as score FROM users WHERE id = $1`,
-    [userId]
-  );
-
   return {
     rank: result.rows[0].rank,
-    score: userResult.rows[0]?.score || 0,
+    // 好友榜固定按 power 排序，scoreField 硬编码 'power' 与上方 rank 子查询 ORDER BY power 对齐
+    score: await getUserScoreForLeaderboard(userId, 'power'),
   };
 }
 
