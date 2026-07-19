@@ -20,48 +20,49 @@ router.get('/list', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/equip', async (req: Request, res: Response) => {
-  const user = req.user;
-  if (!requireUser(res, user)) return;
+// 文件内私有 helper：注册 pets 单参数 POST 路由（equip/buy）
+// 设计原因：两个路由结构同构，仅 service 函数引用、错误文案、是否启用幂等不同；
+// 抽取后消除"鉴权 → petId 校验 → [可选幂等] → 调 service → success/routeBusinessError"的重复样板
+// 不导出：仅本文件内使用，list 路由因 GET 方法 + 无参数校验不在抽取范围
+// 幂等设计：buy 路由扣款需防重复提交（与 shop/buy、weapons/buy 一致），equip 路由是状态切换无需幂等
+function registerPetPostRoute(
+  path: string,
+  serviceFn: (userId: string, petId: number) => Promise<unknown>,
+  errorMsg: string,
+  idempotencyKey?: string
+): void {
+  router.post(path, async (req: Request, res: Response) => {
+    const user = req.user;
+    if (!requireUser(res, user)) return;
 
-  const { petId } = req.body as { petId?: number };
-  if (!petId) {
-    fail(res, 400, '缺少 petId');
-    return;
-  }
+    const { petId } = req.body as { petId?: number };
+    if (!petId) {
+      fail(res, 400, '缺少 petId');
+      return;
+    }
 
-  try {
-    const result = await equipPet(user.userId, petId);
-    success(res, result);
-  } catch (err) {
-    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
-    routeBusinessError(res, err, '装备宠物失败');
-  }
-});
+    // 幂等控制（可选）：5秒窗口防重复提交，避免高频调用重复扣款
+    // 命中拦截（CONFLICT）返回 409；Redis 异常按降级规则放行不阻塞核心业务
+    if (idempotencyKey) {
+      if (!(await withIdempotency(res, `${idempotencyKey}:${user.userId}:${petId}`))) {
+        return;
+      }
+    }
 
-router.post('/buy', async (req: Request, res: Response) => {
-  const user = req.user;
-  if (!requireUser(res, user)) return;
+    try {
+      const result = await serviceFn(user.userId, petId);
+      success(res, result);
+    } catch (err) {
+      // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+      routeBusinessError(res, err, errorMsg);
+    }
+  });
+}
 
-  const { petId } = req.body as { petId?: number };
-  if (!petId) {
-    fail(res, 400, '缺少 petId');
-    return;
-  }
+// POST /api/pets/equip - 装备宠物（状态切换，无需幂等）
+registerPetPostRoute('/equip', equipPet, '装备宠物失败');
 
-  // 幂等控制：5秒窗口防重复提交，避免高频调用重复扣款（与 shop/buy 一致）
-  // 命中拦截（CONFLICT）返回 409；Redis 异常按降级规则放行不阻塞核心业务
-  if (!(await withIdempotency(res, `pets:buy:${user.userId}:${petId}`))) {
-    return;
-  }
-
-  try {
-    const result = await buyPet(user.userId, petId);
-    success(res, result);
-  } catch (err) {
-    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
-    routeBusinessError(res, err, '购买宠物失败');
-  }
-});
+// POST /api/pets/buy - 购买宠物（扣款需防重复提交，幂等 key 与 shop/weapons buy 路由同模式）
+registerPetPostRoute('/buy', buyPet, '购买宠物失败', 'pets:buy');
 
 export default router;
