@@ -5,7 +5,43 @@ import pool from '../config/database.js';
 import { weaponUpgradeCost } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
+import type { Tx } from '../utils/transaction.js';
 import { deductGold, getUserGold } from '../utils/gold.js';
+
+/**
+ * 用户武器记录：user_weapons 表的查询结果类型
+ * 设计原因：getUserWeapon helper 返回值类型，仅暴露调用方实际读取的字段（upgradeWeapon
+ * 读取 level），其他 SELECT * 字段（user_id/weapon_id/exp/is_equipped/created_at/updated_at）
+ * 由 pg 返回但未在接口暴露，避免过度设计；调用方仅做存在性判断时使用 null 守卫。
+ */
+interface UserWeaponRow {
+  level: number;
+}
+
+/**
+ * 查询用户武器记录
+ *
+ * 设计原因：upgradeWeapon + equipWeapon + buyWeapon 三处重复
+ * `SELECT * FROM user_weapons WHERE user_id = $1 AND weapon_id = $2` SQL 模板，
+ * 抽取后调用方按业务语义守卫（未拥有抛 NOT_FOUND / 已拥有抛 CONFLICT），
+ * 消除 SQL 文本漂移风险。返回 null 而非抛错，让调用方灵活守卫。
+ *
+ * 与 utils/gold.ts 的 getUserGold 区别：getUserGold 用户不存在时统一抛 NOT_FOUND
+ * （业务上 JWT 鉴权保证用户存在），本 helper 调用方守卫各异（upgrade/equip 反向抛
+ * NOT_FOUND '未拥有该武器'，buy 正向抛 CONFLICT '已拥有该武器'），统一在 helper
+ * 内抛错会破坏 buy 的 CONFLICT 语义，故仅返回 null 由调用方守卫。
+ */
+async function getUserWeapon(
+  tx: Tx,
+  userId: string,
+  weaponId: number
+): Promise<UserWeaponRow | null> {
+  const result = await tx.query(
+    `SELECT * FROM user_weapons WHERE user_id = $1 AND weapon_id = $2`,
+    [userId, weaponId]
+  );
+  return result.rows[0] ?? null;
+}
 
 /**
  * 武器列表行：对应 listWeapons 的 SQL JOIN 结果
@@ -56,16 +92,11 @@ export async function upgradeWeapon(
   // 事务统一由 withTransaction 管理 BEGIN/COMMIT/ROLLBACK/release，业务侧仅关心 tx.query
   return withTransaction(async (tx) => {
     // 检查是否拥有该武器
-    const ownedResult = await tx.query(
-      `SELECT * FROM user_weapons WHERE user_id = $1 AND weapon_id = $2`,
-      [userId, weaponId]
-    );
-
-    if (ownedResult.rows.length === 0) {
+    const userWeapon = await getUserWeapon(tx, userId, weaponId);
+    if (!userWeapon) {
       throw new AppError(ErrorCode.NOT_FOUND, '未拥有该武器');
     }
 
-    const userWeapon = ownedResult.rows[0];
     const currentLevel = userWeapon.level;
 
     // 计算升级消耗
@@ -111,12 +142,8 @@ export async function equipWeapon(
 ): Promise<{ success: true; weaponId: number }> {
   return withTransaction(async (tx) => {
     // 检查是否拥有该武器
-    const ownedResult = await tx.query(
-      `SELECT * FROM user_weapons WHERE user_id = $1 AND weapon_id = $2`,
-      [userId, weaponId]
-    );
-
-    if (ownedResult.rows.length === 0) {
+    const owned = await getUserWeapon(tx, userId, weaponId);
+    if (!owned) {
       throw new AppError(ErrorCode.NOT_FOUND, '未拥有该武器');
     }
 
@@ -166,12 +193,8 @@ export async function buyWeapon(
     const weapon = weaponResult.rows[0];
 
     // 检查是否已拥有
-    const ownedResult = await tx.query(
-      `SELECT * FROM user_weapons WHERE user_id = $1 AND weapon_id = $2`,
-      [userId, weaponId]
-    );
-
-    if (ownedResult.rows.length > 0) {
+    const owned = await getUserWeapon(tx, userId, weaponId);
+    if (owned) {
       throw new AppError(ErrorCode.CONFLICT, '已拥有该武器');
     }
 
