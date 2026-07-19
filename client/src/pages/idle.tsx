@@ -80,15 +80,24 @@ function IdlePage({ onBack }: IdlePageProps) {
     void loadData();
   }, [userId, loadData]);
 
-  // 加载武器数据
-  async function loadWeapons() {
+  // 通用列表加载 helper：消除 loadWeapons/loadSkills/loadPets 三处 try/catch/logger.error 样板
+  // 设计原因：三处函数体逐字同构，仅 API 方法、setter、错误日志标签不同；
+  // 泛型 T 让 helper 适配 Weapon[]/Skill[]/Pet[] 等不同列表类型，参数化 errMsg 保持日志文案不变
+  async function loadList<T>(
+    apiCall: () => Promise<T[]>,
+    setter: (data: T[]) => void,
+    errMsg: string,
+  ): Promise<void> {
     try {
-      const data = await weaponApi.list();
-      setWeapons(data);
+      const data = await apiCall();
+      setter(data);
     } catch (err) {
-      logger.error('加载武器失败', err);
+      logger.error(errMsg, err);
     }
   }
+
+  // 加载武器数据
+  const loadWeapons = () => loadList(weaponApi.list, setWeapons, '加载武器失败');
 
   // 升级武器
   async function handleUpgradeWeapon(weapon: Weapon) {
@@ -153,14 +162,7 @@ function IdlePage({ onBack }: IdlePageProps) {
   }
 
   // 加载技能数据
-  async function loadSkills() {
-    try {
-      const data = await skillApi.list();
-      setSkills(data);
-    } catch (err) {
-      logger.error('加载技能失败', err);
-    }
-  }
+  const loadSkills = () => loadList(skillApi.list, setSkills, '加载技能失败');
 
   // 解锁技能
   async function handleUnlockSkill(skill: Skill) {
@@ -231,14 +233,7 @@ function IdlePage({ onBack }: IdlePageProps) {
   }
 
   // 加载宠物数据
-  async function loadPets() {
-    try {
-      const data = await petApi.list();
-      setPets(data);
-    } catch (err) {
-      logger.error('加载宠物失败', err);
-    }
-  }
+  const loadPets = () => loadList(petApi.list, setPets, '加载宠物失败');
 
   // 装备宠物：补二次确认，装备会替换当前宠物配置，避免误触改变战力
   async function handleEquipPet(pet: Pet) {
@@ -459,14 +454,27 @@ function IdlePage({ onBack }: IdlePageProps) {
         </div>
       </div>
 
-      {/* 区域信息 */}
+      {/* 区域信息：多色 chip 替代单行文本，与战力属性框色块设计语言一致
+          设计原因：原单行 "当前区域: x · 经验率 x · 金币率 x" 文本视觉层次弱，
+          玩家难以一眼定位关键信息。改为 chip 后区域用 ink 深色主标识、经验用 pink、金币用 yellow，
+          三色呼应首页/挂机页既有色彩语义（pink=核心、yellow=金币），提升可扫描性 */}
       {status?.area_name && (
-        <div className="px-4 py-2 mb-2 animate-fadeIn">
-          <p className="text-ink/70 font-mono text-xs">
-            当前区域: <span className="text-ink font-bold">{status.area_name}</span> ·
-            经验率 <span className="text-pink font-bold">{(status.exp_rate ?? 1) * 100}%</span> ·
-            金币率 <span className="text-yellow font-bold">{(status.gold_rate ?? 1) * 100}%</span>
-          </p>
+        <div className="px-4 py-2 mb-2 flex flex-wrap gap-2 animate-fadeIn">
+          <div className="bg-ink text-cream px-3 py-1 rounded-full font-mono text-xs flex items-center gap-1 shadow-[2px_2px_0_#1a1a1a]">
+            <span aria-hidden="true">📍</span>
+            <span className="text-cream/70">区域</span>
+            <span className="font-bold">{status.area_name}</span>
+          </div>
+          <div className="bg-pink/15 text-ink px-3 py-1 rounded-full font-mono text-xs flex items-center gap-1 border border-pink/30">
+            <span aria-hidden="true">✨</span>
+            <span className="text-ink/70">经验</span>
+            <span className="text-pink font-bold">{(status.exp_rate ?? 1) * 100}%</span>
+          </div>
+          <div className="bg-yellow/20 text-ink px-3 py-1 rounded-full font-mono text-xs flex items-center gap-1 border border-yellow/40">
+            <span aria-hidden="true">💰</span>
+            <span className="text-ink/70">金币</span>
+            <span className="text-yellow font-bold">{(status.gold_rate ?? 1) * 100}%</span>
+          </div>
         </div>
       )}
 
@@ -542,7 +550,17 @@ function IdlePage({ onBack }: IdlePageProps) {
         {activeTab === 'weapons' && (
           <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">武器库</p>
-            {weapons.map((weapon) => {
+            {/* 空状态：与 shop/tasks/achievements/leaderboard 空状态模式一致
+                设计原因：原 weapons 为空时仅显示标题下方留白，玩家不知是"无数据"还是"加载中"，
+                补全空状态后明确传达"暂无武器"语义，引导玩家购买解锁 */}
+            {weapons.length === 0 ? (
+              <div className="text-center py-12 animate-stagger">
+                <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">⚔️</span></p>
+                <p className="font-cn text-ink/70 text-lg">暂无武器</p>
+                <p className="font-mono text-xs text-ink/40 mt-1">通过购买解锁强力武器</p>
+              </div>
+            ) : (
+              weapons.map((weapon) => {
               const isOwned = weapon.level !== undefined;
               const isEquipped = weapon.is_equipped;
               const currentLevel = weapon.level ?? 0;
@@ -555,8 +573,13 @@ function IdlePage({ onBack }: IdlePageProps) {
                   } px-4 py-3 shadow-[3px_3px_0_#1a1a1a] card-hover`}
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    {/* 装饰性 emoji,aria-hidden 避免与后跟武器名语义重复 */}
-                    <span className="text-3xl" aria-hidden="true">⚔️</span>
+                    {/* emoji 加圆形背景给视觉重量，与首页/挂机页 avatar 圆形头像视觉模式一致
+                        已装备态用 yellow/20 呼应卡片黄色边框，未装备用 ink/5 中性底 */}
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      isEquipped ? 'bg-yellow/20' : 'bg-ink/5'
+                    }`}>
+                      <span className="text-2xl" aria-hidden="true">⚔️</span>
+                    </div>
                     <div className="flex-1">
                       <p className="font-cn text-ink font-bold">{weapon.name}</p>
                       <p className="font-mono text-xs text-ink/60">
@@ -568,18 +591,24 @@ function IdlePage({ onBack }: IdlePageProps) {
                     )}
                   </div>
                   <p className="text-sm text-ink/70 mb-3">{weapon.description}</p>
-                  <div className="flex gap-2">
-                    <span className="font-mono text-xs text-ink/60">
-                      攻击: <span className="text-orange font-bold">{weapon.base_attack}</span>
-                    </span>
-                    <span className="font-mono text-xs text-ink/60">
-                      暴击: <span className="text-pink font-bold">{(weapon.base_crit_rate * 100).toFixed(0)}%</span>
-                    </span>
-                    <span className="font-mono text-xs text-ink/60">
-                      暴伤: <span className="text-orange font-bold">{(weapon.base_crit_damage * 100).toFixed(0)}%</span>
-                    </span>
+                  {/* 武器属性 chip 化：与挂机页区域信息 chip 模式同源
+                      设计原因：原"攻击: X 暴击: Y% 暴伤: Z%"内联文本无视觉层次，
+                      玩家难以一眼定位关键属性；改为 3 个 chip 与挂机页 ✨经验/💰金币 一致模式 */}
+                  <div className="flex gap-2 mb-3 flex-wrap">
+                    <div className="bg-orange/15 text-ink px-2 py-0.5 rounded-full font-mono text-xs flex items-center gap-1 border border-orange/30">
+                      <span className="text-ink/70">攻击</span>
+                      <span className="text-orange font-bold">{weapon.base_attack}</span>
+                    </div>
+                    <div className="bg-pink/15 text-ink px-2 py-0.5 rounded-full font-mono text-xs flex items-center gap-1 border border-pink/30">
+                      <span className="text-ink/70">暴击</span>
+                      <span className="text-pink font-bold">{(weapon.base_crit_rate * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="bg-orange/15 text-ink px-2 py-0.5 rounded-full font-mono text-xs flex items-center gap-1 border border-orange/30">
+                      <span className="text-ink/70">暴伤</span>
+                      <span className="text-orange font-bold">{(weapon.base_crit_damage * 100).toFixed(0)}%</span>
+                    </div>
                   </div>
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex gap-2">
                     {isOwned ? (
                       <>
                         <button
@@ -611,14 +640,23 @@ function IdlePage({ onBack }: IdlePageProps) {
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
         )}
 
         {activeTab === 'skills' && (
           <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">技能书</p>
-            {skills.map((skill) => {
+            {/* 空状态：与 weapons tab 一致，明确传达"暂无技能"语义 */}
+            {skills.length === 0 ? (
+              <div className="text-center py-12 animate-stagger">
+                <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">✨</span></p>
+                <p className="font-cn text-ink/70 text-lg">暂无技能</p>
+                <p className="font-mono text-xs text-ink/40 mt-1">达到等级后可解锁技能</p>
+              </div>
+            ) : (
+              skills.map((skill) => {
               const isUnlocked = skill.level !== undefined;
               const isActive = skill.is_active;
               const currentLevel = skill.level ?? 0;
@@ -632,8 +670,12 @@ function IdlePage({ onBack }: IdlePageProps) {
                   } px-4 py-3 shadow-[3px_3px_0_#1a1a1a] card-hover`}
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    {/* 装饰性 emoji,aria-hidden 避免与后跟技能名语义重复 */}
-                    <span className="text-3xl" aria-hidden="true">✨</span>
+                    {/* emoji 加圆形背景：已激活态用 mint/20 呼应卡片薄荷边框，未激活用 ink/5 中性底 */}
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      isActive ? 'bg-mint/20' : 'bg-ink/5'
+                    }`}>
+                      <span className="text-2xl" aria-hidden="true">✨</span>
+                    </div>
                     <div className="flex-1">
                       <p className="font-cn text-ink font-bold">{skill.name}</p>
                       <p className="font-mono text-xs text-ink/60">
@@ -682,14 +724,23 @@ function IdlePage({ onBack }: IdlePageProps) {
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
         )}
 
         {activeTab === 'pets' && (
           <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">宠物</p>
-            {pets.map((pet) => {
+            {/* 空状态：与 weapons/skills tab 一致，明确传达"暂无宠物"语义 */}
+            {pets.length === 0 ? (
+              <div className="text-center py-12 animate-stagger">
+                <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">🐾</span></p>
+                <p className="font-cn text-ink/70 text-lg">暂无宠物</p>
+                <p className="font-mono text-xs text-ink/40 mt-1">购买宠物辅助战斗</p>
+              </div>
+            ) : (
+              pets.map((pet) => {
               const isOwned = pet.is_equipped !== undefined;
               const isEquipped = pet.is_equipped;
               return (
@@ -700,8 +751,12 @@ function IdlePage({ onBack }: IdlePageProps) {
                   } px-4 py-3 shadow-[3px_3px_0_#1a1a1a] card-hover`}
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    {/* 装饰性 emoji,aria-hidden 避免与后跟宠物名语义重复 */}
-                    <span className="text-3xl" aria-hidden="true">{pet.emoji}</span>
+                    {/* emoji 加圆形背景：已装备态用 yellow/20 呼应卡片黄色边框，未装备用 ink/5 中性底 */}
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      isEquipped ? 'bg-yellow/20' : 'bg-ink/5'
+                    }`}>
+                      <span className="text-2xl" aria-hidden="true">{pet.emoji}</span>
+                    </div>
                     <div className="flex-1">
                       <p className="font-cn text-ink font-bold">{pet.name}</p>
                       <p className="font-mono text-xs text-ink/60">
@@ -736,7 +791,8 @@ function IdlePage({ onBack }: IdlePageProps) {
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
         )}
       </main>
