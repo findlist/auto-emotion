@@ -40,9 +40,4 @@ export const userApi = {
   updateProfile(payload: UpdateProfilePayload): Promise<User> {
     return unwrap(http.put('/users/profile', payload));
   },
-
-  /** 查询他人公开信息 */
-  getUser(id: number): Promise<User> {
-    return unwrap(http.get(`/users/${id}`));
-  },
 };
