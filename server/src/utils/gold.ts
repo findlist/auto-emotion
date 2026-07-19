@@ -79,3 +79,37 @@ export async function deductGold(
   }
   return result.rows[0].gold as number;
 }
+
+/**
+ * 事务内累加经验与金币：发放奖励场景的统一封装。
+ *
+ * 设计原因：3 处 service（idle-engine settle 在线结算 / idle-service claimOffline
+ * 离线收益 / task-service claimTaskReward 任务领奖）共 3 处重复以下模板：
+ *   await tx.query(
+ *     `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
+ *     [exp, gold, userId]
+ *   );
+ * 抽取后消除重复，并集中维护"奖励发放"语义。与 deductGold 形成对称：
+ * 一个负责原子扣减（带守卫），一个负责累加（无守卫，奖励发放无并发风险）。
+ *
+ * 行为等价：SQL 与参数顺序（[exp, gold, userId]）与原 3 处完全一致；
+ * 不返回更新后余额（3 处调用点均未使用返回值），保持原隐式忽略语义。
+ *
+ * 边界：仅适用于"加法"奖励场景，禁止用于扣减（扣减请用 deductGold 防并发为负）。
+ *
+ * @param tx 事务客户端（由 withTransaction 提供，仅暴露 query）
+ * @param userId 用户 ID
+ * @param exp 累加的经验值（可为 0）
+ * @param gold 累加的金币数（可为 0）
+ */
+export async function addExperienceAndGold(
+  tx: Tx,
+  userId: string,
+  exp: number,
+  gold: number
+): Promise<void> {
+  await tx.query(
+    `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
+    [exp, gold, userId]
+  );
+}

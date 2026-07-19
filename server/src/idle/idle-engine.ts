@@ -8,6 +8,8 @@ import { AppError, ErrorCode } from '../utils/error.js';
 // 设计原因：三处事务样板（settle/switchArea/upgradeCharacter）与全项目 19 处 withTransaction 调用范式对齐，
 // 统一由工具函数管理 BEGIN/COMMIT/ROLLBACK/release 与 ROLLBACK 失败日志，业务侧仅关心 work 回调内的 SQL
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
+// 奖励发放统一封装：settle 在线结算累加经验金币，与 idle-service/task-service 同源对称
+import { addExperienceAndGold } from '../utils/gold.js';
 
 // 角色状态接口（与数据库结构对齐）
 export interface CharacterStatus {
@@ -115,10 +117,7 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
       Math.random() < FRAGMENT_DROP_RATE ? FRAGMENT_DROP_AMOUNT : 0;
 
     // 累加经验和金币到用户
-    await tx.query(
-      `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
-      [gainedExp, gainedCoins, userId]
-    );
+    await addExperienceAndGold(tx, userId, gainedExp, gainedCoins);
 
     // 更新 characters 表的 exp 和 offline_exp，同时重置 idle_since
     // 设计原因：settle 发放在线收益后必须重置 idle_since 时间基准，否则 claimOffline

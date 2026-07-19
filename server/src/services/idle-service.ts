@@ -9,6 +9,8 @@ import type { OfflineResult } from '../idle/offline-calculator.js';
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
+// 奖励发放统一封装：claimOffline 离线收益累加经验金币，与 idle-engine/task-service 同源对称
+import { addExperienceAndGold } from '../utils/gold.js';
 
 /**
  * 获取角色状态
@@ -46,10 +48,7 @@ export async function claimOffline(userId: string): Promise<OfflineResult> {
     }
 
     // 更新用户金币经验
-    await tx.query(
-      `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
-      [result.exp, result.gold, userId]
-    );
+    await addExperienceAndGold(tx, userId, result.exp, result.gold);
 
     // 重置离线时间
     await tx.query(

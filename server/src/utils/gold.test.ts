@@ -1,9 +1,10 @@
 // server/src/utils/gold.test.ts
 // deductGold 单元测试：覆盖扣减成功与扣减失败（rows.length === 0）两个核心分支
 // getUserGold 单元测试：覆盖用户存在返回金币与用户不存在抛 NOT_FOUND 两个核心分支
+// addExperienceAndGold 单元测试：覆盖 SQL 文本与参数顺序、返回 void 两个核心分支
 
 import { describe, it, expect, vi } from 'vitest';
-import { deductGold, getUserGold } from './gold.js';
+import { deductGold, getUserGold, addExperienceAndGold } from './gold.js';
 import { ErrorCode } from './error.js';
 import type { Tx } from './transaction.js';
 
@@ -85,6 +86,29 @@ describe('getUserGold 查询用户金币', () => {
       expect.any(String),
       ['user-xyz']
     );
+  });
+});
+
+describe('addExperienceAndGold 累加经验与金币', () => {
+  it('SQL 为 UPDATE users SET experience/gold 累加模板，参数顺序为 [exp, gold, userId]', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const tx = makeTx(query);
+
+    await addExperienceAndGold(tx, 'user-xyz', 150, 80);
+
+    expect(query).toHaveBeenCalledWith(
+      `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
+      [150, 80, 'user-xyz']
+    );
+  });
+
+  it('返回 void，与 3 处调用点未使用返回值的语义一致', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const tx = makeTx(query);
+
+    const result = await addExperienceAndGold(tx, 'u1', 100, 50);
+
+    expect(result).toBeUndefined();
   });
 });
 

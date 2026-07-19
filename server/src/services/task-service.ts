@@ -6,6 +6,8 @@ import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
 import { shuffle } from '../utils/shuffle.js';
+// 奖励发放统一封装：claimTaskReward 任务领奖累加经验金币，与 idle-engine/idle-service 同源对称
+import { addExperienceAndGold } from '../utils/gold.js';
 
 interface DailyTask {
   id: number;
@@ -223,10 +225,7 @@ export async function claimTaskReward(userId: string, taskId: number): Promise<{
     }
 
     // 发放奖励
-    await tx.query(
-      `UPDATE users SET experience = experience + $1, gold = gold + $2 WHERE id = $3`,
-      [task.reward_exp, task.reward_gold, userId]
-    );
+    await addExperienceAndGold(tx, userId, task.reward_exp, task.reward_gold);
 
     return {
       success: true,
