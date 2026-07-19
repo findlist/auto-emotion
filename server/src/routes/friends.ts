@@ -35,68 +35,47 @@ router.get('/requests', async (req: Request, res: Response) => {
   }
 });
 
+// 文件内私有 helper：注册 friends 单参数 POST 路由（request/accept/reject）
+// 设计原因：三个路由结构完全同构，仅 body 字段名、缺失提示文案、service 函数、错误文案不同；
+// 抽取后消除"鉴权 → ID 校验 → 调 service → success/routeBusinessError"的重复样板
+// 不导出：仅本文件内使用，GET / 与 GET /requests 因无 body 校验不在抽取范围，
+//   DELETE /:friendId 因参数来自 path 不在抽取范围
+// ID 类型说明：targetUserId / requestId 均为 UUID 字符串（与 users.id / friendships.id 对齐），
+//   历史上 number 类型会导致 service 层接收截断数字，故 helper 强制 string 类型
+function registerFriendPostRoute(
+  path: string,
+  bodyField: 'targetUserId' | 'requestId',
+  missingMsg: string,
+  serviceFn: (userId: string, id: string) => Promise<unknown>,
+  errorMsg: string
+): void {
+  router.post(path, async (req: Request, res: Response) => {
+    const user = req.user;
+    if (!requireUser(res, user)) return;
+
+    const body = req.body as { targetUserId?: string; requestId?: string };
+    const id = body[bodyField];
+    if (!id) {
+      fail(res, 400, missingMsg);
+      return;
+    }
+
+    try {
+      const result = await serviceFn(user.userId, id);
+      success(res, result);
+    } catch (err) {
+      // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
+      routeBusinessError(res, err, errorMsg);
+    }
+  });
+}
+
 // POST /api/friends/request - 发送好友请求
-router.post('/request', async (req: Request, res: Response) => {
-  const user = req.user;
-  if (!requireUser(res, user)) return;
-
-  // targetUserId 为 UUID 字符串（与 users.id 对齐），原 number 类型会导致 service 层接收截断数字
-  const { targetUserId } = req.body as { targetUserId?: string };
-  if (!targetUserId) {
-    fail(res, 400, '缺少目标用户ID');
-    return;
-  }
-
-  try {
-    const result = await sendFriendRequest(user.userId, targetUserId);
-    success(res, result);
-  } catch (err) {
-    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
-    routeBusinessError(res, err, '发送好友请求失败');
-  }
-});
-
 // POST /api/friends/accept - 接受好友请求
-router.post('/accept', async (req: Request, res: Response) => {
-  const user = req.user;
-  if (!requireUser(res, user)) return;
-
-  // requestId 为 UUID 字符串（与 friendships.id 对齐）
-  const { requestId } = req.body as { requestId?: string };
-  if (!requestId) {
-    fail(res, 400, '缺少请求ID');
-    return;
-  }
-
-  try {
-    const result = await acceptFriendRequest(user.userId, requestId);
-    success(res, result);
-  } catch (err) {
-    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
-    routeBusinessError(res, err, '接受好友请求失败');
-  }
-});
-
 // POST /api/friends/reject - 拒绝好友请求
-router.post('/reject', async (req: Request, res: Response) => {
-  const user = req.user;
-  if (!requireUser(res, user)) return;
-
-  // requestId 为 UUID 字符串（与 friendships.id 对齐）
-  const { requestId } = req.body as { requestId?: string };
-  if (!requestId) {
-    fail(res, 400, '缺少请求ID');
-    return;
-  }
-
-  try {
-    const result = await rejectFriendRequest(user.userId, requestId);
-    success(res, result);
-  } catch (err) {
-    // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
-    routeBusinessError(res, err, '拒绝好友请求失败');
-  }
-});
+registerFriendPostRoute('/request', 'targetUserId', '缺少目标用户ID', sendFriendRequest, '发送好友请求失败');
+registerFriendPostRoute('/accept', 'requestId', '缺少请求ID', acceptFriendRequest, '接受好友请求失败');
+registerFriendPostRoute('/reject', 'requestId', '缺少请求ID', rejectFriendRequest, '拒绝好友请求失败');
 
 // DELETE /api/friends/:friendId - 删除好友
 router.delete('/:friendId', async (req: Request, res: Response) => {
