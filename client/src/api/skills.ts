@@ -1,5 +1,5 @@
 import http from './http';
-import { unwrap } from './unwrap';
+import { unwrap, unwrapField } from './unwrap';
 
 export interface Skill {
   id: number;
@@ -19,10 +19,9 @@ export interface UpgradeResult {
 }
 
 export const skillApi = {
-  // unwrap 解包后取 data.skills（响应拦截器已将 ApiResponse.data 挂到 response.data）
-  async list(): Promise<Skill[]> {
-    const data = await unwrap(http.get<{ skills: Skill[] }>('/skills/list'));
-    return data.skills;
+  // unwrapField 一步完成「解包 + 取字段」，消除 await 中间变量
+  list(): Promise<Skill[]> {
+    return unwrapField(http.get<{ skills: Skill[] }>('/skills/list'), 'skills');
   },
 
   unlock(skillId: number): Promise<{ success: boolean; skillId: number }> {

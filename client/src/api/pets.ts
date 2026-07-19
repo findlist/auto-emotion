@@ -1,5 +1,5 @@
 import http from './http';
-import { unwrap } from './unwrap';
+import { unwrap, unwrapField } from './unwrap';
 
 export interface Pet {
   id: number;
@@ -12,10 +12,9 @@ export interface Pet {
 }
 
 export const petApi = {
-  // unwrap 解包后取 data.pets（响应拦截器已将 ApiResponse.data 挂到 response.data）
-  async list(): Promise<Pet[]> {
-    const data = await unwrap(http.get<{ pets: Pet[] }>('/pets/list'));
-    return data.pets;
+  // unwrapField 一步完成「解包 + 取字段」，消除 await 中间变量
+  list(): Promise<Pet[]> {
+    return unwrapField(http.get<{ pets: Pet[] }>('/pets/list'), 'pets');
   },
 
   equip(petId: number): Promise<{ success: boolean; petId: number }> {

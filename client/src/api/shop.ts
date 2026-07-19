@@ -1,5 +1,5 @@
 import http from './http';
-import { unwrap } from './unwrap';
+import { unwrap, unwrapField } from './unwrap';
 
 export interface ShopItem {
   id: number;
@@ -21,20 +21,18 @@ export interface InventoryItem {
 }
 
 export const shopApi = {
-  // unwrap 解包后取 data.items（响应拦截器已将 ApiResponse.data 挂到 response.data）
-  async getItems(type?: string): Promise<ShopItem[]> {
+  // unwrapField 一步完成「解包 + 取字段」，消除 await 中间变量
+  getItems(type?: string): Promise<ShopItem[]> {
     const params = type ? { type } : {};
-    const data = await unwrap(http.get<{ items: ShopItem[] }>('/shop/items', { params }));
-    return data.items;
+    return unwrapField(http.get<{ items: ShopItem[] }>('/shop/items', { params }), 'items');
   },
 
   buy(itemId: number): Promise<{ success: boolean; item: ShopItem }> {
     return unwrap(http.post('/shop/buy', { itemId }));
   },
 
-  // unwrap 解包后取 data.inventory（响应拦截器已将 ApiResponse.data 挂到 response.data）
-  async getInventory(): Promise<InventoryItem[]> {
-    const data = await unwrap(http.get<{ inventory: InventoryItem[] }>('/shop/inventory'));
-    return data.inventory;
+  // unwrapField 一步完成「解包 + 取字段」，消除 await 中间变量
+  getInventory(): Promise<InventoryItem[]> {
+    return unwrapField(http.get<{ inventory: InventoryItem[] }>('/shop/inventory'), 'inventory');
   },
 };

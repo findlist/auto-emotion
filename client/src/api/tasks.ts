@@ -1,5 +1,5 @@
 import http from './http';
-import { unwrap } from './unwrap';
+import { unwrap, unwrapField } from './unwrap';
 
 export interface DailyTask {
   id: number;
@@ -14,10 +14,9 @@ export interface DailyTask {
 }
 
 export const taskApi = {
-  // unwrap 解包后取 data.tasks（响应拦截器已将 ApiResponse.data 挂到 response.data）
-  async getDailyTasks(): Promise<DailyTask[]> {
-    const data = await unwrap(http.get<{ tasks: DailyTask[] }>('/tasks/daily'));
-    return data.tasks;
+  // unwrapField 一步完成「解包 + 取字段」，消除 await 中间变量
+  getDailyTasks(): Promise<DailyTask[]> {
+    return unwrapField(http.get<{ tasks: DailyTask[] }>('/tasks/daily'), 'tasks');
   },
 
   claimReward(taskId: number): Promise<{ success: boolean; reward_exp: number; reward_gold: number }> {

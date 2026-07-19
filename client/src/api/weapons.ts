@@ -1,5 +1,5 @@
 import http from './http';
-import { unwrap } from './unwrap';
+import { unwrap, unwrapField } from './unwrap';
 
 export interface Weapon {
   id: number;
@@ -22,10 +22,9 @@ export interface UpgradeResult {
 }
 
 export const weaponApi = {
-  // unwrap 解包后取 data.weapons（响应拦截器已将 ApiResponse.data 挂到 response.data）
-  async list(): Promise<Weapon[]> {
-    const data = await unwrap(http.get<{ weapons: Weapon[] }>('/weapons/list'));
-    return data.weapons;
+  // unwrapField 一步完成「解包 + 取字段」，消除 await 中间变量
+  list(): Promise<Weapon[]> {
+    return unwrapField(http.get<{ weapons: Weapon[] }>('/weapons/list'), 'weapons');
   },
 
   upgrade(weaponId: number): Promise<UpgradeResult> {

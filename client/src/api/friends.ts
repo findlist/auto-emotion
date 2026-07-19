@@ -1,5 +1,5 @@
 import http from './http';
-import { unwrap } from './unwrap';
+import { unwrap, unwrapField } from './unwrap';
 
 export interface Friend {
   id: number;
@@ -18,15 +18,13 @@ export interface FriendRequest {
 }
 
 export const friendApi = {
-  // 带字段访问场景：unwrap 解包后取 data.friends（响应拦截器已将 ApiResponse.data 挂到 response.data）
-  async getFriends(): Promise<Friend[]> {
-    const data = await unwrap(http.get<{ friends: Friend[] }>('/friends'));
-    return data.friends;
+  // unwrapField 一步完成「解包 + 取字段」，消除 await 中间变量
+  getFriends(): Promise<Friend[]> {
+    return unwrapField(http.get<{ friends: Friend[] }>('/friends'), 'friends');
   },
 
-  async getRequests(): Promise<FriendRequest[]> {
-    const data = await unwrap(http.get<{ requests: FriendRequest[] }>('/friends/requests'));
-    return data.requests;
+  getRequests(): Promise<FriendRequest[]> {
+    return unwrapField(http.get<{ requests: FriendRequest[] }>('/friends/requests'), 'requests');
   },
 
   // 无字段访问场景：unwrap 直接返回业务数据
