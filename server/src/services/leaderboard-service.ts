@@ -21,6 +21,23 @@ function getScoreField(type: LeaderboardType): 'power' | 'battle_score' | 'speed
   return 'speed_score';
 }
 
+/**
+ * 获取好友 ID 列表（含自己）
+ * 设计原因：getFriendsUserRank 与 getFriendsLeaderboard 两处重复查询 friendships 表
+ * 并 push 自己的模板，抽取后消除重复；包含自己确保即使无好友也能返回第 1 名。
+ * userId 为 UUID 字符串，直接 push 与 friend_id 类型对齐，禁止 parseInt 截断 UUID。
+ * status 为 VARCHAR('pending'/'accepted')，使用字符串字面量与 schema 对齐（H-12 修复）。
+ */
+async function getFriendIdsIncludingSelf(userId: string): Promise<string[]> {
+  const friendsResult = await pool.query(
+    `SELECT friend_id FROM friendships WHERE user_id = $1 AND status = 'accepted'`,
+    [userId]
+  );
+  const friendIds = friendsResult.rows.map(r => r.friend_id);
+  friendIds.push(userId);
+  return friendIds;
+}
+
 interface LeaderboardEntry {
   rank: number;
   // users.id 为 UUID，pg 返回 string，类型对齐避免 parseInt 截断 UUID 导致 SQL 报错
@@ -152,16 +169,8 @@ export async function updateUserScore(
  * 复用全服 getUserRank 会返回全服名次而非好友圈名次，导致 /friends/me 语义错误
  */
 export async function getFriendsUserRank(userId: string): Promise<{ rank: number; score: number } | null> {
-  // 获取好友列表（与 getFriendsLeaderboard 一致：好友 + 自己）
-  // status 为 VARCHAR('pending'/'accepted')，使用字符串字面量与 schema 对齐（H-12 修复）
-  const friendsResult = await pool.query(
-    `SELECT friend_id FROM friendships WHERE user_id = $1 AND status = 'accepted'`,
-    [userId]
-  );
-  const friendIds = friendsResult.rows.map(r => r.friend_id);
-  // 包含自己，确保即使无好友也能返回第 1 名
-  // userId 为 UUID 字符串，直接 push 与 friend_id 类型对齐；parseInt 会截断 UUID 导致 SQL 报错
-  friendIds.push(userId);
+  // 获取好友列表（含自己，与 getFriendsLeaderboard 同源 helper）
+  const friendIds = await getFriendIdsIncludingSelf(userId);
 
   // 在好友圈内按 power 计算当前用户名次
   const result = await pool.query(
@@ -196,17 +205,8 @@ export async function getFriendsLeaderboard(
 ): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   const offset = (page - 1) * pageSize;
 
-  // 获取好友列表
-  // status 为 VARCHAR('pending'/'accepted')，使用字符串字面量与 schema 对齐（H-12 修复）
-  const friendsResult = await pool.query(
-    `SELECT friend_id FROM friendships WHERE user_id = $1 AND status = 'accepted'`,
-    [userId]
-  );
-  const friendIds = friendsResult.rows.map(r => r.friend_id);
-
-  // 包含自己
-  // userId 为 UUID 字符串，直接 push 与 friend_id 类型对齐；parseInt 会截断 UUID 导致 SQL 报错
-  friendIds.push(userId);
+  // 获取好友列表（含自己，与 getFriendsUserRank 同源 helper）
+  const friendIds = await getFriendIdsIncludingSelf(userId);
 
   if (friendIds.length === 0) {
     return { ranking: [], total: 0 };
