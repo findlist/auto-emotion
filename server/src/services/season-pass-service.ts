@@ -56,6 +56,24 @@ function generateSeasonRewards(): SeasonReward[] {
 
 const SEASON_REWARDS = generateSeasonRewards();
 
+// 文件内 private helper：统一当前赛季查询，消除 getCurrentSeason 与 claimSeasonReward 重复
+// 设计原因：两处 WHERE 子句完全一致，仅 SELECT 字段不同（getCurrentSeason 查 4 字段，
+// claimSeasonReward 仅查 id）；统一查询完整字段，调用方按需取用，多返回字段被忽略。
+// 行为等价：PostgreSQL 单行查询多返回字段不影响性能，与原两处查询语义一致。
+async function getCurrentSeasonInfo(): Promise<{
+  id: number;
+  name: string;
+  started_at: string;
+  ends_at: string;
+} | null> {
+  const result = await pool.query(
+    `SELECT id, name, started_at, ends_at FROM seasons
+     WHERE started_at <= NOW() AND ends_at > NOW()
+     ORDER BY started_at DESC LIMIT 1`
+  );
+  return result.rows.length > 0 ? result.rows[0] : null;
+}
+
 /**
  * 获取当前赛季信息
  */
@@ -73,18 +91,9 @@ export async function getCurrentSeason(userId: string): Promise<SeasonInfo> {
   }
 
   const user = result.rows[0];
-  
-  // 获取赛季配置
-  const seasonResult = await pool.query(
-    `SELECT id, name, started_at, ends_at FROM seasons 
-     WHERE started_at <= NOW() AND ends_at > NOW()
-     ORDER BY started_at DESC LIMIT 1`
-  );
 
-  let season = null;
-  if (seasonResult.rows.length > 0) {
-    season = seasonResult.rows[0];
-  }
+  // 获取赛季配置（统一走 getCurrentSeasonInfo helper，与 claimSeasonReward 同源）
+  const season = await getCurrentSeasonInfo();
 
   // 获取已领取的奖励：分别查询免费与高级领取记录，避免共用 Set 导致显示相同
   // 设计原因：原实现用同一个 Set 判断 freeClaimed 和 premiumClaimed，领免费后高级也显示已领取，是真实 bug
@@ -162,10 +171,8 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
   // 查询当前赛季 ID：与 getCurrentSeason 一致，避免硬编码 season_id=0 导致跨赛季奖励领取阻塞
   // 设计原因：原实现三处硬编码 0，但 getCurrentSeason 已用真实 season.id 查询，
   // 导致领取记录与显示查询错位，新赛季开始后老赛季奖励被记到 season_id=0 形成跨赛季污染
-  const seasonResult = await pool.query(
-    `SELECT id FROM seasons WHERE started_at <= NOW() AND ends_at > NOW() ORDER BY started_at DESC LIMIT 1`
-  );
-  const seasonId = seasonResult.rows[0]?.id ?? 0;
+  // 统一走 getCurrentSeasonInfo helper，仅取 id 字段（多返回字段被忽略，行为等价）
+  const seasonId = (await getCurrentSeasonInfo())?.id ?? 0;
 
   // 事务外 fast-fail 预检查：避免无谓获取事务客户端，改善 UX
   // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在事务内 advisory lock 后的权威检查
