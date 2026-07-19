@@ -46,48 +46,61 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
     }
   );
 
-  async function handleBuy() {
-    // 购买高级通行证属于关键付费操作，需二次确认
-    const ok = await showConfirm({
-      type: 'warning',
-      title: '购买高级通行证',
-      message: '确认购买高级通行证？购买后可解锁专属高级奖励。',
-      confirmText: '确认购买',
-    });
+  // 通用"二次确认 + 执行 + 刷新"流程：消除 handleBuy/handleClaim 两处逐字同构样板
+  // 设计原因：两处 handler 均为 showConfirm → setLoading → apiCall → showToast → loadSeasonPass
+  // → catch showApiError → finally setLoading 模式，仅 confirmOpts/action/successMsg/errorMsg 不同；
+  // 硬编码 loadSeasonPass 因 season-pass 页所有关键操作后都需刷新通行证数据，无需参数化
+  async function runWithConfirm(
+    confirmOpts: Parameters<typeof showConfirm>[0],
+    // action 返回类型用 unknown 而非 void：api 方法（buy/claim）返回 {success:boolean}，
+    // 调用方无需包装 async 包装层，helper 内部 await 后显式忽略返回值
+    action: () => Promise<unknown>,
+    successMsg: string,
+    errMsg: string,
+  ): Promise<void> {
+    const ok = await showConfirm(confirmOpts);
     if (!ok) return;
 
     try {
       setLoading(true);
-      await seasonPassApi.buy();
-      showToast('success', '购买成功！');
+      await action();
+      showToast('success', successMsg);
       await loadSeasonPass();
     } catch (err) {
-      showApiError(err, '购买失败');
+      showApiError(err, errMsg);
     } finally {
       setLoading(false);
     }
   }
 
+  async function handleBuy() {
+    // 购买高级通行证属于关键付费操作，需二次确认
+    await runWithConfirm(
+      {
+        type: 'warning',
+        title: '购买高级通行证',
+        message: '确认购买高级通行证？购买后可解锁专属高级奖励。',
+        confirmText: '确认购买',
+      },
+      () => seasonPassApi.buy(),
+      '购买成功！',
+      '购买失败',
+    );
+  }
+
   async function handleClaim(level: number, isPremium: boolean) {
     // 通行证奖励领取属于关键操作，二次确认避免误触
-    const ok = await showConfirm({
-      type: 'info',
-      title: '领取奖励',
-      message: `确认领取第 ${level} 阶${isPremium ? '高级' : '免费'}奖励？`,
-      confirmText: '领取',
-    });
-    if (!ok) return;
-
-    try {
-      setLoading(true);
-      await seasonPassApi.claim(level, isPremium);
-      showToast('success', '领取成功！');
-      await loadSeasonPass();
-    } catch (err) {
-      showApiError(err, '领取失败');
-    } finally {
-      setLoading(false);
-    }
+    await runWithConfirm(
+      {
+        type: 'info',
+        title: '领取奖励',
+        message: `确认领取第 ${level} 阶${isPremium ? '高级' : '免费'}奖励？`,
+        confirmText: '领取',
+      },
+      () => seasonPassApi.claim(level, isPremium),
+      '领取成功！',
+      '领取失败',
+    );
   }
 
   function formatDate(dateStr: string) {
