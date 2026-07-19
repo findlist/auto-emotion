@@ -10,6 +10,7 @@ import Loading from '@/components/Loading';
 import { getSocket, roomActions } from '@/websocket';
 import { useUserStore } from '@/stores/user-store';
 import { logger } from '@/utils/logger';
+import { showConfirm } from '@/utils/confirm';
 
 /** 档位中文标签 */
 const TIER_LABEL: Record<EffectTier, string> = {
@@ -389,12 +390,23 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
   // socket 实例由 getSocket 全局单例保证
   }, [roomId, mode]);
 
-  const handleStartGame = useCallback(() => {
-    // 开始游戏事件名与后端 RoomEvents.START 对齐
-    if (connected) {
+  const handleStartGame = useCallback(async () => {
+    // 房主点击开始游戏是不可逆操作——一旦发出 room:start，
+    // 后端会立即生成关卡并将全房玩家推入对局，玩家无法中途退出而不影响他人体验。
+    // 与 room.tsx handleStartGame 保持一致的二次确认模式，避免房主误触
+    if (!connected) return;
+    const modeLabel = MODE_LABEL[mode] ?? '当前模式';
+    const ok = await showConfirm({
+      type: 'warning',
+      title: '开始游戏',
+      message: `确认以「${modeLabel}」开始游戏？将带领全房玩家进入对局，无法中途取消。`,
+      confirmText: '开始',
+    });
+    if (ok) {
+      // 开始游戏事件名与后端 RoomEvents.START 对齐
       getSocket().emit('room:start', { roomId });
     }
-  }, [roomId, connected]);
+  }, [roomId, connected, mode]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
