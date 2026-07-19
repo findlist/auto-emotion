@@ -5,7 +5,7 @@ import pool from '../config/database.js';
 import { skillUnlockLevel } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
-import { deductGold } from '../utils/gold.js';
+import { deductGold, getUserGold } from '../utils/gold.js';
 
 // 技能列表行：对应 listSkills 的 SQL 查询结果
 // level/is_active 来自 LEFT JOIN user_skills，未解锁时为 null
@@ -124,12 +124,9 @@ export async function upgradeSkill(
 
     // 事务内预检查改善 UX：金币不足快速失败，给出明确所需金币数
     // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在下方 AND gold >= $1 原子守卫
-    const userResult = await tx.query(
-      `SELECT gold FROM users WHERE id = $1`,
-      [userId]
-    );
+    const gold = await getUserGold(tx, userId);
 
-    if (userResult.rows[0].gold < goldCost) {
+    if (gold < goldCost) {
       throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${goldCost} 金币`);
     }
 

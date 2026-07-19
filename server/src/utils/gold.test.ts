@@ -1,8 +1,9 @@
 // server/src/utils/gold.test.ts
 // deductGold 单元测试：覆盖扣减成功与扣减失败（rows.length === 0）两个核心分支
+// getUserGold 单元测试：覆盖用户存在返回金币与用户不存在抛 NOT_FOUND 两个核心分支
 
 import { describe, it, expect, vi } from 'vitest';
-import { deductGold } from './gold.js';
+import { deductGold, getUserGold } from './gold.js';
 import { ErrorCode } from './error.js';
 import type { Tx } from './transaction.js';
 
@@ -46,6 +47,43 @@ describe('deductGold 金币原子扣减', () => {
     expect(query).toHaveBeenCalledWith(
       expect.any(String),
       [999, 'user-xyz']
+    );
+  });
+});
+
+describe('getUserGold 查询用户金币', () => {
+  it('用户存在时返回金币余额，SQL 为 SELECT gold FROM users', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ gold: 800 }] });
+    const tx = makeTx(query);
+
+    const result = await getUserGold(tx, 'u1');
+
+    expect(query).toHaveBeenCalledWith(
+      `SELECT gold FROM users WHERE id = $1`,
+      ['u1']
+    );
+    expect(result).toBe(800);
+  });
+
+  it('rows.length === 0 时抛 NOT_FOUND，统一 weapon-service 既有契约', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const tx = makeTx(query);
+
+    await expect(getUserGold(tx, 'u1')).rejects.toMatchObject({
+      code: ErrorCode.NOT_FOUND,
+      message: '用户不存在',
+    });
+  });
+
+  it('参数顺序为 [userId]，与原 4 处 service 模板一致', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ gold: 0 }] });
+    const tx = makeTx(query);
+
+    await getUserGold(tx, 'user-xyz');
+
+    expect(query).toHaveBeenCalledWith(
+      expect.any(String),
+      ['user-xyz']
     );
   });
 });

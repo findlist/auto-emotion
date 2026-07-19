@@ -5,7 +5,7 @@ import pool from '../config/database.js';
 import { weaponUpgradeCost } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
-import { deductGold } from '../utils/gold.js';
+import { deductGold, getUserGold } from '../utils/gold.js';
 
 /**
  * 武器列表行：对应 listWeapons 的 SQL JOIN 结果
@@ -73,16 +73,10 @@ export async function upgradeWeapon(
 
     // 事务内预检查改善 UX：金币不足快速失败，给出明确所需金币数
     // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在下方 AND gold >= $1 原子守卫
-    const userResult = await tx.query(
-      `SELECT gold FROM users WHERE id = $1`,
-      [userId]
-    );
+    // getUserGold 在用户不存在时统一抛 NOT_FOUND（与下方 deductGold 同源 helper）
+    const gold = await getUserGold(tx, userId);
 
-    if (userResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
-    }
-
-    if (userResult.rows[0].gold < cost.gold) {
+    if (gold < cost.gold) {
       throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${cost.gold} 金币`);
     }
 
@@ -183,12 +177,9 @@ export async function buyWeapon(
 
     // 事务内预检查改善 UX：金币不足快速失败，给出明确所需金币数
     // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在下方 AND gold >= $1 原子守卫
-    const userResult = await tx.query(
-      `SELECT gold FROM users WHERE id = $1`,
-      [userId]
-    );
+    const gold = await getUserGold(tx, userId);
 
-    if (userResult.rows[0].gold < weapon.unlock_cost_gold) {
+    if (gold < weapon.unlock_cost_gold) {
       throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${weapon.unlock_cost_gold} 金币`);
     }
 

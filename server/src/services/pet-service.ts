@@ -4,7 +4,7 @@
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
-import { deductGold } from '../utils/gold.js';
+import { deductGold, getUserGold } from '../utils/gold.js';
 
 /**
  * 宠物列表行：对应 listPets 的 SQL JOIN 结果
@@ -110,13 +110,10 @@ export async function buyPet(
       throw new AppError(ErrorCode.CONFLICT, '已拥有该宠物');
     }
 
-    // 检查金币是否足够
-    const userResult = await tx.query(
-      `SELECT gold FROM users WHERE id = $1`,
-      [userId]
-    );
+    // 检查金币是否足够：getUserGold 在用户不存在时统一抛 NOT_FOUND（与 deductGold 同源 helper）
+    const gold = await getUserGold(tx, userId);
 
-    if (userResult.rows[0].gold < pet.unlock_cost_gold) {
+    if (gold < pet.unlock_cost_gold) {
       throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${pet.unlock_cost_gold} 金币`);
     }
 
