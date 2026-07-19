@@ -59,7 +59,7 @@
 6. 当前进度：{{基线状态}}
 7. 单轮限制：最多 {{N}} 个最小功能单元，最长 {{M}} 分钟
 8. 优先级：{{P0}} > 质量修复 > {{P1}} > 技术债 > 样式 > 测试
-9. Git 红线：禁止 commit/push/config/destructive
+9. Git 规范：每次最小修改单元通过后必须 git add（仅本次文件）→ git commit → git push origin HEAD，提交信息使用中文（feat/fix/refactor/docs: 描述），禁止 force push、reset --hard 等破坏性命令
 10. 改动前记录原内容，失败回滚
 11. 摘要模板见规范文档第五章第六步
 12. 语言：{{中文/英文}}
@@ -479,7 +479,7 @@
 6. 当前进度：Phase 1 完成 8/10，剩余应急资源地图页、CD 流水线
 7. 单轮限制：最多 2-3 个最小功能单元，最长 8 分钟
 8. 优先级：Phase1 收尾 > 质量修复 > Phase2 功能 > 技术债 > 样式精修 > 测试补全
-9. Git 红线：禁止 commit/push/config 修改/destructive 命令
+9. Git 规范：每次最小修改单元通过后必须 git add（仅本次文件）→ git commit → git push origin HEAD，提交信息使用中文（feat/fix/refactor/docs: 描述），禁止 force push、reset --hard 等破坏性命令
 10. 改动前记录原内容，测试失败时回滚
 11. 工作摘要模板见规范文档第五章第六步
 12. 语言：中文
