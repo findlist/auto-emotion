@@ -1032,3 +1032,61 @@
 - 建议用户决策 tasks.ts + achievements.ts /:id/claim 跨文件 helper 抽取是否推进（需新建共享 helper 文件）
 - 建议用户决策 demo.tsx + battle.tsx TIER_LABEL 常量共享是否推进（需新建共享常量文件）
 - 其他剩余项均为设计决策或需用户授权的大范围重构
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-20 04:10:00]
+本次完成任务：全量健康校验 + P0 三项任务代码独立核实（确认完整在位，按红线不重复开发）+ 1 个最小单元（idle-engine upgradeCharacter 金币扣减改用 deductGold helper，与 pet/skill/weapon 服务 4 处模式对齐）
+- 健康预检全绿（本轮独立运行确认，PowerShell 环境用 cwd + ; 替代 &&）：
+  ① 后端 tsc --noEmit ✅ TSC_EXIT=0
+  ② 后端 vitest run ✅ 716/716 通过（56 测试文件，5.96s）
+  ③ 前端 npm run build ✅ BUILD_EXIT=0（1.62s，864 modules）
+- P0 三项收尾任务代码独立核实（本轮 Grep/Read 独立核实，代码完整在位，未发生漂移，按红线不重复开发）：
+  ① 关键操作确认弹窗——showConfirm 覆盖 19 文件（grep 核实，含 6 业务页面 idle/shop/achievements/tasks/season-pass/friends + battle/room + 7 测试配套 + ConfirmDialog 组件 + 测试 + confirm.tsx 工具 + 测试）
+  ② WebSocket 断线重连——client/src/websocket/index.ts L49-52 完整在位（reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000 指数退避 1-5s）+ L73-90 reconnect 自动 rejoin 恢复房间状态 + reconnect_failed 清理 socket + disconnect/connect_error Toast 提示
+  ③ 对战画布响应式——battle.tsx L495-496 完整在位（width: 'min(100%, 800px, calc(75vh * 4 / 3))' + aspectRatio: '4 / 3'）
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-20 03:45 共 40+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 动态规划：本轮起始预检全绿后，启动 search Agent 做 10 维度新鲜技术债扫描。识别 1 个高质量候选：idle-engine.ts upgradeCharacter L273-277 裸 SQL 缺少 AND gold >= $1 RETURNING gold 原子守卫，与项目内 4 处 deductGold 调用模式不一致
+- 最小单元 1（idle-engine upgradeCharacter 金币扣减改用 deductGold helper）：
+  ① idle-engine.ts L11-13 import 注释扩展 + 增加 deductGold 引入
+  ② idle-engine.ts L273-277 替换：原裸 SQL 4 行替换为 await deductGold(tx, userId, goldCost) 1 行 + 3 行设计原因注释
+  ③ 测试 mock 修正：idle-engine.test.ts L258-268 + L301-310 两处 mockImplementation 增加 RETURNING gold 分支返回 rows: [{gold: 800}]，符合真实 SQL RETURNING 语义
+  ④ 测试断言无需修改：L271 sql.includes('gold = gold -') 与新 SQL 子串完全匹配
+  ⑤ 行为等价性分析：advisoryXactLock L217 已串行化同用户并发；预检查 L236-238 已拦截余额不足；deductGold 守卫几乎不触发；即使并发触发错误码/文案与预检查完全一致
+  ⑥ 后端 tsc ✅ 零错误 + 后端 vitest idle-engine.test.ts ✅ 19/19 通过 + 后端 vitest 全量 ✅ 716/716 通过（零回归）+ 前端 build 起始预检已验证零错误零警告
+  ⑦ Git commit 44ac5d0 已推送 origin/main（2 files changed, 16 insertions(+), 7 deletions(-)）
+- 第 2 个最小单元扫描：再次启动 search Agent 做 8 维度扫描。识别 3 个候选均不推荐：getUserCharacterLevel helper 抽取需新建文件违反 NEVER create files 原则 + leaderboard.ts 4 个 GET 同构方法抽取后不减少代码 + if (!room) throw 7 处守卫抽取降低可读性
+- 触发终止条件：规范 7.1.2"遇到阻塞性问题且无备选可迭代任务"——剩余技术债候选大多需用户授权或属于设计决策保留
+
+修改文件清单：
+- server/src/idle/idle-engine.ts（L11-13 import 扩展 + L273-277 替换为 deductGold 调用 + 设计原因注释）
+- server/src/idle/idle-engine.test.ts（L258-268 + L301-310 两处 mock 增加 RETURNING gold 分支）
+- memory/20260720/topics.md（追加本轮进度记录）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（2 次验证：起始预检 + 单元 1 后，均 TSC_EXIT=0）
+- 后端 vitest run ✅ 716/716 通过（起始预检 716/716 5.96s + 单元 1 后 idle-engine.test.ts 19/19 527ms + 全量 716/716 6.38s，零回归）
+- 前端 npm run build ✅ 零错误零警告（起始预检 1.62s 864 modules）
+- Git commit 44ac5d0 已推送 origin/main
+
+动态计划调整：
+- 本轮完成 1 个最小单元，未达单轮产出下限（规范 7.1.1：2-3 个最小功能单元）
+- 触发终止条件：规范 7.1.2"遇到阻塞性问题且无备选可迭代任务"——search Agent 8 维度扫描确认无符合约束候选
+- DRY 重构累计进展：金币扣减模式 100% 统一到 deductGold helper（idle-engine upgradeCharacter + pet-service buyPet + skill-service upgradeSkill + weapon-service upgradeWeapon+buyWeapon 共 5 处）
+- 上线验收标准（规范第十一条）7 项全部达标，项目已达到生产就绪状态
+
+遗留阻塞问题（与上轮一致，无新增）：
+- 用户指令基线"仅剩 3 项 P0 收尾任务"与实际状态冲突：P0 三项已于 2026-07-09 全量验收通过，代码完整在位，按红线不重复开发
+- 工作区仍有未提交的前序 Agent 遗留改动：README.md + client/public/llq.jpg（5MB 体积过大）+ client/src/index.css + 多个 client/src/pages/*.tsx（achievements/home/shop/tasks 样式精修）+ memory/20260715/topics.md + docs/bug-check/bug-check-2026-07-16.md~20.md + docs/style-optimization/style-opt-2026-07-16.md~20.md + memory/20260716-19/。按规范"禁止 git add -A"不擅自提交，留待用户决策
+- emotion-adapter.ts 整文件死代码 + GameEvents 3 个未使用常量 + server/src/data/ 4 个零引用文件 + 5 个"仅测试引用的 export" + server 端无 eslint 配置 + 前端覆盖率工具化阻塞 + client 13 处 emit 字面量 + ai/client.ts 环境变量名不一致 + routes 16 处 req.body as zod 改造 + /idle/areas 契约不一致 + rateLimit 中间件零调用 + JSON 字段命名前后端不一致 + client/api/idle.ts userId 多余参数 + weapons.ts /buy 缺幂等控制 + PageHeader 5 页面同构 + Toast+ConfirmDialog 防重入 + tasks+achievements claim 跨文件 + demo+battle TIER_LABEL + login+register handleSubmit + logger.ts 4 方法同构 —— 均需用户授权或属于设计决策保留
+
+下一轮迭代建议：
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
+- 建议用户先决策工作区未提交的前序 Agent 遗留改动（提交/回滚/拆分），解除 home.tsx 应用 useAsyncEffect 与 idle.tsx withLoading 抽取的阻塞
+- 建议用户决策 emotion-adapter.ts + GameEvents 3 个常量的去留（删除死代码 or 完成集成实现）
+- 建议用户决策 server/src/data/ 目录 4 个文件的去留
+- 建议用户决策 5 个"仅测试引用的 export"的架构一致性评估立项
+- 建议用户决策 PageHeader 组件抽取是否推进（5 页面同构 header，需新建组件文件）
+- 建议用户决策 tasks.ts + achievements.ts /:id/claim 跨文件 helper 抽取是否推进（需新建共享 helper 文件）
+- 建议用户决策 demo.tsx + battle.tsx TIER_LABEL 常量共享是否推进（需新建共享常量文件）
+- 其他剩余项均为设计决策或需用户授权的大范围重构
