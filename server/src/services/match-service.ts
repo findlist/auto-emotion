@@ -79,6 +79,32 @@ async function removeFromQueue(userId: string): Promise<void> {
 }
 
 /**
+ * 批量匹配玩家并创建房间：统一 joinQuickMatch 与 checkAndMatch 的"批量移除 + 创建房间"样板。
+ *
+ * 设计原因：两处调用点重复以下 4 步操作：
+ *   1. removeFromQueue 从队列移除每个玩家
+ *   2. redis.del 清除每个玩家的匹配状态 key
+ *   3. clearMatchTimer 清除每个玩家的超时 timer（避免 30 秒后无意义回调）
+ *   4. createRoomWithPlayers 创建房间并加入所有玩家
+ * 抽取后消除重复，集中维护"匹配成功"语义；调用次数与原两处完全一致，测试对 createRoom/joinRoom/del
+ * 次数敏感的断言保持通过。
+ *
+ * @param players 已确认长度 >= MATCH_PLAYER_COUNT 的玩家列表（调用方负责 slice 与长度守卫）
+ * @returns 新创建的房间 ID
+ */
+async function matchPlayersAndCreateRoom(players: QueuePlayer[]): Promise<string> {
+  for (const player of players) {
+    await removeFromQueue(player.userId);
+    await redis.del(`${MATCH_STATUS_KEY_PREFIX}${player.userId}`);
+    // 清除匹配超时 timer：玩家已匹配成功，无需再等 30 秒超时回调
+    // 设计原因：未清除则 timer 在 30 秒后仍触发，回调内 getQueuePlayers 找不到该玩家虽不会误删，
+    // 但会产生 1 次无意义的 Redis 查询；累积下会产生大量空转 IO
+    clearMatchTimer(player.userId);
+  }
+  return createRoomWithPlayers(players);
+}
+
+/**
  * 创建房间并加入所有玩家
  */
 async function createRoomWithPlayers(players: QueuePlayer[]): Promise<string> {
@@ -158,24 +184,11 @@ export async function joinQuickMatch(
   
   // 检查队列是否已满
   const updatedPlayers = await getQueuePlayers();
-  
-  if (updatedPlayers.length >= MATCH_PLAYER_COUNT) {
-    // 取前4个玩家创建房间
-    const matchedPlayers = updatedPlayers.slice(0, MATCH_PLAYER_COUNT);
-    
-    // 批量移除
-    for (const player of matchedPlayers) {
-      await removeFromQueue(player.userId);
-      // 清除匹配状态
-      await redis.del(`${MATCH_STATUS_KEY_PREFIX}${player.userId}`);
-      // 清除匹配超时 timer：玩家已匹配成功，无需再等 30 秒超时回调
-      // 设计原因：未清除则 timer 在 30 秒后仍触发，回调内 getQueuePlayers 找不到该玩家虽不会误删，
-      // 但会产生 1 次无意义的 Redis 查询；累积下会产生大量空转 IO
-      clearMatchTimer(player.userId);
-    }
 
-    // 创建房间
-    const roomId = await createRoomWithPlayers(matchedPlayers);
+  if (updatedPlayers.length >= MATCH_PLAYER_COUNT) {
+    // 取前 4 个玩家批量移除 + 创建房间（统一 helper，与 checkAndMatch 共用）
+    const matchedPlayers = updatedPlayers.slice(0, MATCH_PLAYER_COUNT);
+    const roomId = await matchPlayersAndCreateRoom(matchedPlayers);
     return { roomId };
   }
   
@@ -239,21 +252,11 @@ export async function getMatchStatus(userId: string): Promise<{ inQueue: boolean
  */
 export async function checkAndMatch(): Promise<void> {
   const players = await getQueuePlayers();
-  
+
   while (players.length >= MATCH_PLAYER_COUNT) {
     const matchedPlayers = players.slice(0, MATCH_PLAYER_COUNT);
-    
-    // 批量移除
-    for (const player of matchedPlayers) {
-      await removeFromQueue(player.userId);
-      await redis.del(`${MATCH_STATUS_KEY_PREFIX}${player.userId}`);
-      // 与 joinQuickMatch 匹配成功路径一致：清除超时 timer，避免 30 秒后无意义回调
-      clearMatchTimer(player.userId);
-    }
-
-    // 创建房间
-    await createRoomWithPlayers(matchedPlayers);
-
+    // 批量移除 + 创建房间（统一 helper，与 joinQuickMatch 共用，返回值 roomId 此处不使用）
+    await matchPlayersAndCreateRoom(matchedPlayers);
     // 更新剩余玩家列表
     players.splice(0, MATCH_PLAYER_COUNT);
   }
