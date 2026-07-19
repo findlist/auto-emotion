@@ -4,7 +4,42 @@
 import pool from '../config/database.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
+import type { Tx } from '../utils/transaction.js';
 import { deductGold, getUserGold } from '../utils/gold.js';
+
+/**
+ * 用户宠物记录：user_pets 表的查询结果类型
+ * 设计原因：与 weapon-service 的 UserWeaponRow 对称，getUserPet helper 的返回值类型。
+ * 当前调用方（equipPet/buyPet）仅做存在性判断，未读取字段；接口预留 is_equipped 字段
+ * 为未来装备状态查询场景扩展，避免后续调用方读取时再修改接口。
+ */
+interface UserPetRow {
+  is_equipped: boolean;
+}
+
+/**
+ * 查询用户宠物记录
+ *
+ * 设计原因：equipPet + buyPet 两处重复
+ * `SELECT * FROM user_pets WHERE user_id = $1 AND pet_id = $2` SQL 模板，
+ * 抽取后调用方按业务语义守卫（未拥有抛 NOT_FOUND / 已拥有抛 CONFLICT），
+ * 与 weapon-service 的 getUserWeapon 形成对称模式，service 层"用户拥有 X 记录查询"
+ * 统一封装为 getUserXxx 模式，消除 SQL 文本漂移风险。
+ *
+ * 返回 null 而非抛错：调用方守卫各异（equip 反向抛 NOT_FOUND '未拥有该宠物'，
+ * buy 正向抛 CONFLICT '已拥有该宠物'），统一在 helper 内抛错会破坏 buy 的 CONFLICT 语义。
+ */
+async function getUserPet(
+  tx: Tx,
+  userId: string,
+  petId: number
+): Promise<UserPetRow | null> {
+  const result = await tx.query(
+    `SELECT * FROM user_pets WHERE user_id = $1 AND pet_id = $2`,
+    [userId, petId]
+  );
+  return result.rows[0] ?? null;
+}
 
 /**
  * 宠物列表行：对应 listPets 的 SQL JOIN 结果
@@ -50,12 +85,8 @@ export async function equipPet(
 ): Promise<{ success: true; petId: number }> {
   return withTransaction(async (tx) => {
     // 检查是否拥有该宠物
-    const ownedResult = await tx.query(
-      `SELECT * FROM user_pets WHERE user_id = $1 AND pet_id = $2`,
-      [userId, petId]
-    );
-
-    if (ownedResult.rows.length === 0) {
+    const owned = await getUserPet(tx, userId, petId);
+    if (!owned) {
       throw new AppError(ErrorCode.NOT_FOUND, '未拥有该宠物');
     }
 
@@ -101,12 +132,8 @@ export async function buyPet(
     const pet = petResult.rows[0];
 
     // 检查是否已拥有
-    const ownedResult = await tx.query(
-      `SELECT * FROM user_pets WHERE user_id = $1 AND pet_id = $2`,
-      [userId, petId]
-    );
-
-    if (ownedResult.rows.length > 0) {
+    const owned = await getUserPet(tx, userId, petId);
+    if (owned) {
       throw new AppError(ErrorCode.CONFLICT, '已拥有该宠物');
     }
 
