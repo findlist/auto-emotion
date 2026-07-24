@@ -19,6 +19,19 @@ const TYPE_LABELS: Record<string, string> = {
   pet: '宠物',
 };
 
+/* 类型筛选 emoji：与大厅/房间按钮 emoji 风格统一，让筛选一目了然
+   all 用 🎯 暗示"全选目标"，item/weapon_skin/pet 与对应商品 emoji 呼应 */
+const TYPE_EMOJIS: Record<string, string> = {
+  all: '🎯',
+  item: '🎁',
+  weapon_skin: '🗡️',
+  pet: '🐾',
+};
+
+/* 类型筛选顺序常量：抽取自 onKeyDown 键盘导航与 map 渲染两处原本重复的内联数组
+   设计原因：与 TYPE_LABELS/TYPE_EMOJIS 同源，新增/删除类型时单点修改避免漏改导致 tab 与键盘导航不同步 */
+const TYPE_ORDER: ItemType[] = ['all', 'item', 'weapon_skin', 'pet'];
+
 export default function ShopPage({ onBack }: ShopPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>('items');
   const [activeType, setActiveType] = useState<ItemType>('all');
@@ -107,11 +120,12 @@ export default function ShopPage({ onBack }: ShopPageProps) {
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto scrollbar-brutal">
       {/* 顶部导航 */}
       <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
-        {/* 返回按钮仅含箭头符号，aria-label 提供语义避免屏幕阅读器朗读"左箭头" */}
+        {/* 返回按钮放大并加 hover 背景区块，与 tasks/achievements/leaderboard/season-pass 页保持一致
+            原/shop 使用 w-8 h-8 rounded 较小，触摸目标不足 44px 且与其他页风格不统一 */}
         <button
           onClick={onBack}
           aria-label="返回"
-          className="text-cream hover:text-yellow transition-colors text-xl font-bold w-8 h-8 flex items-center justify-center hover:bg-cream/10 rounded"
+          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
         >
           ←
         </button>
@@ -155,8 +169,8 @@ export default function ShopPage({ onBack }: ShopPageProps) {
           语义。子 tab 的 aria-controls 指向 items 列表的 tabpanel id */}
       {activeTab === 'items' && (
         <div role="tablist" aria-label="商品类型筛选" className="flex gap-2 p-3 border-b-2 border-ink/20 overflow-x-auto scrollbar-brutal"
-          onKeyDown={(e) => handleTabKeyDown(e, ['all', 'item', 'weapon_skin', 'pet'], activeType, (k) => setActiveType(k as ItemType))}>
-          {(['all', 'item', 'weapon_skin', 'pet'] as ItemType[]).map((type) => (
+          onKeyDown={(e) => handleTabKeyDown(e, TYPE_ORDER, activeType, (k) => setActiveType(k as ItemType))}>
+          {TYPE_ORDER.map((type) => (
             <button
               key={type}
               role="tab"
@@ -164,12 +178,15 @@ export default function ShopPage({ onBack }: ShopPageProps) {
               aria-controls="shop-items-panel"
               id={`shop-type-${type}`}
               onClick={() => setActiveType(type)}
-              className={`px-3 py-1 font-cn text-sm whitespace-nowrap transition-all ${
+              className={`px-3 py-1 font-cn text-sm whitespace-nowrap transition-all flex items-center gap-1 ${
                 activeType === type
                   ? 'bg-ink text-cream shadow-[2px_2px_0_#ff3d7f]'
                   : 'bg-ink/15 text-ink/80 hover:bg-ink/25'
               }`}
             >
+              {/* 类型筛选 emoji：与大厅/房间按钮 emoji 风格统一，让筛选一目了然
+                  aria-hidden 屏蔽装饰图标避免与后跟文字语义重复 */}
+              <span aria-hidden="true">{TYPE_EMOJIS[type]}</span>
               {type === 'all' ? '全部' : TYPE_LABELS[type]}
             </button>
           ))}
@@ -204,8 +221,11 @@ export default function ShopPage({ onBack }: ShopPageProps) {
                     style={{ animationDelay: `${idx * 50}ms` }}
                   >
                     <div className="text-center mb-2">
-                      {/* 商品 emoji 与后跟商品名语义重复，aria-hidden 屏蔽装饰图标 */}
-                      <span className="text-4xl inline-block transition-transform hover:scale-110" aria-hidden="true">{item.emoji}</span>
+                      {/* 商品 emoji 加圆形背景给视觉重量，与挂机页武器/技能/宠物图标视觉模式一致
+                          hover 时 emoji 放大，圆形背景作为放大基准点让缩放更自然 */}
+                      <div className="inline-flex w-16 h-16 rounded-full bg-ink/5 items-center justify-center transition-transform hover:scale-105">
+                        <span className="text-4xl" aria-hidden="true">{item.emoji}</span>
+                      </div>
                     </div>
                     <p className="font-cn text-ink font-bold text-center mb-1">{item.name}</p>
                     <p className="font-mono text-xs text-ink/60 text-center mb-2 line-clamp-2">
@@ -244,8 +264,10 @@ export default function ShopPage({ onBack }: ShopPageProps) {
                 style={{ animationDelay: `${idx * 50}ms` }}
               >
                 <div className="flex items-center gap-3">
-                  {/* 背包道具 emoji 与后跟道具名语义重复，aria-hidden 屏蔽装饰图标 */}
-                  <span className="text-3xl" aria-hidden="true">{item.emoji}</span>
+                  {/* 背包道具 emoji 加圆形背景，与商品列表图标视觉模式一致 */}
+                  <div className="w-12 h-12 rounded-full bg-ink/5 flex items-center justify-center flex-shrink-0">
+                    <span className="text-2xl" aria-hidden="true">{item.emoji}</span>
+                  </div>
                   <div className="flex-1">
                     <p className="font-cn text-ink font-bold">{item.name}</p>
                     <p className="font-mono text-xs text-ink/60">
