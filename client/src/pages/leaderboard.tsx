@@ -159,7 +159,7 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
             {ranking.map((entry, idx) => (
               <div
                 key={entry.userId}
-                className={`border-2 p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger ${getRowStyle(entry.rank, String(entry.userId) === String(user?.id))}`}
+                className={`border-2 p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger ${getRowStyle(entry.rank, entry.userId === user?.id)}`}
                 style={{ animationDelay: `${idx * 40}ms` }}
               >
                 <div className="flex items-center gap-3">

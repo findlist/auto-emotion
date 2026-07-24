@@ -35,7 +35,8 @@ type UpgradeField = (typeof UPGRADE_FIELDS)[number]['key'];
 
 function IdlePage({ onBack }: IdlePageProps) {
   const user = useUserStore((s) => s.user);
-  const userId = user?.id?.toString();
+  // User.id 已是 string 类型，无需 toString() 绕路转换
+  const userId = user?.id;
 
   const [status, setStatus] = useState<CharacterStatus | null>(null);
   const [areas, setAreas] = useState<IdleArea[]>([]);

@@ -278,8 +278,9 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
         sceneManagerRef.current = sceneManager;
 
         // 本地玩家 userId：与后端 room.players 中的 userId 对齐，用于多人对战操作同步
+        // User.id 已是 string 类型，无需 String() 绕路转换
         const localUser = useUserStore.getState().user;
-        const localUserId = localUser ? String(localUser.id) : '';
+        const localUserId = localUser?.id ?? '';
         // 远程玩家列表：从 room:state 同步的 players 中提取，供 BattleScene 初始化所有玩家
         const remotePlayers = playersRef.current.map((p) => ({
           userId: p.userId,

@@ -58,8 +58,8 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
     onGameStartRef.current = onGameStart;
   });
 
-  const isHost = user?.id.toString() === roomStore.hostId;
-  const currentPlayer = roomStore.players.find((p) => p.userId === user?.id.toString());
+  const isHost = user?.id === roomStore.hostId;
+  const currentPlayer = roomStore.players.find((p) => p.userId === user?.id);
   const isReady = currentPlayer?.isReady ?? false;
 
   // 状态变为 playing 时跳转游戏
@@ -151,7 +151,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
               key={player.userId}
               className={`flex items-center justify-between px-3 py-2 border-2 transition-all card-hover ${
                 player.userId === roomStore.hostId ? 'border-yellow' : 'border-ink'
-              } ${player.userId === user?.id.toString() ? 'bg-yellow/20' : 'bg-cream'}`}
+              } ${player.userId === user?.id ? 'bg-yellow/20' : 'bg-cream'}`}
             >
               <div className="flex items-center gap-2.5">
                 {/* 玩家就绪状态指示圆点：左侧色点一眼可扫描全房准备情况
@@ -172,7 +172,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs font-bold ${
                   player.userId === roomStore.hostId
                     ? 'bg-yellow text-ink'
-                    : player.userId === user?.id.toString()
+                    : player.userId === user?.id
                     ? 'bg-pink text-cream'
                     : 'bg-ink text-cream'
                 }`}>
@@ -183,7 +183,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
                   {player.userId === roomStore.hostId && (
                     <span className="bg-yellow text-ink text-xs px-1 font-bold shadow-[1px_1px_0_#1a1a1a]">房主</span>
                   )}
-                  {player.userId === user?.id.toString() && (
+                  {player.userId === user?.id && (
                     <span className="text-ink/60 text-xs">(你)</span>
                   )}
                 </div>
