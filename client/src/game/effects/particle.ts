@@ -4,6 +4,17 @@ import type { Container, Texture } from 'pixi.js';
 /** 特效档位：低 / 中 / 高 */
 export type EffectTier = 'low' | 'mid' | 'high';
 
+/**
+ * 档位中文展示标签
+ * 设计原因：battle 与 demo 页面均需将 EffectTier 映射为用户可读文案，
+ * 收敛到类型定义源头统一维护，避免两处重复定义导致文案漂移
+ */
+export const TIER_LABEL: Record<EffectTier, string> = {
+  low: '低档',
+  mid: '中档',
+  high: '高档',
+};
+
 /** 各档位粒子数量 */
 const TIER_PARTICLE_COUNT: Record<EffectTier, number> = {
   low: 5,

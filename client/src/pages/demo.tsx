@@ -4,17 +4,10 @@ import { GameEngine, CANVAS_WIDTH, CANVAS_HEIGHT } from '@/game/core/engine';
 import { SceneManager } from '@/game/core/scene-manager';
 import { AssetLoader } from '@/game/core/asset-loader';
 import { BattleScene } from '@/game/scenes/battle-scene';
-import type { EffectTier } from '@/game/effects/particle';
+import { TIER_LABEL, type EffectTier } from '@/game/effects/particle';
 
 /** 结算奖励计算 */
 const SETTLEMENT_TIME_LIMIT_MS = 60000; // 60秒一场
-
-/** 档位中文标签 */
-const TIER_LABEL: Record<EffectTier, string> = {
-  low: '低档',
-  mid: '中档',
-  high: '高档',
-};
 
 interface DemoPageProps {
   onBack: () => void;

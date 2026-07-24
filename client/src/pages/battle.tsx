@@ -4,20 +4,13 @@ import { GameEngine, CANVAS_WIDTH, CANVAS_HEIGHT } from '@/game/core/engine';
 import { SceneManager } from '@/game/core/scene-manager';
 import { AssetLoader } from '@/game/core/asset-loader';
 import { BattleScene } from '@/game/scenes/battle-scene';
-import type { EffectTier } from '@/game/effects/particle';
+import { TIER_LABEL, type EffectTier } from '@/game/effects/particle';
 import type { GameMode } from '@/types/game';
 import Loading from '@/components/Loading';
 import { getSocket, roomActions } from '@/websocket';
 import { useUserStore } from '@/stores/user-store';
 import { logger } from '@/utils/logger';
 import { showConfirm } from '@/utils/confirm';
-
-/** 档位中文标签 */
-const TIER_LABEL: Record<EffectTier, string> = {
-  low: '低档',
-  mid: '中档',
-  high: '高档',
-};
 
 /** 模式中文名 */
 const MODE_LABEL: Record<GameMode, string> = {
