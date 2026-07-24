@@ -68,35 +68,37 @@ export interface IdleArea {
 
 /**
  * 挂机 API
+ *
+ * 设计原因：所有挂机接口的 userId 均由后端 authMiddleware 从 JWT 解析（req.user.userId），
+ * 前端无需也不应传递 userId —— 既消除冗余字段，也避免客户端伪造他人 userId 越权操作。
  */
 export const idleApi = {
   /** 获取角色状态 */
-  getStatus(userId: string): Promise<CharacterStatus> {
-    return unwrap(http.get('/idle/status', { params: { userId } }));
+  getStatus(): Promise<CharacterStatus> {
+    return unwrap(http.get('/idle/status'));
   },
 
   /** 在线结算 */
-  settle(userId: string, durationSeconds: number): Promise<SettleResult> {
-    return unwrap(http.post('/idle/settle', { userId, durationSeconds }));
+  settle(durationSeconds: number): Promise<SettleResult> {
+    return unwrap(http.post('/idle/settle', { durationSeconds }));
   },
 
   /** 领取离线收益 */
-  claim(userId: string): Promise<OfflineResult> {
-    return unwrap(http.post('/idle/claim', { userId }));
+  claim(): Promise<OfflineResult> {
+    return unwrap(http.post('/idle/claim'));
   },
 
   /** 切换挂机区域 */
-  switchArea(userId: string, areaId: number): Promise<{ success: boolean }> {
-    return unwrap(http.post('/idle/switch-area', { userId, areaId }));
+  switchArea(areaId: number): Promise<{ success: boolean }> {
+    return unwrap(http.post('/idle/switch-area', { areaId }));
   },
 
   /** 升级角色属性 */
   upgrade(
-    userId: string,
     field: 'hp' | 'attack' | 'defense' | 'crit_rate' | 'crit_damage' | 'efficiency',
     itemType?: string
   ): Promise<{ success: boolean; newValue: number }> {
-    return unwrap(http.post('/idle/upgrade', { userId, field, itemType }));
+    return unwrap(http.post('/idle/upgrade', { field, itemType }));
   },
 
   /** 获取所有挂机区域 */

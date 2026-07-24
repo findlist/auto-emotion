@@ -105,11 +105,11 @@ describe('IdlePage 挂机空间页', () => {
   it('挂载后并发调用 6 个 API 加载挂机数据', async () => {
     render(<IdlePage onBack={() => {}} />);
 
-    // userId 由 user.id 派生为字符串 '1',验证传入参数正确
+    // userId 不再由前端传递（后端从 JWT 解析），getStatus/claim 应无参调用
     await waitFor(() => {
-      expect(idleMock.getStatus).toHaveBeenCalledWith('1');
+      expect(idleMock.getStatus).toHaveBeenCalledWith();
       expect(idleMock.listAreas).toHaveBeenCalledTimes(1);
-      expect(idleMock.claim).toHaveBeenCalledWith('1');
+      expect(idleMock.claim).toHaveBeenCalledWith();
       expect(weaponMock.list).toHaveBeenCalledTimes(1);
       expect(skillMock.list).toHaveBeenCalledTimes(1);
       expect(petMock.list).toHaveBeenCalledTimes(1);

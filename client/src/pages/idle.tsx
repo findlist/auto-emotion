@@ -54,9 +54,9 @@ function IdlePage({ onBack }: IdlePageProps) {
     try {
       setLoading(true);
       const [statusData, areasData, offlineData, weaponsData, skillsData, petsData] = await Promise.all([
-        idleApi.getStatus(userId).catch(() => null),
+        idleApi.getStatus().catch(() => null),
         idleApi.listAreas().catch(() => []),
-        idleApi.claim(userId).catch(() => null),
+        idleApi.claim().catch(() => null),
         weaponApi.list().catch(() => []),
         skillApi.list().catch(() => []),
         petApi.list().catch(() => []),
@@ -286,7 +286,7 @@ function IdlePage({ onBack }: IdlePageProps) {
     if (!userId) return;
     try {
       setLoading(true);
-      const result = await idleApi.claim(userId);
+      const result = await idleApi.claim();
       setOfflineResult(null); // 领取后清零
       await loadData();
       showToast('success', `领取成功！经验 +${result.exp}，金币 +${result.gold}`);
@@ -303,7 +303,7 @@ function IdlePage({ onBack }: IdlePageProps) {
     if (!userId) return;
     try {
       setLoading(true);
-      await idleApi.switchArea(userId, areaId);
+      await idleApi.switchArea(areaId);
       showToast('success', '区域已切换');
       await loadData();
     } catch (err) {
@@ -330,7 +330,7 @@ function IdlePage({ onBack }: IdlePageProps) {
 
     try {
       setLoading(true);
-      await idleApi.upgrade(userId, field);
+      await idleApi.upgrade(field);
       showToast('success', '升级成功');
       await loadData();
     } catch (err) {
