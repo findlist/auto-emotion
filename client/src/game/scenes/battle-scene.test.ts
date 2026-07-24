@@ -222,13 +222,9 @@ describe('BattleScene 多人对战同步逻辑', () => {
     expect(mockBossInstance.shoot).toHaveBeenCalledWith('u2', 0.7);
   });
 
-  it('后端 userId 为 number 时统一转 string 比较，自身广播被过滤', () => {
-    const { scene, socket } = createScene({ localUserId: '123' });
-    scene.init('boss');
-    scene.onEnter();
-    socket.trigger('game:action', { userId: 123, action: 'shoot', payload: { angle: 1 }, timestamp: 0 });
-    expect(mockBossInstance.shoot).not.toHaveBeenCalled();
-  });
+  // 已删除"后端 userId 为 number 时统一转 string 比较"用例：
+  // 前后端 ActionPayload.userId 类型契约已统一为 string，后端不会发送 number 类型，
+  // 测试该不可能场景属于验证冗余防御逻辑，类型对齐后该防御性 String() 转换已移除
 
   it('非 shoot action 被忽略', () => {
     const { scene, socket } = createScene({ localUserId: 'u1' });

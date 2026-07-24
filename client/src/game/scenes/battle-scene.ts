@@ -238,8 +238,8 @@ export class BattleScene implements Scene {
 
   /** 处理远程玩家操作：过滤自己发出的广播，按 action 类型分发到对应游戏实例 */
   private handleRemoteAction(data: GameActionPayload): void {
-    // 后端 JWT 中 userId 可能是 number，room.players 中为 string，统一转 string 比较
-    const userId = String(data.userId);
+    // 前后端 ActionPayload.userId 类型契约已统一为 string，无需 String() 防御转换
+    const userId = data.userId;
     // 后端广播会发给房间所有人包括发送者，过滤自身避免本地操作重复执行
     if (userId === this.localUserId) return;
 
