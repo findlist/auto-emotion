@@ -33,6 +33,18 @@ const UPGRADE_FIELDS = [
 
 type UpgradeField = (typeof UPGRADE_FIELDS)[number]['key'];
 
+/* 挂机功能 tab 配置：与 UPGRADE_FIELDS 同源，"配置数组 + 派生类型"模式
+   设计原因：原 useState 类型字面量、onKeyDown 键盘导航数组、map 内联 tab 配置三处重复
+   key 字面量，新增/删除 tab 时易漏改。抽取后单点维护，与 leaderboard.tsx TAB_CONFIG 风格对齐 */
+const IDLE_TABS = [
+  { key: 'main', label: '升级' },
+  { key: 'weapons', label: '武器' },
+  { key: 'skills', label: '技能' },
+  { key: 'pets', label: '宠物' },
+] as const;
+
+type IdleTab = (typeof IDLE_TABS)[number]['key'];
+
 function IdlePage({ onBack }: IdlePageProps) {
   const user = useUserStore((s) => s.user);
   // User.id 已是 string 类型，无需 toString() 绕路转换
@@ -42,7 +54,7 @@ function IdlePage({ onBack }: IdlePageProps) {
   const [areas, setAreas] = useState<IdleArea[]>([]);
   const [offlineResult, setOfflineResult] = useState<OfflineResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'main' | 'weapons' | 'skills' | 'pets'>('main');
+  const [activeTab, setActiveTab] = useState<IdleTab>('main');
   const [weapons, setWeapons] = useState<Weapon[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [pets, setPets] = useState<Pet[]>([]);
@@ -484,20 +496,15 @@ function IdlePage({ onBack }: IdlePageProps) {
           构成完整 tab 语义。保留所有 tab 的默认 button 可聚焦性，不引入 roving
           tabindex 避免箭头键导航复杂度，是安全增量改进 */}
       <div role="tablist" aria-label="挂机功能" className="px-4 flex gap-2 border-b-2 border-ink/20"
-        onKeyDown={(e) => handleTabKeyDown(e, ['main', 'weapons', 'skills', 'pets'], activeTab, (k) => setActiveTab(k as typeof activeTab))}>
-        {[
-          { key: 'main', label: '升级' },
-          { key: 'weapons', label: '武器' },
-          { key: 'skills', label: '技能' },
-          { key: 'pets', label: '宠物' },
-        ].map((tab) => (
+        onKeyDown={(e) => handleTabKeyDown(e, IDLE_TABS.map((t) => t.key), activeTab, (k) => setActiveTab(k as IdleTab))}>
+        {IDLE_TABS.map((tab) => (
           <button
             key={tab.key}
             role="tab"
             aria-selected={activeTab === tab.key}
             aria-controls="idle-panel"
             id={`idle-tab-${tab.key}`}
-            onClick={() => setActiveTab(tab.key as typeof activeTab)}
+            onClick={() => setActiveTab(tab.key)}
             className={`px-4 py-2 font-mono text-sm border-b-3 transition-all ${
               activeTab === tab.key
                 ? 'border-pink text-pink font-bold -mb-[2px]'
