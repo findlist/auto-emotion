@@ -184,16 +184,36 @@ export async function handleStart(data: StartInput, deps: HandlerDeps): Promise<
   }, deps.socket, '开始游戏失败');
 }
 
+/**
+ * 校验房间存在且处于 playing 状态，否则抛 BAD_REQUEST
+ *
+ * 设计原因：handleAction 与 handleScoreUpdate 重复以下 4 行样板：
+ *   const room = await deps.roomManager.getRoom(data.roomId);
+ *   if (!room || room.status !== 'playing') {
+ *     throw new AppError(ErrorCode.BAD_REQUEST, '游戏未在进行中');
+ *   }
+ * 抽取后调用方变为单行，集中维护"playing 状态守卫"语义。
+ * 抛错而非 emit：异常由 withErrorHandling 统一捕获并 emit ERROR，与文件其他 handler 一致。
+ * 仅在 handlers.ts 内部使用，不对外导出，避免影响外部依赖图。
+ */
+async function ensurePlayingRoom(
+  roomId: string,
+  manager: typeof roomManager
+): Promise<Room> {
+  const room = await manager.getRoom(roomId);
+  if (!room || room.status !== 'playing') {
+    throw new AppError(ErrorCode.BAD_REQUEST, '游戏未在进行中');
+  }
+  return room;
+}
+
 /** 游戏操作：仅 playing 状态允许，广播操作给房间所有人（含发送者，前端过滤自身） */
 export async function handleAction(
   data: ActionInput,
   deps: HandlerDeps
 ): Promise<void> {
   await withErrorHandling(async () => {
-    const room = await deps.roomManager.getRoom(data.roomId);
-    if (!room || room.status !== 'playing') {
-      throw new AppError(ErrorCode.BAD_REQUEST, '游戏未在进行中');
-    }
+    await ensurePlayingRoom(data.roomId, deps.roomManager);
     deps.io.to(data.roomId).emit(GameEvents.ACTION, {
       userId: deps.user.userId,
       action: data.action,
@@ -209,10 +229,7 @@ export async function handleScoreUpdate(
   deps: HandlerDeps
 ): Promise<void> {
   await withErrorHandling(async () => {
-    const room = await deps.roomManager.getRoom(data.roomId);
-    if (!room || room.status !== 'playing') {
-      throw new AppError(ErrorCode.BAD_REQUEST, '游戏未在进行中');
-    }
+    await ensurePlayingRoom(data.roomId, deps.roomManager);
     deps.io.to(data.roomId).emit(GameEvents.SCORE_UPDATE, {
       userId: deps.user.userId,
       score: data.score,
