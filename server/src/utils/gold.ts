@@ -39,6 +39,44 @@ export async function getUserGold(
 }
 
 /**
+ * 事务内金币预检查：余额不足时快速失败，给出明确所需金额。
+ *
+ * 设计原因：4 个 service（pet-service buyPet / skill-service upgradeSkill /
+ * weapon-service upgradeWeapon+buyWeapon）共 4 处重复以下模板：
+ *   const gold = await getUserGold(tx, userId);
+ *   if (gold < cost) {
+ *     throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${cost} 金币`);
+ *   }
+ * 抽取后消除重复，并与 getUserGold / deductGold 形成完整金币工具族：
+ *   - getUserGold：读余额（不守卫）
+ *   - ensureGold：预检查（UX 快速失败，非权威）
+ *   - deductGold：原子扣减（权威并发守卫）
+ *
+ * 注意：本 helper 仅做"预检查"改善 UX，并发请求可能都通过预检查，
+ * 真正的并发拦截在 deductGold 的 AND gold >= $1 原子守卫。
+ * 调用方应在 ensureGold 后紧接 deductGold 完成权威扣减。
+ *
+ * 行为等价：内部调用 getUserGold，用户不存在时统一抛 NOT_FOUND（与原 4 处一致）；
+ * 余额不足时抛 FORBIDDEN + 含金额文案（与原 4 处文案模板完全一致）。
+ *
+ * @param tx 事务客户端（由 withTransaction 提供，仅暴露 query）
+ * @param userId 用户 ID
+ * @param cost 所需金币数（必须为正数）
+ * @throws AppError(NOT_FOUND) 用户不存在时抛出
+ * @throws AppError(FORBIDDEN) 余额不足时抛出
+ */
+export async function ensureGold(
+  tx: Tx,
+  userId: string,
+  cost: number
+): Promise<void> {
+  const gold = await getUserGold(tx, userId);
+  if (gold < cost) {
+    throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${cost} 金币`);
+  }
+}
+
+/**
  * 事务内原子扣减金币：通过 SQL 守卫 AND gold >= $1 防止并发扣减使金币变负。
  *
  * 设计原因：4 个 service（pet-service buyPet / skill-service upgradeSkill /

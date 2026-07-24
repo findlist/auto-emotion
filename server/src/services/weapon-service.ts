@@ -6,7 +6,7 @@ import { weaponUpgradeCost } from '../idle/growth-curve.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 import type { Tx } from '../utils/transaction.js';
-import { deductGold, getUserGold } from '../utils/gold.js';
+import { deductGold, ensureGold } from '../utils/gold.js';
 
 /**
  * 用户武器记录：user_weapons 表的查询结果类型
@@ -102,18 +102,8 @@ export async function upgradeWeapon(
     // 计算升级消耗
     const cost = weaponUpgradeCost(currentLevel);
 
-    // 事务内预检查改善 UX：金币不足快速失败，给出明确所需金币数
-    // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在下方 AND gold >= $1 原子守卫
-    // getUserGold 在用户不存在时统一抛 NOT_FOUND（与下方 deductGold 同源 helper）
-    const gold = await getUserGold(tx, userId);
-
-    if (gold < cost.gold) {
-      throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${cost.gold} 金币`);
-    }
-
-    // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
-    // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
-    // RETURNING 返回 0 行表示并发场景下余额已被其他事务扣减，抛错 ROLLBACK
+    // 金币预检查 + 原子扣减：ensureGold 快速失败改善 UX，deductGold 原子守卫防并发为负
+    await ensureGold(tx, userId, cost.gold);
     await deductGold(tx, userId, cost.gold);
 
     await tx.query(
@@ -198,17 +188,8 @@ export async function buyWeapon(
       throw new AppError(ErrorCode.CONFLICT, '已拥有该武器');
     }
 
-    // 事务内预检查改善 UX：金币不足快速失败，给出明确所需金币数
-    // 注意：此处非权威检查，并发请求可能都通过预检查，真正拦截在下方 AND gold >= $1 原子守卫
-    const gold = await getUserGold(tx, userId);
-
-    if (gold < weapon.unlock_cost_gold) {
-      throw new AppError(ErrorCode.FORBIDDEN, `金币不足，需要 ${weapon.unlock_cost_gold} 金币`);
-    }
-
-    // 扣除金币：原子守卫 AND gold >= $1 RETURNING gold 防止并发扣减使金币变负
-    // 设计原因：事务内 SELECT 与 UPDATE 之间并发请求都读到充足余额，串行 UPDATE 会使金币变负
-    // RETURNING 返回 0 行表示并发场景下余额已被其他事务扣减，抛错 ROLLBACK
+    // 金币预检查 + 原子扣减：ensureGold 快速失败改善 UX，deductGold 原子守卫防并发为负
+    await ensureGold(tx, userId, weapon.unlock_cost_gold);
     await deductGold(tx, userId, weapon.unlock_cost_gold);
 
     // 创建用户武器记录

@@ -1,10 +1,11 @@
 // server/src/utils/gold.test.ts
 // deductGold 单元测试：覆盖扣减成功与扣减失败（rows.length === 0）两个核心分支
 // getUserGold 单元测试：覆盖用户存在返回金币与用户不存在抛 NOT_FOUND 两个核心分支
+// ensureGold 单元测试：覆盖余额充足通过、余额不足抛 FORBIDDEN、用户不存在抛 NOT_FOUND 三个核心分支
 // addExperienceAndGold 单元测试：覆盖 SQL 文本与参数顺序、返回 void 两个核心分支
 
 import { describe, it, expect, vi } from 'vitest';
-import { deductGold, getUserGold, addExperienceAndGold } from './gold.js';
+import { deductGold, getUserGold, ensureGold, addExperienceAndGold } from './gold.js';
 import { ErrorCode } from './error.js';
 import type { Tx } from './transaction.js';
 
@@ -86,6 +87,42 @@ describe('getUserGold 查询用户金币', () => {
       expect.any(String),
       ['user-xyz']
     );
+  });
+});
+
+describe('ensureGold 金币预检查', () => {
+  it('余额充足时通过，不抛错，内部调用 getUserGold 的 SELECT gold 查询', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ gold: 800 }] });
+    const tx = makeTx(query);
+
+    await expect(ensureGold(tx, 'u1', 100)).resolves.toBeUndefined();
+
+    // 仅触发 getUserGold 的 SELECT 查询，不触发任何 UPDATE
+    expect(query).toHaveBeenCalledWith(
+      `SELECT gold FROM users WHERE id = $1`,
+      ['u1']
+    );
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('余额不足时抛 FORBIDDEN，错误信息含所需金额', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [{ gold: 50 }] });
+    const tx = makeTx(query);
+
+    await expect(ensureGold(tx, 'u1', 100)).rejects.toMatchObject({
+      code: ErrorCode.FORBIDDEN,
+      message: '金币不足，需要 100 金币',
+    });
+  });
+
+  it('用户不存在时透传 getUserGold 的 NOT_FOUND', async () => {
+    const query = vi.fn().mockResolvedValue({ rows: [] });
+    const tx = makeTx(query);
+
+    await expect(ensureGold(tx, 'u1', 100)).rejects.toMatchObject({
+      code: ErrorCode.NOT_FOUND,
+      message: '用户不存在',
+    });
   });
 });
 
