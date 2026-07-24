@@ -14,17 +14,19 @@ vi.mock('@/api/leaderboard', () => ({
 }));
 
 // mock user-store：组件通过 useUserStore 读取 user.id 用于高亮当前用户行，
-// 测试场景固定返回 user.id=1，与 mockRanking 中的 userId 区分避免误判高亮
+// 测试场景固定返回 user.id='1'，与 mockRanking 中的 userId 区分避免误判高亮
+// User.id 已收敛为 string（后端 UUID 契约），mock 类型同步对齐
 vi.mock('@/stores/user-store', () => ({
-  useUserStore: (selector: (s: { user: { id: number } | null }) => unknown) =>
-    selector({ user: { id: 1 } }),
+  useUserStore: (selector: (s: { user: { id: string } | null }) => unknown) =>
+    selector({ user: { id: '1' } }),
 }));
 
 import LeaderboardPage from '@/pages/leaderboard';
 
 // 战力榜与对战榜的模拟数据，nickname 区分以便断言哪份数据被渲染
-const powerRanking = [{ rank: 1, userId: 10, nickname: '战力王者', score: 9999 }];
-const battleRanking = [{ rank: 1, userId: 20, nickname: '对战王者', score: 8888 }];
+// userId 为 string 类型，与 LeaderboardEntry.userId 契约对齐
+const powerRanking = [{ rank: 1, userId: '10', nickname: '战力王者', score: 9999 }];
+const battleRanking = [{ rank: 1, userId: '20', nickname: '对战王者', score: 8888 }];
 
 describe('LeaderboardPage 排行榜页与竞态守卫', () => {
   beforeEach(() => {
@@ -104,12 +106,12 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
     expect(leaderboardApiMock.getUserRank).toHaveBeenCalledWith('battle');
   });
 
-  it('当前用户在排行榜中时高亮显示(我)标记（userId 类型不一致也能匹配）', async () => {
-    // userId 用 string 模拟后端 bigint 序列化为字符串，user.id 为 number
-    // 验证 String() 比较兼容类型差异，高亮与(我)标记正常渲染
+  it('当前用户在排行榜中时高亮显示(我)标记', async () => {
+    // userId 与 user.id 均为 string 类型，String() 比较保持原行为兼容
+    // 验证高亮与(我)标记正常渲染
     const rankingWithMe = [
-      { rank: 1, userId: '1' as unknown as number, nickname: '我自己', score: 9999 },
-      { rank: 2, userId: 20, nickname: '其他人', score: 8888 },
+      { rank: 1, userId: '1', nickname: '我自己', score: 9999 },
+      { rank: 2, userId: '20', nickname: '其他人', score: 8888 },
     ];
     leaderboardApiMock.get.mockResolvedValue({ ranking: rankingWithMe, total: 2 });
     leaderboardApiMock.getUserRank.mockResolvedValue({ rank: 1, score: 9999 });
@@ -119,7 +121,7 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
     await waitFor(() => {
       expect(screen.getByText('我自己')).toBeInTheDocument();
     });
-    // 验证 (我) 标记渲染（userId 为 string、user.id 为 number，String() 比较兼容）
+    // 验证 (我) 标记渲染（userId 与 user.id 均为 string，String() 比较仍兼容）
     expect(screen.getByText('(我)')).toBeInTheDocument();
     // 其他人不应有 (我) 标记
     expect(screen.queryByText('其他人(我)')).not.toBeInTheDocument();

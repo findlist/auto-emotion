@@ -19,8 +19,9 @@ const GUEST = {
 } as const;
 
 // 后端不可用时的本地兜底用户（API 调用会失败但不阻塞页面浏览）
+// id 为空串：User.id 已收敛为 string 与后端 UUID 契约对齐，兜底用户无真实身份用空串标识
 const FALLBACK_USER: User = {
-  id: 0,
+  id: '',
   phone: GUEST.phone,
   nickname: GUEST.nickname,
   avatarUrl: '',

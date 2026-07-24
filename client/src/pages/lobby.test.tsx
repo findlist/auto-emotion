@@ -5,7 +5,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // user/loading/error 在不同用例中动态调整，setter 写入后下次渲染读取最新值。
 const { storeState, setUser, setError } = vi.hoisted(() => {
   const state: {
-    user: { id: number; nickname: string; level: number; coins: number; power: number } | null;
+    // User.id 已收敛为 string（后端 UUID 契约），mock 类型同步对齐
+    user: { id: string; nickname: string; level: number; coins: number; power: number } | null;
     error: string | null;
   } = { user: null, error: null };
   return {
@@ -87,7 +88,7 @@ describe('LobbyPage 大厅页无障碍', () => {
 describe('LobbyPage 快速匹配 socketId 传递', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setUser({ id: 1, nickname: '测试玩家', level: 10, coins: 100, power: 50 });
+    setUser({ id: '1', nickname: '测试玩家', level: 10, coins: 100, power: 50 });
     setError(null);
     // 重置 waitForConnection 默认返回带 id 的伪 socket
     (waitForConnection as ReturnType<typeof vi.fn>).mockResolvedValue({

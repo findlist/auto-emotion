@@ -25,7 +25,7 @@ import { disconnect as disconnectSocket } from '@/websocket';
 
 // 复用的 mock 数据：覆盖 User 全字段避免 TS 报错
 const mockUser: User = {
-  id: 1,
+  id: '1',
   phone: '13800000000',
   nickname: '小明',
   avatarUrl: '',

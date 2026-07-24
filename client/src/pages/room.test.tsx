@@ -17,7 +17,7 @@ const { storeState, setError } = vi.hoisted(() => {
 const confirmMock = vi.hoisted(() => ({ showConfirm: vi.fn() }));
 
 vi.mock('@/stores/user-store', () => ({
-  useUserStore: () => ({ id: 1, nickname: '小明' }),
+  useUserStore: () => ({ id: '1', nickname: '小明' }),
 }));
 
 vi.mock('@/stores/room-store', () => ({

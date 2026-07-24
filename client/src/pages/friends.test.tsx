@@ -25,11 +25,12 @@ import FriendsPage from '@/pages/friends';
 import type { Friend, FriendRequest } from '@/api/friends';
 
 // 好友与请求样本：name 唯一以便精确定位渲染结果
+// id/from_user_id 为 string 类型，与后端 UUID 契约对齐
 const friend: Friend = {
-  id: 10, nickname: '好友甲', avatar_url: '', status: 1, online: true,
+  id: '10', nickname: '好友甲', avatar_url: '', status: 1, online: true,
 };
 const request: FriendRequest = {
-  id: 20, from_user_id: 99, nickname: '请求者乙', avatar_url: '', created_at: '2026-07-01',
+  id: '20', from_user_id: '99', nickname: '请求者乙', avatar_url: '', created_at: '2026-07-01',
 };
 
 describe('FriendsPage 好友页', () => {
@@ -141,8 +142,8 @@ describe('FriendsPage 好友页', () => {
   });
 
   it('输入为空时添加按钮禁用', async () => {
-    // number input 已在浏览器层限制非数字输入，空值由按钮 disabled 拦截，
-    // parseInt 的 NaN 分支为防御性兜底，UI 不可达，此处验证实际 UI 守卫
+    // input type=text 支持任意字符输入，空值由按钮 disabled 拦截，
+    // trim 空串分支为防御性兜底，UI 不可达，此处验证实际 UI 守卫
     render(<FriendsPage onBack={() => {}} />);
 
     await waitFor(() => {
@@ -164,9 +165,9 @@ describe('FriendsPage 好友页', () => {
       fireEvent.click(screen.getByRole('button', { name: '添加' }));
     });
 
-    // sendRequest 传入解析后的数字 ID
+    // sendRequest 传入 trim 后的字符串 ID（原 parseInt 已移除，UUID 字符串直接传递）
     await waitFor(() => {
-      expect(friendApiMock.sendRequest).toHaveBeenCalledWith(99);
+      expect(friendApiMock.sendRequest).toHaveBeenCalledWith('99');
     });
     expect(toastMock.showToast).toHaveBeenCalledWith('success', '已成为好友！');
   });
@@ -184,7 +185,7 @@ describe('FriendsPage 好友页', () => {
     });
 
     await waitFor(() => {
-      expect(friendApiMock.sendRequest).toHaveBeenCalledWith(88);
+      expect(friendApiMock.sendRequest).toHaveBeenCalledWith('88');
     });
     expect(toastMock.showToast).toHaveBeenCalledWith('success', '好友请求已发送');
   });

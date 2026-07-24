@@ -3,7 +3,9 @@ import { unwrap } from './unwrap';
 
 export interface LeaderboardEntry {
   rank: number;
-  userId: number;
+  // 后端 leaderboard-service.ts RankingItem.userId 为 string（users.id UUID），
+  // 客户端历史误用 number 导致调用方需 String() 绕路比较，收敛后可直接 ===
+  userId: string;
   nickname: string;
   score: number;
 }

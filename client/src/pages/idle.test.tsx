@@ -41,9 +41,9 @@ import type { Weapon } from '@/api/weapons';
 import type { Skill } from '@/api/skills';
 import type { Pet } from '@/api/pets';
 
-// 已登录用户样本:id=1 用于 userId 派生
+// 已登录用户样本:id='1' 用于 userId 派生
 const mockUser: User = {
-  id: 1, phone: '13800000000', nickname: '测试玩家', avatarUrl: '', signature: '',
+  id: '1', phone: '13800000000', nickname: '测试玩家', avatarUrl: '', signature: '',
   coins: 0, gems: 0, level: 5, exp: 1200, power: 100, pvp_points: 50,
   battleScore: 300, status: 0, lastLoginAt: '', createdAt: '',
 };

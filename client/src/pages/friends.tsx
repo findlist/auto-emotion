@@ -61,8 +61,10 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
 
   // 添加好友
   async function handleAddFriend() {
-    const userId = parseInt(addUserId, 10);
-    if (isNaN(userId)) {
+    // 用户 ID 为 UUID 字符串，原 parseInt 会截断 UUID 导致添加好友功能失效
+    // 改为 trim + 空串校验，与 server 端 UUID 契约对齐
+    const userId = addUserId.trim();
+    if (!userId) {
       showToast('warning', '请输入有效的用户ID');
       return;
     }
@@ -85,7 +87,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
   }
 
   // 接受请求
-  async function handleAccept(requestId: number) {
+  async function handleAccept(requestId: string) {
     try {
       setLoading(true);
       await friendApi.accept(requestId);
@@ -99,7 +101,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
   }
 
   // 拒绝请求
-  async function handleReject(requestId: number) {
+  async function handleReject(requestId: string) {
     try {
       setLoading(true);
       await friendApi.reject(requestId);
@@ -112,7 +114,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
   }
 
   // 删除好友
-  async function handleRemove(friendId: number) {
+  async function handleRemove(friendId: string) {
     // 删除好友为不可逆操作，需二次确认
     const ok = await showConfirm({
       type: 'danger',
@@ -190,9 +192,10 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
             <div className="bg-cream border-2 border-ink p-4 shadow-[3px_3px_0_#1a1a1a]">
               <p className="font-cn text-sm text-ink/70 mb-2">添加好友</p>
               <div className="flex gap-2">
-                {/* input 仅 placeholder 无语义标签，aria-label 让屏幕阅读器识别字段用途 */}
+                {/* input 仅 placeholder 无语义标签，aria-label 让屏幕阅读器识别字段用途
+                    type=text：用户 ID 为 UUID 字符串，type=number 会拒绝非数字字符导致无法输入 UUID */}
                 <input
-                  type="number"
+                  type="text"
                   value={addUserId}
                   onChange={(e) => setAddUserId(e.target.value)}
                   placeholder="输入用户ID"
