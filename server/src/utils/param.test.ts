@@ -1,5 +1,23 @@
 import { describe, it, expect } from 'vitest';
-import { parseIdParam, parsePagination, firstParam, parseCount } from './param.js';
+import type { Response } from 'express';
+import { parseIdParam, parseIdOrFail, parsePagination, firstParam, parseCount } from './param.js';
+
+// 构造 mock Response，捕获 fail 调用并断言状态码与文案
+function createMockResponse(): Response & { statusCode: number; body: unknown } {
+  const mock = {
+    statusCode: 0,
+    body: undefined as unknown,
+    status(code: number) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload: unknown) {
+      this.body = payload;
+      return this;
+    },
+  };
+  return mock as unknown as Response & { statusCode: number; body: unknown };
+}
 
 describe('parseIdParam 路由参数解析', () => {
   it('传入数字字符串返回对应数字', () => {
@@ -23,6 +41,35 @@ describe('parseIdParam 路由参数解析', () => {
   it('传入空数组返回 NaN', () => {
     // Array.isArray 命中取 value[0] = undefined，parseInt(undefined) = NaN
     expect(parseIdParam([])).toBeNaN();
+  });
+});
+
+describe('parseIdOrFail fail-fast 路径参数解析', () => {
+  it('传入有效数字字符串时返回对应数字且不发送响应', () => {
+    const res = createMockResponse();
+    expect(parseIdOrFail('123', res, '无效的ID')).toBe(123);
+    // 未触发 fail，状态码保持初始值 0
+    expect(res.statusCode).toBe(0);
+  });
+
+  it('传入非数字字符串时发送 400 响应并返回 null', () => {
+    const res = createMockResponse();
+    expect(parseIdOrFail('abc', res, '无效的任务ID')).toBeNull();
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ code: 400, message: '无效的任务ID', errors: undefined });
+  });
+
+  it('传入 undefined 时发送 400 响应并返回 null（路径参数缺失场景）', () => {
+    const res = createMockResponse();
+    expect(parseIdOrFail(undefined, res, '无效的成就ID')).toBeNull();
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ code: 400, message: '无效的成就ID', errors: undefined });
+  });
+
+  it('不同业务文案按参数透传，调用方自主维护业务语义', () => {
+    const res = createMockResponse();
+    parseIdOrFail('xyz', res, '无效的宠物ID');
+    expect(res.body).toEqual({ code: 400, message: '无效的宠物ID', errors: undefined });
   });
 });
 

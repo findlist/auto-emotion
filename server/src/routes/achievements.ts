@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { getAchievements, claimAchievementReward } from '../services/achievement-service.js';
-import { success, fail } from '../utils/response.js';
+import { success } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { routeError, routeBusinessError } from '../utils/route-error.js';
-import { parseIdParam } from '../utils/param.js';
+import { parseIdOrFail } from '../utils/param.js';
 import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
@@ -28,11 +28,9 @@ router.post('/:id/claim', async (req: Request, res: Response) => {
   const user = req.user;
   if (!requireUser(res, user)) return;
 
-  const achievementId = parseIdParam(req.params.id);
-  if (isNaN(achievementId)) {
-    fail(res, 400, '无效的成就ID');
-    return;
-  }
+  // 解析 :id 并 fail-fast：无效时 helper 内部已 fail(400)，这里直接 return
+  const achievementId = parseIdOrFail(req.params.id, res, '无效的成就ID');
+  if (achievementId === null) return;
 
   // 幂等控制：5秒窗口防重复提交，避免高频调用重复发放成就奖励
   // key 含 achievementId 避免不同成就互相拦截

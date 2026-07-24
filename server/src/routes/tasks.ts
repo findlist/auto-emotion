@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { getDailyTasks, claimTaskReward } from '../services/task-service.js';
-import { success, fail } from '../utils/response.js';
+import { success } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { routeError, routeBusinessError } from '../utils/route-error.js';
-import { parseIdParam } from '../utils/param.js';
+import { parseIdOrFail } from '../utils/param.js';
 import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
@@ -27,11 +27,9 @@ router.post('/:id/claim', async (req: Request, res: Response) => {
   const user = req.user;
   if (!requireUser(res, user)) return;
 
-  const taskId = parseIdParam(req.params.id);
-  if (isNaN(taskId)) {
-    fail(res, 400, '无效的任务ID');
-    return;
-  }
+  // 解析 :id 并 fail-fast：无效时 helper 内部已 fail(400)，这里直接 return
+  const taskId = parseIdOrFail(req.params.id, res, '无效的任务ID');
+  if (taskId === null) return;
 
   // 幂等控制：5秒窗口防重复提交，避免高频调用重复发放任务奖励
   // key 含 taskId 避免不同任务互相拦截

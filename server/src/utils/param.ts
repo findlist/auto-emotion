@@ -57,6 +57,35 @@ export interface Pagination {
 }
 
 /**
+ * 解析路由参数为整数 ID 并在失败时直接发送 400 响应
+ *
+ * 设计原因：tasks.ts / achievements.ts 的 `/:id/claim` 路由重复以下 5 行样板：
+ *   const XId = parseIdParam(req.params.id);
+ *   if (isNaN(XId)) { fail(res, 400, '无效的X ID'); return; }
+ * 抽取后调用方仅需两行：解析与校验合一，消除"无效的X ID"文案漂移风险，
+ * 新增路由时复制粘贴不会引入 400/422 状态码或文案变体。
+ * 与 parseIdParam 并行不冲突：parseIdParam 返回 NaN 由调用方自主处理（保留灵活性），
+ * parseIdOrFail 是 fail-fast 版本（适用 400 路径参数场景）。
+ *
+ * @param value 路由参数值（req.params.xxx）
+ * @param res Express 响应对象，解析失败时直接发送 400 响应
+ * @param message 失败响应文案（如"无效的任务ID"）
+ * @returns 解析成功返回整数 ID，失败返回 null（调用方配合 if (X === null) return 判断）
+ */
+export function parseIdOrFail(
+  value: string | string[] | undefined,
+  res: Response,
+  message: string
+): number | null {
+  const id = parseIdParam(value);
+  if (Number.isNaN(id)) {
+    fail(res, 400, message);
+    return null;
+  }
+  return id;
+}
+
+/**
  * 解析 Express 查询参数中的分页字段
  *
  * 设计原因：routes 层 6 处重复 `parseInt(req.query.page as string, 10) || N` 两行样板，
