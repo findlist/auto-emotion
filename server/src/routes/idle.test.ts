@@ -1,8 +1,8 @@
 // server/src/routes/idle.test.ts
 // 挂机路由单元测试：idle 路由使用 authMiddleware + zod 校验 + try/catch + fail 自处理错误
 // 设计原因：idle 路由挂载 authMiddleware（与 shop/pets 范式不同），需 mock auth.js 让其按 header 决定是否注入 req.user。
-// 5 个端点：GET /status、POST /settle、POST /claim、POST /switch-area、POST /upgrade。
-// 异常处理分两类：switch-area/upgrade 区分 AppError（业务码）与普通错误（500）；status/settle/claim 统一 500。
+// 6 个端点：GET /status、GET /areas、POST /settle、POST /claim、POST /switch-area、POST /upgrade。
+// 异常处理分两类：switch-area/upgrade 区分 AppError（业务码）与普通错误（500）；status/areas/settle/claim 统一 500。
 // 注意：fail() 对 code>=1000 的业务码会降级为 HTTP 400，body.code 保留原业务码。
 
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
@@ -18,6 +18,12 @@ vi.mock('../services/idle-service.js', () => ({
   claimOffline: vi.fn(),
   switchArea: vi.fn(),
   upgradeCharacter: vi.fn(),
+}));
+
+// mock 挂机区域 service：/areas 路由调用 listAreas，service 行为由 area-service.test.ts 覆盖
+vi.mock('../services/area-service.js', () => ({
+  listAreas: vi.fn(),
+  getArea: vi.fn(),
 }));
 
 // mock authMiddleware：通过请求头 x-test-no-auth 模拟未授权场景，未授权时直接返回 401 响应（与真实 authMiddleware 抛 AppError 后被 errorHandler 处理的效果一致）
@@ -42,6 +48,7 @@ vi.mock('../utils/idempotency.js', () => ({
 
 import router from './idle.js';
 import * as idleService from '../services/idle-service.js';
+import { listAreas } from '../services/area-service.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 import { withIdempotency } from '../utils/idempotency.js';
 
@@ -421,6 +428,54 @@ describe('idle 挂机路由', () => {
 
       expect(res.status).toBe(500);
       expect(body.message).toBe('升级失败');
+    });
+  });
+
+  describe('GET /areas 获取挂机区域列表', () => {
+    it('未授权返回 401', async () => {
+      const res = await fetch(`${baseURL}/areas`, {
+        headers: { 'x-test-no-auth': '1' },
+      });
+
+      expect(res.status).toBe(401);
+      expect(listAreas).not.toHaveBeenCalled();
+    });
+
+    it('返回区域列表并将 DECIMAL 字段 string 转为 number、null 转为空串', async () => {
+      // service 返回 IdleAreaRow（DECIMAL 为 string、可空字段为 null）
+      // route 层应转换为客户端 IdleArea 契约（number + string）
+      (listAreas as ReturnType<typeof vi.fn>).mockResolvedValue([
+        {
+          id: 1, name: '职场焦虑区', description: null, required_level: 1,
+          exp_rate: '1.20', gold_rate: '1.10', drop_rate: '0.10',
+          stress_reduction: '0.20', bg_color: null, created_at: new Date(),
+        },
+      ]);
+
+      const res = await fetch(`${baseURL}/areas`);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      // 验证类型转换：exp_rate/gold_rate/drop_rate/stress_reduction 为 number，description/bg_color 为空串
+      expect(body.data).toEqual([
+        {
+          id: 1, name: '职场焦虑区', description: '', required_level: 1,
+          exp_rate: 1.2, gold_rate: 1.1, drop_rate: 0.1,
+          stress_reduction: 0.2, bg_color: '',
+        },
+      ]);
+    });
+
+    it('service 抛错时 fail 返回 500 + 错误消息', async () => {
+      (listAreas as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('数据库不可用')
+      );
+
+      const res = await fetch(`${baseURL}/areas`);
+      const body = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(body.message).toBe('数据库不可用');
     });
   });
 });

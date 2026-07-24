@@ -1,10 +1,11 @@
 // server/src/routes/idle.ts
-// 挂机路由：状态查询 + 收益结算 + 区域切换
+// 挂机路由：状态查询 + 收益结算 + 区域切换 + 区域列表
 // 使用 zod 校验请求参数
 
 import { Router } from 'express';
 import { z } from 'zod';
 import * as idleService from '../services/idle-service.js';
+import { listAreas } from '../services/area-service.js';
 import { success, fail } from '../utils/response.js';
 import { routeError } from '../utils/route-error.js';
 import { authMiddleware } from '../middleware/auth.js';
@@ -113,6 +114,33 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
     success(res, data);
   } catch (err) {
     routeError(res, err, '升级角色属性失败');
+  }
+});
+
+// ============ GET /api/idle/areas ============
+// 获取所有挂机区域列表（按 required_level 排序）
+// 设计原因：area-service.listAreas 返回 IdleAreaRow（DECIMAL 字段为 string、可空字段为 null），
+// 客户端 IdleArea 契约期望 number 与 string，路由层做一次类型转换统一契约，避免客户端逐字段 parseFloat
+router.get('/areas', authMiddleware, async (req, res) => {
+  try {
+    const user = req.user;
+    if (!requireUser(res, user)) return;
+    const areas = await listAreas();
+    // DECIMAL 字段 string → number，可空字段 null → 空串，匹配客户端 IdleArea 接口契约
+    const data = areas.map((a) => ({
+      id: a.id,
+      name: a.name,
+      description: a.description ?? '',
+      required_level: a.required_level,
+      exp_rate: Number(a.exp_rate),
+      gold_rate: Number(a.gold_rate),
+      drop_rate: Number(a.drop_rate),
+      stress_reduction: Number(a.stress_reduction),
+      bg_color: a.bg_color ?? '',
+    }));
+    success(res, data);
+  } catch (err) {
+    routeError(res, err, '获取挂机区域列表失败');
   }
 });
 
