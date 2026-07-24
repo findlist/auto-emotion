@@ -36,14 +36,8 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
     const requestId = ++requestIdRef.current;
     try {
       setLoading(true);
-      const apiMap = {
-        power: leaderboardApi.getPower,
-        battle: leaderboardApi.getBattle,
-        speed: leaderboardApi.getSpeed,
-        friends: leaderboardApi.getFriends,
-      };
-
-      const result = await apiMap[activeTab](page, pageSize);
+      // 直接调用泛型 get(type, ...)，消除原 apiMap 的 type → method 反向映射冗余往返
+      const result = await leaderboardApi.get(activeTab, page, pageSize);
       // 旧请求后返回则丢弃，避免覆盖最新 tab 数据
       if (requestId !== requestIdRef.current) return;
       setRanking(result.ranking);

@@ -2,12 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
 // vi.hoisted 让 mock 工厂引用的运行时可变状态在 vi.mock 提升后仍可访问。
-// 各 get 方法在不同用例中动态调整返回值或可控 Promise，用于模拟异步竞态顺序。
+// 合并 4 个具名方法为单一泛型 get(type, ...) 后，mock 工厂只需 get + getUserRank 两个方法；
+// 各用例通过 mockImplementation 按 type 区分返回值，模拟原 getPower/getBattle 等具名行为
 const leaderboardApiMock = vi.hoisted(() => ({
-  getPower: vi.fn(),
-  getBattle: vi.fn(),
-  getSpeed: vi.fn(),
-  getFriends: vi.fn(),
+  get: vi.fn(),
   getUserRank: vi.fn(),
 }));
 
@@ -34,7 +32,7 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
   });
 
   it('初始加载战力榜数据后渲染排名条目与个人排名', async () => {
-    leaderboardApiMock.getPower.mockResolvedValue({ ranking: powerRanking, total: 1 });
+    leaderboardApiMock.get.mockResolvedValue({ ranking: powerRanking, total: 1 });
     leaderboardApiMock.getUserRank.mockResolvedValue({ rank: 3, score: 100 });
 
     render(<LeaderboardPage onBack={() => {}} />);
@@ -55,18 +53,19 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
     let resolvePower!: (v: { ranking: typeof powerRanking; total: number }) => void;
     let resolveBattle!: (v: { ranking: typeof battleRanking; total: number }) => void;
 
-    leaderboardApiMock.getPower.mockReturnValue(
-      new Promise<{ ranking: typeof powerRanking; total: number }>((r) => {
+    // 合并后 get 是单一泛型方法，按 type 参数 mockImplementation 区分返回值
+    leaderboardApiMock.get.mockImplementation((type: string) => {
+      if (type === 'battle') {
+        return new Promise<{ ranking: typeof battleRanking; total: number }>((r) => {
+          resolveBattle = r;
+        });
+      }
+      return new Promise<{ ranking: typeof powerRanking; total: number }>((r) => {
         resolvePower = r;
-      }),
-    );
-    leaderboardApiMock.getBattle.mockReturnValue(
-      new Promise<{ ranking: typeof battleRanking; total: number }>((r) => {
-        resolveBattle = r;
-      }),
-    );
+      });
+    });
     // getUserRank 按 type 区分返回：battle=rank5 / power=rank3
-    // 因 power 的 loadData 在 getPower resolve 后 requestId 守卫提前 return，
+    // 因 power 的 loadData 在 get('power') resolve 后 requestId 守卫提前 return，
     // getUserRank('power') 不会被调用，userRank 保持 battle 的 rank=5
     leaderboardApiMock.getUserRank.mockImplementation((type: string) => {
       if (type === 'battle') return Promise.resolve({ rank: 5, score: 200 });
@@ -76,11 +75,11 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
     render(<LeaderboardPage onBack={() => {}} />);
 
     // 初始 power 请求已发出，未 resolve
-    expect(leaderboardApiMock.getPower).toHaveBeenCalledTimes(1);
+    expect(leaderboardApiMock.get).toHaveBeenCalledWith('power', 1, 20);
 
     // 切换到 battle tab，触发新请求（loadData 重建 → useEffect 重触发）
     fireEvent.click(screen.getByText('对战榜'));
-    expect(leaderboardApiMock.getBattle).toHaveBeenCalledTimes(1);
+    expect(leaderboardApiMock.get).toHaveBeenCalledWith('battle', 1, 20);
 
     // 先 resolve battle 请求（新请求），battle 的 loadData 继续 → getUserRank('battle') 返回 rank=5
     await act(async () => {
@@ -112,7 +111,7 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
       { rank: 1, userId: '1' as unknown as number, nickname: '我自己', score: 9999 },
       { rank: 2, userId: 20, nickname: '其他人', score: 8888 },
     ];
-    leaderboardApiMock.getPower.mockResolvedValue({ ranking: rankingWithMe, total: 2 });
+    leaderboardApiMock.get.mockResolvedValue({ ranking: rankingWithMe, total: 2 });
     leaderboardApiMock.getUserRank.mockResolvedValue({ rank: 1, score: 9999 });
 
     render(<LeaderboardPage onBack={() => {}} />);
