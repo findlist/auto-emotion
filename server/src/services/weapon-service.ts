@@ -3,7 +3,8 @@
 
 import pool from '../config/database.js';
 import { weaponUpgradeCost } from '../idle/growth-curve.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+// 追加 ensureFound：buyWeapon 内联存在性守卫改用统一 helper，与 pet/skill/shop 服务风格对齐
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 import type { Tx } from '../utils/transaction.js';
 import { deductGold, ensureGold } from '../utils/gold.js';
@@ -176,9 +177,8 @@ export async function buyWeapon(
       [weaponId]
     );
 
-    if (weaponResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '武器不存在');
-    }
+    // 武器存在性守卫：与 pet/skill/shop 服务商品查询同模式，ensureFound 统一 NOT_FOUND 语义
+    ensureFound(weaponResult.rows, '武器不存在');
 
     const weapon = weaponResult.rows[0];
 
