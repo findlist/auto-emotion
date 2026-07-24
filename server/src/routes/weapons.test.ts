@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import express from 'express';
 import type { Server } from 'http';
-import { controllableAuth, getServerPort } from './__helpers__/test-server.js';
+import { controllableAuth, getServerPort, mockIdempotencyConflict } from './__helpers__/test-server.js';
 
 // mock 武器 service：route 测试聚焦参数校验与错误兜底，service 行为由 service 测试覆盖
 vi.mock('../services/weapon-service.js', () => ({
@@ -16,8 +16,18 @@ vi.mock('../services/weapon-service.js', () => ({
   buyWeapon: vi.fn(),
 }));
 
+// mock idempotency：upgrade/buy 路由用 withIdempotency 防重复提交，
+// 默认放行（返回 true）；幂等拦截场景用 mockIdempotencyConflict 调真实 fail 返回 409
+// 真实 withIdempotency 行为（含 try/catch + fail 调用）由 idempotency.test.ts 单测覆盖
+vi.mock('../utils/idempotency.js', () => ({
+  withIdempotency: vi.fn().mockResolvedValue(true),
+  checkIdempotency: vi.fn().mockResolvedValue(true),
+}));
+
 import router from './weapons.js';
 import * as weaponService from '../services/weapon-service.js';
+import { ErrorCode } from '../utils/error.js';
+import { withIdempotency } from '../utils/idempotency.js';
 
 let server: Server;
 let baseURL: string;
@@ -110,6 +120,26 @@ describe('weapons 武器路由', () => {
 
       expect(res.status).toBe(400);
       expect(body.message).toBe('缺少 weaponId');
+      expect(weaponService.upgradeWeapon).not.toHaveBeenCalled();
+    });
+
+    it('幂等拦截命中（5秒内重复提交）时返回 409 "请求已存在，请稍后重试"', async () => {
+      // mock withIdempotency 命中拦截：调用 fail 返回 409 + 返回 false 让路由 return
+      // 真实 withIdempotency 行为（catch AppError → 调 fail → 返回 false）由 idempotency.test.ts 覆盖
+      mockIdempotencyConflict(withIdempotency);
+
+      const res = await fetch(`${baseURL}/upgrade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weaponId: 2 }),
+      });
+      const body = await res.json();
+
+      // CONFLICT(1005) 按 ErrorCode 语义映射为 HTTP 409
+      expect(res.status).toBe(409);
+      expect(body.code).toBe(ErrorCode.CONFLICT);
+      expect(body.message).toBe('请求已存在，请稍后重试');
+      // 幂等拦截命中时不应调用 upgradeWeapon 扣金币升级
       expect(weaponService.upgradeWeapon).not.toHaveBeenCalled();
     });
 
@@ -259,6 +289,26 @@ describe('weapons 武器路由', () => {
 
       expect(res.status).toBe(400);
       expect(body.message).toBe('缺少 weaponId');
+    });
+
+    it('幂等拦截命中（5秒内重复提交）时返回 409 "请求已存在，请稍后重试"', async () => {
+      // mock withIdempotency 命中拦截：调用 fail 返回 409 + 返回 false 让路由 return
+      // 真实 withIdempotency 行为（catch AppError → 调 fail → 返回 false）由 idempotency.test.ts 覆盖
+      mockIdempotencyConflict(withIdempotency);
+
+      const res = await fetch(`${baseURL}/buy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weaponId: 5 }),
+      });
+      const body = await res.json();
+
+      // CONFLICT(1005) 按 ErrorCode 语义映射为 HTTP 409
+      expect(res.status).toBe(409);
+      expect(body.code).toBe(ErrorCode.CONFLICT);
+      expect(body.message).toBe('请求已存在，请稍后重试');
+      // 幂等拦截命中时不应调用 buyWeapon 扣金币购买
+      expect(weaponService.buyWeapon).not.toHaveBeenCalled();
     });
 
     it('参数齐全调用 buyWeapon(userId, weaponId) 返回购买结果', async () => {
