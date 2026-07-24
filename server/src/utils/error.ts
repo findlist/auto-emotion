@@ -56,3 +56,28 @@ export class AppError extends Error {
 export function getErrorMessage(err: unknown, defaultMsg: string): string {
   return err instanceof Error ? err.message : defaultMsg;
 }
+
+/**
+ * 行存在性守卫：查询结果集为空时抛 NOT_FOUND。
+ *
+ * 设计原因：22 处 service 守卫重复以下三行模板：
+ *   if (X.rows.length === 0) {
+ *     throw new AppError(ErrorCode.NOT_FOUND, 'xxx不存在');
+ *   }
+ * 抽取后消除重复，集中维护 NOT_FOUND 语义，调用方变为单行 ensureFound(X.rows, 'xxx不存在')。
+ *
+ * 行为等价：rows.length === 0 时抛 AppError(NOT_FOUND, message)，与原 22 处完全一致。
+ * 不返回值（仅守卫），调用方紧接 rows[0] 读取数据。
+ *
+ * 边界：仅适用于"空集即错误"的守卫场景；leaderboard-service 中"空集返回 null"的
+ * 兜底语义不在抽取范围（返回值不同，强行统一会破坏 null 兜底契约）。
+ *
+ * @param rows 查询结果集（pg QueryResult.rows 或同类数组）
+ * @param message 错误信息（业务语义，如 '角色不存在'）
+ * @throws AppError(NOT_FOUND) rows 为空时抛出
+ */
+export function ensureFound(rows: unknown[], message: string): void {
+  if (rows.length === 0) {
+    throw new AppError(ErrorCode.NOT_FOUND, message);
+  }
+}

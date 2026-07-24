@@ -2,7 +2,7 @@
 // 好友服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 
 // 好友列表行：对应 getFriends 的 SQL JOIN 结果，online 由 LATERAL 子查询计算
@@ -76,9 +76,7 @@ export async function sendFriendRequest(
 
   // 检查目标用户是否存在
   const userResult = await pool.query('SELECT id FROM users WHERE id = $1', [targetUserId]);
-  if (userResult.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
-  }
+  ensureFound(userResult.rows, '用户不存在');
 
   // 检查是否已经是好友
   const friendCheck = await pool.query(
@@ -149,9 +147,7 @@ export async function acceptFriendRequest(
       [requestId, userId]
     );
 
-    if (requestResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '请求不存在或已处理');
-    }
+    ensureFound(requestResult.rows, '请求不存在或已处理');
 
     const { user_id: fromUserId, friend_id: toUserId } = requestResult.rows[0];
 
@@ -189,9 +185,7 @@ export async function rejectFriendRequest(
     [requestId, userId]
   );
 
-  if (result.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '请求不存在或已处理');
-  }
+  ensureFound(result.rows, '请求不存在或已处理');
 
   return { success: true };
 }

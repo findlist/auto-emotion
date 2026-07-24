@@ -2,7 +2,7 @@
 // 成就服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
 
@@ -168,9 +168,7 @@ export async function claimAchievementReward(userId: string, achievementId: numb
     [userId, achievementId]
   );
 
-  if (result.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '成就不存在');
-  }
+  ensureFound(result.rows, '成就不存在');
 
   const achievement = result.rows[0];
 

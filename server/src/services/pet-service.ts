@@ -2,7 +2,7 @@
 // 宠物服务：列表/装备
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 import type { Tx } from '../utils/transaction.js';
 import { deductGold, ensureGold } from '../utils/gold.js';
@@ -125,9 +125,7 @@ export async function buyPet(
       [petId]
     );
 
-    if (petResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '宠物不存在');
-    }
+    ensureFound(petResult.rows, '宠物不存在');
 
     const pet = petResult.rows[0];
 

@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import pool from '../config/database.js';
 import redis from '../config/redis.js';
 import { config } from '../config/index.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 
 const SALT_ROUNDS = 10;
@@ -159,10 +159,8 @@ export async function getProfile(userId: string): Promise<UserProfile> {
     [userId]
   );
   
-  if (result.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
-  }
-  
+  ensureFound(result.rows, '用户不存在');
+
   return result.rows[0];
 }
 
@@ -232,9 +230,7 @@ export async function refreshToken(token: string): Promise<{ token: string }> {
   }
 
   const userResult = await pool.query('SELECT id, phone FROM users WHERE id = $1', [payload.userId]);
-  if (userResult.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
-  }
+  ensureFound(userResult.rows, '用户不存在');
 
   const user = userResult.rows[0];
   const newToken = jwt.sign({ userId: user.id, phone: user.phone }, config.jwtSecret, { expiresIn: JWT_EXPIRES_IN });

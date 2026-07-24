@@ -2,7 +2,7 @@
 // 业务错误类单元测试
 
 import { describe, it, expect } from 'vitest';
-import { AppError, ErrorCode } from './error.js';
+import { AppError, ErrorCode, ensureFound } from './error.js';
 
 describe('error 业务错误类', () => {
   describe('ErrorCode 错误码枚举', () => {
@@ -42,6 +42,28 @@ describe('error 业务错误类', () => {
     it('未传入 errors 时 errors 字段为 undefined', () => {
       const err = new AppError(ErrorCode.CONFLICT, '冲突');
       expect(err.errors).toBeUndefined();
+    });
+  });
+
+  describe('ensureFound 行存在性守卫', () => {
+    it('rows 非空时不抛错，调用方可紧接 rows[0] 读取数据', () => {
+      const rows = [{ id: 1, name: '角色' }];
+      expect(() => ensureFound(rows, '角色不存在')).not.toThrow();
+    });
+
+    it('rows 为空时抛 NOT_FOUND，message 透传业务文案', () => {
+      expect(() => ensureFound([], '角色不存在')).toThrow(
+        new AppError(ErrorCode.NOT_FOUND, '角色不存在')
+      );
+    });
+
+    it('不同业务文案均可透传，不硬编码消息', () => {
+      expect(() => ensureFound([], '用户不存在')).toThrow(
+        new AppError(ErrorCode.NOT_FOUND, '用户不存在')
+      );
+      expect(() => ensureFound([], '区域不存在')).toThrow(
+        new AppError(ErrorCode.NOT_FOUND, '区域不存在')
+      );
     });
   });
 });

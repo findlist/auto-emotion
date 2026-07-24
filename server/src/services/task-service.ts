@@ -2,7 +2,7 @@
 // 每日任务服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
 import { shuffle } from '../utils/shuffle.js';
@@ -177,9 +177,7 @@ export async function claimTaskReward(userId: string, taskId: number): Promise<{
     [userId, taskId, today]
   );
 
-  if (taskResult.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '任务不存在');
-  }
+  ensureFound(taskResult.rows, '任务不存在');
 
   const task = taskResult.rows[0];
 

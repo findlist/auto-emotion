@@ -2,7 +2,7 @@
 // 战绩查询服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { ensureFound } from '../utils/error.js';
 import { parseCount } from '../utils/param.js';
 import type { GameMode } from '../types/game.js';
 
@@ -72,9 +72,7 @@ export async function getRecord(recordId: string, userId: string): Promise<GameR
     [recordId, userId]
   );
 
-  if (result.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '战绩不存在');
-  }
+  ensureFound(result.rows, '战绩不存在');
 
   return result.rows[0] as GameRecord;
 }

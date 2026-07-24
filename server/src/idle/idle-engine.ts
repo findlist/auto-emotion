@@ -4,7 +4,7 @@
 
 import pool from '../config/database.js';
 import { expForLevel } from './growth-curve.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 // 设计原因：三处事务样板（settle/switchArea/upgradeCharacter）与全项目 19 处 withTransaction 调用范式对齐，
 // 统一由工具函数管理 BEGIN/COMMIT/ROLLBACK/release 与 ROLLBACK 失败日志，业务侧仅关心 work 回调内的 SQL
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
@@ -97,9 +97,7 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
       [userId]
     );
 
-    if (charResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '角色不存在');
-    }
+    ensureFound(charResult.rows, '角色不存在');
 
     const char = charResult.rows[0];
     const expRate = parseFloat(char.exp_rate) || 1.0;
@@ -173,9 +171,7 @@ export async function switchArea(userId: string, areaId: number): Promise<void> 
       [areaId]
     );
 
-    if (areaResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '区域不存在');
-    }
+    ensureFound(areaResult.rows, '区域不存在');
 
     // 检查角色等级是否满足要求
     const charResult = await tx.query(
@@ -183,9 +179,7 @@ export async function switchArea(userId: string, areaId: number): Promise<void> 
       [userId]
     );
 
-    if (charResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '角色不存在');
-    }
+    ensureFound(charResult.rows, '角色不存在');
 
     const requiredLevel = areaResult.rows[0].required_level;
     const currentLevel = charResult.rows[0].level;
@@ -223,9 +217,7 @@ export async function upgradeCharacter(
       [userId]
     );
 
-    if (charResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '角色不存在');
-    }
+    ensureFound(charResult.rows, '角色不存在');
 
     const char = charResult.rows[0];
     const level = char.level;

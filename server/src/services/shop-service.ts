@@ -2,7 +2,7 @@
 // 商城服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 import type { Tx } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
@@ -142,9 +142,7 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
     [itemId]
   );
 
-  if (itemResult.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '商品不存在');
-  }
+  ensureFound(itemResult.rows, '商品不存在');
 
   // SQL 通过 AS 别名构造 ShopItem 兼容结构，断言保证类型契约可追溯
   const item = itemResult.rows[0] as ShopItem;
@@ -155,9 +153,7 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
     [userId]
   );
 
-  if (userResult.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
-  }
+  ensureFound(userResult.rows, '用户不存在');
 
   const user = userResult.rows[0];
 

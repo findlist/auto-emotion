@@ -3,7 +3,7 @@
 
 import pool from '../config/database.js';
 import { skillUnlockLevel } from '../idle/growth-curve.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 import type { Tx } from '../utils/transaction.js';
 import { deductGold, ensureGold } from '../utils/gold.js';
@@ -90,9 +90,7 @@ export async function unlockSkill(
       [skillId]
     );
 
-    if (skillResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '技能不存在');
-    }
+    ensureFound(skillResult.rows, '技能不存在');
 
     // skillResult.rows[0] 已通过长度检查
 
@@ -109,9 +107,7 @@ export async function unlockSkill(
       [userId]
     );
 
-    if (charResult.rows.length === 0) {
-      throw new AppError(ErrorCode.NOT_FOUND, '角色不存在');
-    }
+    ensureFound(charResult.rows, '角色不存在');
 
     const requiredLevel = skillUnlockLevel(skillId);
     if (charResult.rows[0].level < requiredLevel) {

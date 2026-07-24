@@ -7,7 +7,7 @@ import * as offlineCalculator from '../idle/offline-calculator.js';
 import type { CharacterStatus, SettleResult } from '../idle/idle-engine.js';
 import type { OfflineResult } from '../idle/offline-calculator.js';
 import pool from '../config/database.js';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 // 奖励发放统一封装：claimOffline 离线收益累加经验金币，与 idle-engine/task-service 同源对称
 import { addExperienceAndGold } from '../utils/gold.js';
@@ -69,15 +69,11 @@ export async function claimOffline(userId: string): Promise<OfflineResult> {
 export async function switchArea(userId: string, areaId: number): Promise<{ success: boolean }> {
   // 检查区域是否存在
   const area = await pool.query('SELECT * FROM idle_areas WHERE id = $1', [areaId]);
-  if (area.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '区域不存在');
-  }
+  ensureFound(area.rows, '区域不存在');
 
   // 检查角色等级
   const char = await pool.query('SELECT level FROM characters WHERE user_id = $1', [userId]);
-  if (char.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '角色不存在');
-  }
+  ensureFound(char.rows, '角色不存在');
   if (char.rows[0].level < area.rows[0].required_level) {
     throw new AppError(ErrorCode.FORBIDDEN, `需要等级 ${area.rows[0].required_level} 才能进入此区域`);
   }
