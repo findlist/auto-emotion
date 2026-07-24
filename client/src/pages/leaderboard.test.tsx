@@ -121,7 +121,7 @@ describe('LeaderboardPage 排行榜页与竞态守卫', () => {
     await waitFor(() => {
       expect(screen.getByText('我自己')).toBeInTheDocument();
     });
-    // 验证 (我) 标记渲染（userId 与 user.id 均为 string，String() 比较仍兼容）
+    // 验证 (我) 标记渲染（userId 与 user.id 均为 string，直接 === 比较仍兼容）
     expect(screen.getByText('(我)')).toBeInTheDocument();
     // 其他人不应有 (我) 标记
     expect(screen.queryByText('其他人(我)')).not.toBeInTheDocument();

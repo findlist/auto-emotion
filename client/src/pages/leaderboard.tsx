@@ -173,7 +173,8 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
                   <div className="flex-1">
                     <p className="font-cn text-ink font-bold">
                       {entry.nickname}
-                      {String(entry.userId) === String(user?.id) && (
+                      {/* User.id 与 LeaderboardEntry.userId 均为 string，与 L162 getRowStyle 行内比较同范式直接 === */}
+                      {entry.userId === user?.id && (
                         <span className="ml-2 text-xs text-pink bg-pink/10 px-1.5 py-0.5 rounded">(我)</span>
                       )}
                     </p>
