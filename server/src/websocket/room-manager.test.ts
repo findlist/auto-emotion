@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => ({
   generateMonsterMock: vi.fn(),
   generateLevelMock: vi.fn(),
   generateEventsMock: vi.fn(),
+  // calcAttack mock：默认提供真实实现（50 + difficulty * 10），避免兜底数据测试假阳性
+  // 设计原因：room-manager 单元测试关注兜底逻辑，calcAttack 纯函数已在 monster-generator.test.ts 独立覆盖
+  calcAttackMock: vi.fn((difficulty: number) => 50 + difficulty * 10),
 }));
 
 // mock redis 客户端，避免真实连接
@@ -42,6 +45,7 @@ vi.mock('./index.js', () => ({
 // mock 三个 AI 生成器，避免依赖 AI_API_KEY 与外部服务
 vi.mock('../ai/monster-generator.js', () => ({
   generate: mocks.generateMonsterMock,
+  calcAttack: mocks.calcAttackMock,
 }));
 vi.mock('../ai/level-generator.js', () => ({
   generateLevel: mocks.generateLevelMock,

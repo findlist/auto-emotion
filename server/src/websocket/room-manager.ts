@@ -9,7 +9,7 @@ import type { GameMode } from '../types/game.js';
 import redis from '../config/redis.js';
 import { AppError, ErrorCode, getErrorMessage } from '../utils/error.js';
 import { logger } from '../utils/logger.js';
-import { generate } from '../ai/monster-generator.js';
+import { generate, calcAttack } from '../ai/monster-generator.js';
 import { generateLevel } from '../ai/level-generator.js';
 import { generateEvents } from '../ai/event-generator.js';
 
@@ -304,7 +304,7 @@ export const roomManager = {
           name: FALLBACK_MONSTER_NAME,
           avatar: '👾',
           hp: difficulty * 1000,
-          attack: 50 + difficulty * 10,
+          attack: calcAttack(difficulty),
           skills: [
             { name: '压力冲击', type: 'attack', effect: '造成伤害', cooldown: 5 },
             { name: '焦虑波', type: 'debuff', effect: '降低移速', cooldown: 8 },

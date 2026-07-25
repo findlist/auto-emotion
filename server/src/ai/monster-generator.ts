@@ -89,7 +89,8 @@ function calcHp(difficulty: number): number {
 
 // 攻击力计算：基础 50 + 难度 × 10，随难度线性增长
 // 设计原因：原 room-manager 硬编码此公式，移至生成器统一数据来源，便于后续平衡性调整
-function calcAttack(difficulty: number): number {
+// 导出原因：room-manager 怪兽生成失败的兜底数据仍硬编码同公式，导出后引用消除公式漂移风险
+export function calcAttack(difficulty: number): number {
   return 50 + difficulty * 10;
 }
 
