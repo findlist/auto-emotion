@@ -58,6 +58,9 @@ const BOSS_PROJECTILE_RADIUS = 8;
 const BOSS_RADIUS = 50;
 // Boss 命中判定半径：刻意略大于 BOSS_RADIUS，使玩家投射物在视觉贴边时仍能命中（手感优化，勿改为相等）
 const BOSS_HIT_RADIUS = 55;
+// Boss 血量公式：基础值 500 + 每难度等级增量 200，hp 与 maxHp 共用同一表达式避免数值漂移
+const BOSS_BASE_HP = 500;
+const BOSS_HP_PER_DIFFICULTY = 200;
 
 /**
  * Boss 组队战模式
@@ -191,8 +194,8 @@ export class BossGame {
       const difficulty = levelData.difficulty ?? 1;
       this.boss = {
         sprite: bossGraphic,
-        hp: 500 + difficulty * 200,
-        maxHp: 500 + difficulty * 200,
+        hp: BOSS_BASE_HP + difficulty * BOSS_HP_PER_DIFFICULTY,
+        maxHp: BOSS_BASE_HP + difficulty * BOSS_HP_PER_DIFFICULTY,
         x: levelData.bossSpawn.x,
         y: levelData.bossSpawn.y,
         hpBar,
