@@ -61,6 +61,9 @@ const BOSS_HIT_RADIUS = 55;
 // Boss 血量公式：基础值 500 + 每难度等级增量 200，hp 与 maxHp 共用同一表达式避免数值漂移
 const BOSS_BASE_HP = 500;
 const BOSS_HP_PER_DIFFICULTY = 200;
+// Boss 血条矩形配置：[x, y, width, height]，血条背景与血条本体共用同一矩形仅颜色不同
+// 设计原因：原本 L184 与 L189 两处独立硬编码 (-40, -60, 80, 8)，调整血条尺寸需同步修改两处易漂移
+const HP_BAR_RECT = [-40, -60, 80, 8] as const;
 
 /**
  * Boss 组队战模式
@@ -181,12 +184,12 @@ export class BossGame {
 
       // Boss 血条背景
       const hpBarBg = new Graphics();
-      hpBarBg.rect(-40, -60, 80, 8).fill({ color: 0x333333 });
+      hpBarBg.rect(...HP_BAR_RECT).fill({ color: 0x333333 });
       bossGraphic.addChild(hpBarBg);
 
       // Boss 血条
       const hpBar = new Graphics();
-      hpBar.rect(-40, -60, 80, 8).fill({ color: 0x00ff00 });
+      hpBar.rect(...HP_BAR_RECT).fill({ color: 0x00ff00 });
       bossGraphic.addChild(hpBar);
 
       this.world.addChild(bossGraphic);
