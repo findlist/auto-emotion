@@ -26,12 +26,11 @@ const SeasonPassPage = lazy(() => import('@/pages/season-pass'));
 const ShopPage = lazy(() => import('@/pages/shop'));
 const TasksPage = lazy(() => import('@/pages/tasks'));
 
-type Page = 'home' | 'demo' | 'login' | 'register' | 'profile' | 'idle' | 'lobby' | 'room' | 'battle' | 'records' | 'achievements' | 'friends' | 'leaderboard' | 'season-pass' | 'shop' | 'tasks';
-
 // 单一映射源：Page → 路径，新增页面只需在此处添加一项
 // 设计原因：原 pathToPage（15 个 if 分支）与 navigateTo 内 pathMap（15 项 Record）需手动保持同步，
 // 新增页面易遗漏一处。合并为单一 PAGE_PATHS 后，PATH_TO_PAGE 反向映射自动派生，消除重复
-const PAGE_PATHS: Record<Page, string> = {
+// as const 让 type Page 可从 PAGE_PATHS 派生键字面量，避免重复维护 16 项联合类型
+const PAGE_PATHS = {
   home: '/',
   login: '/login',
   register: '/register',
@@ -48,7 +47,10 @@ const PAGE_PATHS: Record<Page, string> = {
   'season-pass': '/season-pass',
   shop: '/shop',
   tasks: '/tasks',
-};
+} as const;
+
+// Page 类型从 PAGE_PATHS 派生键字面量，新增页面只需在 PAGE_PATHS 加一项，无需同步修改 type
+type Page = keyof typeof PAGE_PATHS;
 
 // 反向映射：路径 → Page，从 PAGE_PATHS 派生，供初始加载与 popstate（浏览器返回/前进）共用
 const PATH_TO_PAGE: Record<string, Page> = Object.fromEntries(
