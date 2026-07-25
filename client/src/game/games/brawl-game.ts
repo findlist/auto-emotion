@@ -54,6 +54,18 @@ const PROJECTILE_KNOCKBACK = 200;
 const PLAYER_RADIUS = 22;
 const RESPAWN_TIME = 3000;
 
+// 自由乱斗调色板：集中维护所有视觉元素颜色，便于全局调色与主题切换
+// 设计原因：原本 5 处颜色字面量散落于 createParticleTexture + 3 个纹理工厂 + update 投射物命中粒子，
+// 调色需逐处搜索。粒子/projectile/player/playerIndicator 与 boss-game 同色但语义独立（无 Boss 弹幕/Boss 本体），
+// hitParticle 与 boss-game ultimate 同色 0xff3d7f 共同代表"高强度情绪爆发"语义
+const BRAWL_COLORS = {
+  particle: 0xffffff,         // 通用粒子（白色，无 tint 着色）
+  projectile: 0xffd93d,       // 玩家投射物（黄色）
+  player: 0x3dd9b5,           // 玩家本体（绿色）
+  playerIndicator: 0x1a1a1a,  // 玩家朝向指示器（黑色）
+  hitParticle: 0xff3d7f,      // 投射物命中玩家粒子（粉色，与 boss-game ultimate 同色）
+} as const;
+
 /**
  * 自由乱斗模式
  * - 多玩家互相攻击
@@ -110,7 +122,7 @@ export class BrawlGame {
 
   private createParticleTexture() {
     const g = new Graphics();
-    g.circle(0, 0, 5).fill({ color: 0xffffff });
+    g.circle(0, 0, 5).fill({ color: BRAWL_COLORS.particle });
     const texture = this.app.renderer.generateTexture({ target: g, antialias: true });
     g.destroy();
     return texture;
@@ -120,7 +132,7 @@ export class BrawlGame {
   private getProjectileTexture(): Texture {
     if (!this.projectileTexture) {
       const g = new Graphics();
-      g.circle(0, 0, 6).fill({ color: 0xffd93d });
+      g.circle(0, 0, 6).fill({ color: BRAWL_COLORS.projectile });
       this.projectileTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -131,7 +143,7 @@ export class BrawlGame {
   private getPlayerTexture(): Texture {
     if (!this.playerTexture) {
       const g = new Graphics();
-      g.circle(0, 0, PLAYER_RADIUS).fill({ color: 0x3dd9b5 });
+      g.circle(0, 0, PLAYER_RADIUS).fill({ color: BRAWL_COLORS.player });
       this.playerTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -142,7 +154,7 @@ export class BrawlGame {
   private getPlayerIndicatorTexture(): Texture {
     if (!this.playerIndicatorTexture) {
       const g = new Graphics();
-      g.rect(0, 0, 14, 6).fill({ color: 0x1a1a1a });
+      g.rect(0, 0, 14, 6).fill({ color: BRAWL_COLORS.playerIndicator });
       this.playerIndicatorTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -378,7 +390,7 @@ export class BrawlGame {
           // 命中
           data.hp -= 20;
           this.applyKnockback(playerId, proj.x, proj.y, PROJECTILE_KNOCKBACK);
-          this.particles.spawn(proj.x, proj.y, 0xff3d7f, 'low');
+          this.particles.spawn(proj.x, proj.y, BRAWL_COLORS.hitParticle, 'low');
           this.screenShake.shake('low');
           proj.destroy();
           this.callbacks.onPlayerHit?.(playerId, 20, projData.ownerId);
