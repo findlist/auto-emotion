@@ -111,11 +111,23 @@ export const roomManager = {
     return deserializeRoom(data);
   },
 
+  /**
+   * 获取房间或抛 NOT_FOUND
+   * 设计原因：joinRoom/setReady/setMode/submitStress/startGame 5 处方法原本各持一份
+   * "getRoom + 空检查 + 抛 NOT_FOUND" 模式，错误码与消息分散易漂移。
+   * 抽取后错误契约单一源，未来文案调整单点维护。
+   * 注意：leaveRoom/updateRoomStatus 使用 `if (!room) return null` 兜底语义，不适用此 helper。
+   */
+  async getRoomOrThrow(roomId: string): Promise<Room> {
+    const room = await this.getRoom(roomId);
+    if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+    return room;
+  },
+
   /** 加入房间（支持断线重连：玩家已在房间时更新 socketId 并返回当前状态） */
   async joinRoom(roomId: string, userId: string, socketId: string, nickname: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-      const room = await this.getRoom(roomId);
-      if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+      const room = await this.getRoomOrThrow(roomId);
 
       // 重连场景：玩家已在房间，刷新 socketId 与昵称后直接返回当前房间状态
       const existingPlayer = room.players.find((p) => p.userId === userId);
@@ -163,8 +175,7 @@ export const roomManager = {
   /** 设置准备状态 */
   async setReady(roomId: string, userId: string, isReady: boolean): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-      const room = await this.getRoom(roomId);
-      if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+      const room = await this.getRoomOrThrow(roomId);
 
       const player = room.players.find((p) => p.userId === userId);
       // 非房间成员调用 setReady 会错误聚合状态（如其他人已就绪时把房间置为 ready），需拒绝
@@ -193,8 +204,7 @@ export const roomManager = {
   /** 设置游戏模式（仅房主） */
   async setMode(roomId: string, userId: string, mode: GameMode): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-      const room = await this.getRoom(roomId);
-      if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+      const room = await this.getRoomOrThrow(roomId);
       if (room.hostId !== userId) throw new AppError(ErrorCode.FORBIDDEN, '只有房主可以设置模式');
       // 状态守卫：仅等待中允许切换模式，与 UI 层 roomStore.status==='waiting' 显示条件一致
       if (room.status !== 'waiting') {
@@ -210,8 +220,7 @@ export const roomManager = {
   /** 提交压力源 */
   async submitStress(roomId: string, userId: string, stressSource: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-      const room = await this.getRoom(roomId);
-      if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+      const room = await this.getRoomOrThrow(roomId);
       // 状态守卫：仅等待中允许提交压力源，与 UI 层 roomStore.status==='waiting' 显示条件一致
       if (room.status !== 'waiting') {
         throw new AppError(ErrorCode.CONFLICT, '游戏进行中，无法提交压力源');
@@ -225,8 +234,7 @@ export const roomManager = {
 
   /** 开始游戏（仅房主）：触发 AI 关卡生成 */
   async startGame(roomId: string, userId: string): Promise<Room> {
-    const room = await this.getRoom(roomId);
-    if (!room) throw new AppError(ErrorCode.NOT_FOUND, '房间不存在');
+    const room = await this.getRoomOrThrow(roomId);
     if (room.hostId !== userId) throw new AppError(ErrorCode.FORBIDDEN, '只有房主可以开始游戏');
     if (room.status !== 'ready') throw new AppError(ErrorCode.CONFLICT, '游戏已开始或未准备');
 
