@@ -47,6 +47,18 @@ interface ProjectileData {
   ownerId: string;
 }
 
+// 半径参数族：纹理绘制半径与碰撞/构造器传参共用同一常量，避免"视觉半径"与"逻辑半径"漂移
+// 玩家本体半径：getPlayerTexture 绘制圆 + new Player 构造器传参一致
+const PLAYER_RADIUS = 22;
+// 玩家投射物半径：getProjectileTexture 绘制圆 + new Projectile 传参一致
+const PROJECTILE_RADIUS = 6;
+// Boss 弹幕半径：getBossProjectileTexture 绘制圆 + new Projectile 传参一致
+const BOSS_PROJECTILE_RADIUS = 8;
+// Boss 本体绘制半径（仅用于视觉绘制，不参与碰撞判定）
+const BOSS_RADIUS = 50;
+// Boss 命中判定半径：刻意略大于 BOSS_RADIUS，使玩家投射物在视觉贴边时仍能命中（手感优化，勿改为相等）
+const BOSS_HIT_RADIUS = 55;
+
 /**
  * Boss 组队战模式
  * - 多玩家协作击败 Boss
@@ -109,33 +121,33 @@ export class BossGame {
     return texture;
   }
 
-  /** 懒加载玩家投射物纹理（黄色圆 6px），shoot 高频调用复用避免反复生成 */
+  /** 懒加载玩家投射物纹理（黄色圆，半径 PROJECTILE_RADIUS），shoot 高频调用复用避免反复生成 */
   private getProjectileTexture(): Texture {
     if (!this.projectileTexture) {
       const g = new Graphics();
-      g.circle(0, 0, 6).fill({ color: 0xffd93d });
+      g.circle(0, 0, PROJECTILE_RADIUS).fill({ color: 0xffd93d });
       this.projectileTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
     return this.projectileTexture;
   }
 
-  /** 懒加载 Boss 弹幕纹理（红色圆 8px），bossSkill 一次 8 方向复用同一纹理 */
+  /** 懒加载 Boss 弹幕纹理（红色圆，半径 BOSS_PROJECTILE_RADIUS），bossSkill 一次 8 方向复用同一纹理 */
   private getBossProjectileTexture(): Texture {
     if (!this.bossProjectileTexture) {
       const g = new Graphics();
-      g.circle(0, 0, 8).fill({ color: 0xff3333 });
+      g.circle(0, 0, BOSS_PROJECTILE_RADIUS).fill({ color: 0xff3333 });
       this.bossProjectileTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
     return this.bossProjectileTexture;
   }
 
-  /** 懒加载玩家本体纹理（绿色圆 22px），所有玩家共用 */
+  /** 懒加载玩家本体纹理（绿色圆，半径 PLAYER_RADIUS），所有玩家共用 */
   private getPlayerTexture(): Texture {
     if (!this.playerTexture) {
       const g = new Graphics();
-      g.circle(0, 0, 22).fill({ color: 0x3dd9b5 });
+      g.circle(0, 0, PLAYER_RADIUS).fill({ color: 0x3dd9b5 });
       this.playerTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -160,7 +172,7 @@ export class BossGame {
     // 创建 Boss
     if (levelData.bossSpawn) {
       const bossGraphic = new Graphics();
-      bossGraphic.circle(0, 0, 50).fill({ color: 0xff3333 });
+      bossGraphic.circle(0, 0, BOSS_RADIUS).fill({ color: 0xff3333 });
       bossGraphic.x = levelData.bossSpawn.x;
       bossGraphic.y = levelData.bossSpawn.y;
 
@@ -214,7 +226,7 @@ export class BossGame {
   }
 
   addPlayer(playerId: string, x: number, y: number, _nickname: string): void {
-    const player = new Player(this.getPlayerTexture(), this.getPlayerIndicatorTexture(), 22);
+    const player = new Player(this.getPlayerTexture(), this.getPlayerIndicatorTexture(), PLAYER_RADIUS);
     player.setPosition(x, y);
     this.players.set(playerId, player);
     this.world.addChild(player.container);
@@ -250,7 +262,7 @@ export class BossGame {
       Math.sin(angle),
       600,
       this.bounds,
-      6,
+      PROJECTILE_RADIUS,
     );
     // 关联 playerId 用于破坏物得分归属
     this.projectiles.push({ projectile, ownerId: playerId });
@@ -351,7 +363,7 @@ export class BossGame {
         Math.sin(angle),
         300,
         this.bounds,
-        8,
+        BOSS_PROJECTILE_RADIUS,
       );
       // Boss 投射物 ownerId='boss'，破坏物品时 lastHitBy 不计入玩家得分
       this.projectiles.push({ projectile, ownerId: 'boss' });
@@ -408,7 +420,7 @@ export class BossGame {
       if (projData.ownerId !== 'boss' && this.boss && proj.isAlive) {
         const dx = proj.x - this.boss.x;
         const dy = proj.y - this.boss.y;
-        if (Math.sqrt(dx * dx + dy * dy) < 55) {
+        if (Math.sqrt(dx * dx + dy * dy) < BOSS_HIT_RADIUS) {
           this.boss.hp -= 10;
           proj.destroy();
           this.updateBossHpBar();
