@@ -105,8 +105,7 @@ export const useUserStore = create<UserState>((set) => ({
       // 用 isErrorResponse 类型守卫收敛 unknown，替代 as ErrorResponse 类型断言
       if (isErrorResponse(err) && err.httpStatus === 401) {
         disconnectSocket();
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
+        clearTokens();
         // token 失效后自动重新游客登录
         await autoGuestLogin(set);
       }
@@ -147,8 +146,7 @@ export const useUserStore = create<UserState>((set) => ({
     } finally {
       // 登出时主动断开 WebSocket，避免旧 socket 残留导致下次登录复用旧连接鉴权失败
       disconnectSocket();
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
+      clearTokens();
       set({ user: null });
     }
   },
@@ -163,4 +161,14 @@ export const useUserStore = create<UserState>((set) => ({
 function persistSession(result: LoginResult): void {
   localStorage.setItem('token', result.token);
   localStorage.setItem('refreshToken', result.refreshToken);
+}
+
+/**
+ * 清除本地会话凭证
+ * 设计原因：restore 401 失效分支与 logout finally 块均需成对清除 token/refreshToken，
+ * 与 persistSession 形成对称的"会话存储操作"helper 族，避免两处内联样板漂移
+ */
+function clearTokens(): void {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
 }
