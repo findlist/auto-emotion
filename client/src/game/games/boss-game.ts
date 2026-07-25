@@ -79,6 +79,17 @@ const BOSS_GAME_COLORS = {
   ultimate: 0xff3d7f,         // 大招 / Boss 被击败粒子（粉色）
 } as const;
 
+// Boss 战数值配置族：集中维护所有战斗数值，便于策划调参与数值平衡
+// 设计原因：原本 7 处数值字面量散落于 useUltimate/onDestructibleDestroyed/update/onBossDefeated，
+// 调整任一数值需逐处搜索且字面量本身含义不明（如 200 是大招伤害、10 是命中伤害），命名化后可读性大幅提升
+const ULTIMATE_MAX_CHARGE = 100;            // 大招充能上限：useUltimate 释放门槛 + onDestructibleDestroyed 充能上限共用
+const ULTIMATE_CHARGE_GAIN = 5;             // 单次破坏物充能增量：onDestructibleDestroyed 每次破坏物品充能 5 点
+const ULTIMATE_DAMAGE = 200;                // 大招对 Boss 的直接伤害
+const BOSS_HIT_DAMAGE = 10;                 // 玩家投射物命中 Boss 的单次伤害
+const BOSS_SKILL_HP_RATIO = 0.5;            // Boss 血量低于此比例触发技能（半血狂暴）
+const ULTIMATE_PARTICLE_COUNT = 40;         // 大招释放全屏粒子数
+const BOSS_DEFEATED_PARTICLE_COUNT = 50;    // Boss 被击败时的爆破粒子数
+
 /**
  * Boss 组队战模式
  * - 多玩家协作击败 Boss
@@ -327,29 +338,29 @@ export class BossGame {
     }
 
     // 充能大招
-    this.ultimateCharge = Math.min(100, this.ultimateCharge + 5);
+    this.ultimateCharge = Math.min(ULTIMATE_MAX_CHARGE, this.ultimateCharge + ULTIMATE_CHARGE_GAIN);
     this.callbacks.onUltimateChargeChange?.(this.ultimateCharge);
   }
 
   useUltimate(_playerId: string): void {
-    if (this.ultimateCharge < 100) return;
+    if (this.ultimateCharge < ULTIMATE_MAX_CHARGE) return;
     if (!this.boss) return;
 
     this.ultimateCharge = 0;
     this.callbacks.onUltimateChargeChange?.(0);
 
     // 对 Boss 造成大量伤害
-    this.boss.hp -= 200;
+    this.boss.hp -= ULTIMATE_DAMAGE;
 
     // 全屏粒子
-    this.particles.spawn(this.boss.x, this.boss.y, BOSS_GAME_COLORS.ultimate, 'high', 40);
+    this.particles.spawn(this.boss.x, this.boss.y, BOSS_GAME_COLORS.ultimate, 'high', ULTIMATE_PARTICLE_COUNT);
     this.screenShake.shake('high');
 
     // 更新血条
     this.updateBossHpBar();
 
     // Boss 血量低于50%释放技能
-    if (this.boss && this.boss.hp < this.boss.maxHp * 0.5) {
+    if (this.boss && this.boss.hp < this.boss.maxHp * BOSS_SKILL_HP_RATIO) {
       this.bossSkill();
     }
 
@@ -441,7 +452,7 @@ export class BossGame {
         const dx = proj.x - this.boss.x;
         const dy = proj.y - this.boss.y;
         if (Math.sqrt(dx * dx + dy * dy) < BOSS_HIT_RADIUS) {
-          this.boss.hp -= 10;
+          this.boss.hp -= BOSS_HIT_DAMAGE;
           proj.destroy();
           this.updateBossHpBar();
 
@@ -494,7 +505,7 @@ export class BossGame {
 
   private onBossDefeated(): void {
     if (!this.boss) return;
-    this.particles.spawn(this.boss.x, this.boss.y, BOSS_GAME_COLORS.ultimate, 'high', 50);
+    this.particles.spawn(this.boss.x, this.boss.y, BOSS_GAME_COLORS.ultimate, 'high', BOSS_DEFEATED_PARTICLE_COUNT);
     this.screenShake.shake('high');
     this.world.removeChild(this.boss.sprite);
     this.boss = null;
