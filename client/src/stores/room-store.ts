@@ -41,7 +41,13 @@ interface RoomState {
   setError: (error: string | null) => void;
 }
 
-export const useRoomStore = create<RoomState>((set) => ({
+/**
+ * 房间初始状态契约
+ * 设计原因：create 初始化与 reset 重置原本各持一份字面量，新增字段需同步修改两处，
+ * 易遗漏导致 reset 后状态与初始状态漂移。抽取为单一源后，初始状态变更单点维护。
+ * Pick 类型注解保证 status: 'waiting' 不被推断为 string，保留字面量类型守卫。
+ */
+const INITIAL_ROOM_STATE: Pick<RoomState, 'roomId' | 'hostId' | 'status' | 'mode' | 'players' | 'stressSources' | 'loading' | 'error'> = {
   roomId: null,
   hostId: '',
   status: 'waiting',
@@ -50,18 +56,12 @@ export const useRoomStore = create<RoomState>((set) => ({
   stressSources: {},
   loading: false,
   error: null,
+};
 
-  reset: () =>
-    set({
-      roomId: null,
-      hostId: '',
-      status: 'waiting',
-      mode: 'boss',
-      players: [],
-      stressSources: {},
-      loading: false,
-      error: null,
-    }),
+export const useRoomStore = create<RoomState>((set) => ({
+  ...INITIAL_ROOM_STATE,
+
+  reset: () => set(INITIAL_ROOM_STATE),
 
   setRoom: (data) =>
     set({
