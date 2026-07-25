@@ -129,7 +129,7 @@ export const useUserStore = create<UserState>((set) => ({
   register: async (phone, password, nickname) => {
     set({ loading: true });
     try {
-      const result: LoginResult = await authApi.register({ phone, password, nickname });
+      const result = await authApi.register({ phone, password, nickname });
       persistSession(result);
       set({ user: result.user });
     } finally {
