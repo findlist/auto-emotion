@@ -45,8 +45,11 @@ const DESTRUCTIBLE_COUNTS: Record<number, [number, number]> = {
 // 游戏画布尺寸，用于校验 AI 返回坐标合法性
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
-// 可破坏物合法类型集合
-const VALID_DESTRUCTIBLE_TYPES = new Set(['box', 'bottle', 'glass', 'balloon']);
+// 可破坏物类型单一数据源：L49 校验集合与 L169 兜底生成数组均派生自此，
+// 避免两处字面量漂移导致"校验通过的类型"与"实际生成的类型"错位
+const DESTRUCTIBLE_TYPES = ['box', 'bottle', 'glass', 'balloon'] as const;
+// 可破坏物合法类型集合（用于运行时校验 AI 返回数据）
+const VALID_DESTRUCTIBLE_TYPES = new Set<string>(DESTRUCTIBLE_TYPES);
 
 // 随机整数 [min, max]
 function randInt(min: number, max: number): number {
@@ -167,7 +170,7 @@ function generateFallbackLevel(mode: string, difficulty: number): LevelLayout {
   const baseHp = 10 + difficulty * 5;
   const baseReward = 10 + difficulty * 2;
 
-  const types: Array<'box' | 'bottle' | 'glass' | 'balloon'> = ['box', 'bottle', 'glass', 'balloon'];
+  const types = DESTRUCTIBLE_TYPES;
 
   // 生成可破坏物
   const destructibles: DestructibleItem[] = Array.from({ length: baseCount }, (_, i) => ({
