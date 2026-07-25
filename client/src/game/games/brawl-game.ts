@@ -66,6 +66,15 @@ const BRAWL_COLORS = {
   hitParticle: 0xff3d7f,      // 投射物命中玩家粒子（粉色，与 boss-game ultimate 同色）
 } as const;
 
+// 自由乱斗数值配置族：集中维护战斗数值，便于策划调参与数值平衡
+// 设计原因：原本 5 处数值字面量散落于 update 边界反弹 + 投射物命中 + onPlayerDefeated 击杀得分 + respawnPlayer 出生点，
+// 调整任一数值需逐处搜索且字面量本身含义不明。仅抽取 2+ 处重复使用的字面量，单点使用的字面量（如 PROJECTILE_SPEED=600、PLAYER_MAX_HP=100）按"避免过度抽象"原则保留
+const BOUNCE_DAMPING = 0.5;           // 边界反弹速度衰减系数：玩家撞墙后速度保留 50%，4 处共用
+const PROJECTILE_HIT_DAMAGE = 20;     // 投射物命中伤害：玩家 hp 扣减 + onPlayerHit 回调参数共用
+const KILL_SCORE = 100;               // 击杀玩家得分：scores 累加 + onScoreChange 回调参数共用
+const RESPAWN_MARGIN = 100;           // 复活出生点边距：避免玩家出生在墙边被立即推出边界
+const RESPAWN_RANGE = 200;            // 复活出生点随机区间总扣减量（= 2*RESPAWN_MARGIN，左右两边各 100）
+
 /**
  * 自由乱斗模式
  * - 多玩家互相攻击
@@ -343,19 +352,19 @@ export class BrawlGame {
       const r = PLAYER_RADIUS;
       if (data.player.x < r) {
         data.player.container.x = r;
-        data.vx = Math.abs(data.vx) * 0.5;
+        data.vx = Math.abs(data.vx) * BOUNCE_DAMPING;
       }
       if (data.player.x > this.bounds.width - r) {
         data.player.container.x = this.bounds.width - r;
-        data.vx = -Math.abs(data.vx) * 0.5;
+        data.vx = -Math.abs(data.vx) * BOUNCE_DAMPING;
       }
       if (data.player.y < r) {
         data.player.container.y = r;
-        data.vy = Math.abs(data.vy) * 0.5;
+        data.vy = Math.abs(data.vy) * BOUNCE_DAMPING;
       }
       if (data.player.y > this.bounds.height - r) {
         data.player.container.y = this.bounds.height - r;
-        data.vy = -Math.abs(data.vy) * 0.5;
+        data.vy = -Math.abs(data.vy) * BOUNCE_DAMPING;
       }
 
       // 玩家间碰撞
@@ -388,12 +397,12 @@ export class BrawlGame {
         const dy = proj.y - data.player.y;
         if (Math.sqrt(dx * dx + dy * dy) < PLAYER_RADIUS + proj.radiusValue) {
           // 命中
-          data.hp -= 20;
+          data.hp -= PROJECTILE_HIT_DAMAGE;
           this.applyKnockback(playerId, proj.x, proj.y, PROJECTILE_KNOCKBACK);
           this.particles.spawn(proj.x, proj.y, BRAWL_COLORS.hitParticle, 'low');
           this.screenShake.shake('low');
           proj.destroy();
-          this.callbacks.onPlayerHit?.(playerId, 20, projData.ownerId);
+          this.callbacks.onPlayerHit?.(playerId, PROJECTILE_HIT_DAMAGE, projData.ownerId);
 
           if (data.hp <= 0) {
             this.onPlayerDefeated(playerId, projData.ownerId);
@@ -487,8 +496,8 @@ export class BrawlGame {
 
     // 击杀者得分
     const killerScore = this.scores.get(killerId) || 0;
-    this.scores.set(killerId, killerScore + 100);
-    this.callbacks.onScoreChange?.(killerId, killerScore + 100);
+    this.scores.set(killerId, killerScore + KILL_SCORE);
+    this.callbacks.onScoreChange?.(killerId, killerScore + KILL_SCORE);
 
     // 复活计时
     this.respawnTimers.set(playerId, RESPAWN_TIME);
@@ -511,8 +520,8 @@ export class BrawlGame {
     if (!data) return;
 
     // 随机出生点
-    const x = 100 + Math.random() * (this.bounds.width - 200);
-    const y = 100 + Math.random() * (this.bounds.height - 200);
+    const x = RESPAWN_MARGIN + Math.random() * (this.bounds.width - RESPAWN_RANGE);
+    const y = RESPAWN_MARGIN + Math.random() * (this.bounds.height - RESPAWN_RANGE);
     data.player.setPosition(x, y);
     data.hp = data.maxHp;
     data.alive = true;
