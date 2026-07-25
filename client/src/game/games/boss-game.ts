@@ -64,6 +64,20 @@ const BOSS_HP_PER_DIFFICULTY = 200;
 // Boss 血条矩形配置：[x, y, width, height]，血条背景与血条本体共用同一矩形仅颜色不同
 // 设计原因：原本 L184 与 L189 两处独立硬编码 (-40, -60, 80, 8)，调整血条尺寸需同步修改两处易漂移
 const HP_BAR_RECT = [-40, -60, 80, 8] as const;
+// Boss 战调色板：集中维护所有视觉元素颜色，便于全局调色与主题切换
+// 设计原因：原本 9 处颜色字面量散落于 4 个纹理工厂 + init 血条 + useUltimate/onBossDefeated 粒子，调色需逐处搜索
+// boss 与 bossProjectile 同为 0xff3333 但语义独立（角色本体 vs 子弹），未来可分别调整
+// ultimate 复用同一颜色（大招粒子 + Boss 被击败粒子），统一代表"高情绪强度爆发"语义
+const BOSS_GAME_COLORS = {
+  projectile: 0xffd93d,       // 玩家投射物（黄色）
+  bossProjectile: 0xff3333,   // Boss 弹幕（红色）
+  player: 0x3dd9b5,           // 玩家本体（绿色）
+  playerIndicator: 0x1a1a1a,  // 玩家朝向指示器（黑色）
+  boss: 0xff3333,             // Boss 本体（红色，与 Boss 弹幕同色但语义独立）
+  hpBarBg: 0x333333,          // Boss 血条背景（深灰）
+  hpBar: 0x00ff00,            // Boss 血条（绿色）
+  ultimate: 0xff3d7f,         // 大招 / Boss 被击败粒子（粉色）
+} as const;
 
 /**
  * Boss 组队战模式
@@ -131,7 +145,7 @@ export class BossGame {
   private getProjectileTexture(): Texture {
     if (!this.projectileTexture) {
       const g = new Graphics();
-      g.circle(0, 0, PROJECTILE_RADIUS).fill({ color: 0xffd93d });
+      g.circle(0, 0, PROJECTILE_RADIUS).fill({ color: BOSS_GAME_COLORS.projectile });
       this.projectileTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -142,7 +156,7 @@ export class BossGame {
   private getBossProjectileTexture(): Texture {
     if (!this.bossProjectileTexture) {
       const g = new Graphics();
-      g.circle(0, 0, BOSS_PROJECTILE_RADIUS).fill({ color: 0xff3333 });
+      g.circle(0, 0, BOSS_PROJECTILE_RADIUS).fill({ color: BOSS_GAME_COLORS.bossProjectile });
       this.bossProjectileTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -153,7 +167,7 @@ export class BossGame {
   private getPlayerTexture(): Texture {
     if (!this.playerTexture) {
       const g = new Graphics();
-      g.circle(0, 0, PLAYER_RADIUS).fill({ color: 0x3dd9b5 });
+      g.circle(0, 0, PLAYER_RADIUS).fill({ color: BOSS_GAME_COLORS.player });
       this.playerTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -164,7 +178,7 @@ export class BossGame {
   private getPlayerIndicatorTexture(): Texture {
     if (!this.playerIndicatorTexture) {
       const g = new Graphics();
-      g.rect(0, 0, 14, 6).fill({ color: 0x1a1a1a });
+      g.rect(0, 0, 14, 6).fill({ color: BOSS_GAME_COLORS.playerIndicator });
       this.playerIndicatorTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -178,18 +192,18 @@ export class BossGame {
     // 创建 Boss
     if (levelData.bossSpawn) {
       const bossGraphic = new Graphics();
-      bossGraphic.circle(0, 0, BOSS_RADIUS).fill({ color: 0xff3333 });
+      bossGraphic.circle(0, 0, BOSS_RADIUS).fill({ color: BOSS_GAME_COLORS.boss });
       bossGraphic.x = levelData.bossSpawn.x;
       bossGraphic.y = levelData.bossSpawn.y;
 
       // Boss 血条背景
       const hpBarBg = new Graphics();
-      hpBarBg.rect(...HP_BAR_RECT).fill({ color: 0x333333 });
+      hpBarBg.rect(...HP_BAR_RECT).fill({ color: BOSS_GAME_COLORS.hpBarBg });
       bossGraphic.addChild(hpBarBg);
 
       // Boss 血条
       const hpBar = new Graphics();
-      hpBar.rect(...HP_BAR_RECT).fill({ color: 0x00ff00 });
+      hpBar.rect(...HP_BAR_RECT).fill({ color: BOSS_GAME_COLORS.hpBar });
       bossGraphic.addChild(hpBar);
 
       this.world.addChild(bossGraphic);
@@ -328,7 +342,7 @@ export class BossGame {
     this.boss.hp -= 200;
 
     // 全屏粒子
-    this.particles.spawn(this.boss.x, this.boss.y, 0xff3d7f, 'high', 40);
+    this.particles.spawn(this.boss.x, this.boss.y, BOSS_GAME_COLORS.ultimate, 'high', 40);
     this.screenShake.shake('high');
 
     // 更新血条
@@ -480,7 +494,7 @@ export class BossGame {
 
   private onBossDefeated(): void {
     if (!this.boss) return;
-    this.particles.spawn(this.boss.x, this.boss.y, 0xff3d7f, 'high', 50);
+    this.particles.spawn(this.boss.x, this.boss.y, BOSS_GAME_COLORS.ultimate, 'high', 50);
     this.screenShake.shake('high');
     this.world.removeChild(this.boss.sprite);
     this.boss = null;
