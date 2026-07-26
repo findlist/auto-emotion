@@ -196,6 +196,11 @@ export class BossGame {
     return this.playerIndicatorTexture;
   }
 
+  // 可破坏物纹理缓存：同尺寸可破坏物复用同一纹理，避免 init 时逐个 generateTexture 产生 GPU 开销
+  // 设计原因：boss 模式可破坏物颜色固定 0xffffff，cacheKey 仅需 width（与 brawl-game 同模式但 key 简化）
+  // Destructible.destroy 不销毁传入纹理故共享安全，destroy() 时统一释放避免 GPU 泄漏
+  private destructibleTextureCache: Map<string, Texture> = new Map();
+
   // 非 async：内部仅同步初始化场景对象，无异步资源加载，保留 async 会造成"假异步"误导调用方
   init(levelData: BossLevelData): void {
     this.cleanup();
@@ -233,10 +238,17 @@ export class BossGame {
 
     // 创建可破坏物
     for (const d of levelData.destructibles ?? []) {
-      // generateTexture 后及时销毁临时 Graphics，避免每个可破坏物泄漏一个 Graphics 对象
-      const destGfx = new Graphics().rect(0, 0, d.width, d.width).fill({ color: 0xffffff });
-      const destTex = this.app.renderer.generateTexture({ target: destGfx, antialias: true });
-      destGfx.destroy();
+      // 纹理缓存：同尺寸可破坏物复用纹理，避免逐个 generateTexture 产生 GPU 开销
+      // boss 模式可破坏物颜色固定 0xffffff，cacheKey 仅需 width（与 brawl-game 同模式）
+      const cacheKey = `${d.width}`;
+      let destTex = this.destructibleTextureCache.get(cacheKey);
+      if (!destTex) {
+        // generateTexture 后及时销毁临时 Graphics，避免每个可破坏物泄漏一个 Graphics 对象
+        const destGfx = new Graphics().rect(0, 0, d.width, d.width).fill({ color: 0xffffff });
+        destTex = this.app.renderer.generateTexture({ target: destGfx, antialias: true });
+        destGfx.destroy();
+        this.destructibleTextureCache.set(cacheKey, destTex);
+      }
       const dest = new Destructible(
         destTex,
         d.x,
@@ -565,5 +577,8 @@ export class BossGame {
     this.bossProjectileTexture = null;
     this.playerTexture = null;
     this.playerIndicatorTexture = null;
+    // 销毁可破坏物纹理缓存释放 GPU 资源，cleanup 不清理缓存（跨 init 复用），仅 destroy 释放
+    this.destructibleTextureCache.forEach((t) => t.destroy(true));
+    this.destructibleTextureCache.clear();
   }
 }
