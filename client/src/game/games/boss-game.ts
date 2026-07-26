@@ -79,6 +79,11 @@ const BOSS_GAME_COLORS = {
   ultimate: 0xff3d7f,         // 大招 / Boss 被击败粒子（粉色）
 } as const;
 
+// Boss 模式可破坏物固定白色：与 brawl-game 可破坏物多色不同，
+// boss 关卡可破坏物作为"中性破坏目标"视觉统一，玩家通过破坏积攒大招能量而非区分颜色
+// init 中纹理填充与 Destructible 构造函数传参共用，调整需同步两处
+const DESTRUCTIBLE_COLOR = 0xffffff;
+
 // Boss 战数值配置族：集中维护所有战斗数值，便于策划调参与数值平衡
 // 设计原因：原本 7 处数值字面量散落于 useUltimate/onDestructibleDestroyed/update/onBossDefeated，
 // 调整任一数值需逐处搜索且字面量本身含义不明（如 200 是大招伤害、10 是命中伤害），命名化后可读性大幅提升
@@ -239,12 +244,12 @@ export class BossGame {
     // 创建可破坏物
     for (const d of levelData.destructibles ?? []) {
       // 纹理缓存：同尺寸可破坏物复用纹理，避免逐个 generateTexture 产生 GPU 开销
-      // boss 模式可破坏物颜色固定 0xffffff，cacheKey 仅需 width（与 brawl-game 同模式）
+      // boss 模式可破坏物颜色固定 DESTRUCTIBLE_COLOR，cacheKey 仅需 width（与 brawl-game 同模式）
       const cacheKey = `${d.width}`;
       let destTex = this.destructibleTextureCache.get(cacheKey);
       if (!destTex) {
         // generateTexture 后及时销毁临时 Graphics，避免每个可破坏物泄漏一个 Graphics 对象
-        const destGfx = new Graphics().rect(0, 0, d.width, d.width).fill({ color: 0xffffff });
+        const destGfx = new Graphics().rect(0, 0, d.width, d.width).fill({ color: DESTRUCTIBLE_COLOR });
         destTex = this.app.renderer.generateTexture({ target: destGfx, antialias: true });
         destGfx.destroy();
         this.destructibleTextureCache.set(cacheKey, destTex);
@@ -255,7 +260,7 @@ export class BossGame {
         d.y,
         d.width,
         d.width,
-        0xffffff,
+        DESTRUCTIBLE_COLOR,
         d.hp,
         d.reward,
         () => this.onDestructibleDestroyed(dest),
