@@ -80,7 +80,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入手机号"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all"
+                className={`w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`}
                 required
                 minLength={11}
                 maxLength={20}
@@ -98,7 +98,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入昵称（2-10字符）"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all"
+                className={`w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`}
                 required
                 minLength={2}
                 maxLength={10}
@@ -116,7 +116,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入密码（至少6位）"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all"
+                className={`w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`}
                 required
                 minLength={6}
                 maxLength={50}
@@ -134,7 +134,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请再次输入密码"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className="w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all"
+                className={`w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`}
                 required
                 minLength={6}
                 maxLength={50}
@@ -152,7 +152,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
             <button
               type="submit"
               disabled={loading}
-              className="bg-mint text-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-cream transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a] disabled:hover:bg-mint disabled:hover:text-ink"
+              className="bg-mint text-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-cream btn-press-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-mint disabled:hover:text-ink"
             >
               {loading ? '注册中...' : '注册'}
             </button>

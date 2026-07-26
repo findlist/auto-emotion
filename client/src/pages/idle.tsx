@@ -710,7 +710,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                         <button
                           onClick={() => handleActivateSkill(skill, !isActive)}
                           disabled={loading}
-                          className={`px-3 py-1 font-mono text-xs font-bold transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 ${
+                          className={`px-3 py-1 font-mono text-xs font-bold btn-press-2 disabled:opacity-50 ${
                             // 停用按钮改用 orange 保持 Neo-brutalism 调色板（原 red-500 脱离设计系统）
                             isActive
                               ? 'bg-orange text-cream hover:bg-ink'
