@@ -144,7 +144,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 scrollbar-brutal">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 scrollbar-brutal bg-cream-atmos">
       {/* 标题：交错入场，添加副标徽章；标题响应式避免小屏溢出 */}
       <div className="text-center mb-8 animate-stagger">
         <span className="inline-block bg-ink text-cream px-3 py-1 text-xs font-bold tracking-widest mb-3 shadow-[3px_3px_0_#ff3d7f]">
@@ -189,7 +189,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
         <button
           onClick={handleCreateRoom}
           disabled={loading}
-          className="bg-yellow text-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-yellow transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a] disabled:hover:bg-yellow disabled:hover:text-ink"
+          className="bg-yellow text-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-yellow btn-press-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-yellow disabled:hover:text-ink"
         >
           <span aria-hidden="true" className="mr-1">🚪</span> 创建房间
         </button>
@@ -198,7 +198,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
         <button
           onClick={handleQuickMatch}
           disabled={matching}
-          className="bg-pink text-cream px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a] disabled:hover:bg-pink disabled:hover:text-cream"
+          className="bg-pink text-cream px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink btn-press-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-pink disabled:hover:text-cream"
         >
           {matching ? '匹配中...' : <><span aria-hidden="true" className="mr-1">⚡</span> 快速匹配</>}
         </button>
@@ -207,7 +207,7 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
         {!showJoinInput ? (
           <button
             onClick={() => setShowJoinInput(true)}
-            className="bg-cream text-ink border-2 border-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-cream transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
+            className="bg-cream text-ink border-2 border-ink px-6 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink hover:text-cream btn-press-4"
           >
             <span aria-hidden="true" className="mr-1">🔑</span> 加入房间
           </button>
@@ -243,11 +243,11 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
         )}
       </div>
 
-      {/* 错误提示：role=alert 强制屏幕阅读器立即朗读，确保操作失败时视障用户即时感知
-          使用 pink 系配色与 Neo-brutalism 调色板一致（原 red 系脱离设计系统） */}
+      {/* 错误提示：alert-error 抽象 mt-4 bg-pink/10 border-2 border-pink px-4 py-2 animate-shake shadow-[3px_3px_0_#1a1a1a]
+          role=alert 强制屏幕阅读器立即朗读，确保操作失败时视障用户即时感知 */}
       {error && (
-        <div role="alert" className="mt-4 bg-pink/10 border-2 border-pink px-4 py-2 animate-shake shadow-[3px_3px_0_#1a1a1a]">
-          <p className="text-pink font-mono text-sm">{error}</p>
+        <div role="alert" className="alert-error">
+          <p className="alert-error-text">{error}</p>
         </div>
       )}
     </div>
