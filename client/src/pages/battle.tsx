@@ -416,7 +416,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
           <p className="font-mono text-sm text-ink" role="alert">{error}</p>
           <button
             onClick={onBack}
-            className="mt-4 bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+            className="mt-4 bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink btn-press-3"
           >
             返回首页
           </button>
@@ -439,13 +439,13 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-4 scrollbar-brutal">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-4 scrollbar-brutal bg-cream-atmos">
       <div className="flex items-center gap-4 animate-stagger">
         {/* aria-label 覆盖"← 返回"文本,避免屏幕阅读器朗读"左箭头 返回" */}
         <button
           onClick={onBack}
           aria-label="返回"
-          className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+          className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink btn-press-3"
         >
           ← 返回
         </button>
@@ -538,7 +538,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
               <p className="text-sm mt-2 text-cream/70 font-mono">房间: {roomId}</p>
               <button
                 onClick={handleStartGame}
-                className="mt-4 bg-mint text-ink px-6 py-2 font-mono font-bold hover:bg-yellow transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+                className="mt-4 bg-mint text-ink px-6 py-2 font-mono font-bold hover:bg-yellow btn-press-3"
               >
                 开始游戏
               </button>
@@ -645,7 +645,7 @@ export function SettlementPopup({ settlement, onBack }: { settlement: Settlement
 
         <button
           onClick={onBack}
-          className="w-full bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+          className="w-full bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink btn-press-3"
         >
           返回大厅
         </button>
