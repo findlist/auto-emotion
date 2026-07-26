@@ -119,13 +119,13 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-8 scrollbar-brutal">
+    <div className="min-h-screen flex flex-col items-center p-8 scrollbar-brutal bg-cream-atmos">
       {/* 头部：交错入场 */}
       <div className="w-full max-w-lg mb-6 animate-stagger">
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={handleLeaveRoom}
-            className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-all shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
+            className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink btn-press-3"
           >
             ← 离开房间
           </button>
@@ -254,7 +254,7 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
         {!isHost && roomStore.status === 'waiting' && (
           <button
             onClick={handleToggleReady}
-            className={`px-8 py-3 font-mono text-sm font-bold tracking-wider transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none ${
+            className={`px-8 py-3 font-mono text-sm font-bold tracking-wider btn-press-4 ${
               isReady
                 ? 'bg-orange text-cream hover:bg-ink'
                 : 'bg-mint text-ink hover:bg-ink hover:text-mint'
@@ -268,18 +268,18 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
           <button
             onClick={handleStartGame}
             disabled={roomStore.players.length < 1}
-            className="bg-pink text-cream px-8 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink transition-all shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[4px_4px_0_#1a1a1a]"
+            className="bg-pink text-cream px-8 py-3 font-mono text-sm font-bold tracking-wider hover:bg-ink btn-press-4 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             开始游戏
           </button>
         )}
       </div>
 
-      {/* 错误提示：role=alert 强制屏幕阅读器立即朗读，确保房间操作失败时视障用户即时感知
-          使用 pink 系配色与 Neo-brutalism 调色板一致（原 red 系脱离设计系统） */}
+      {/* 错误提示：alert-error 抽象 mt-4 bg-pink/10 border-2 border-pink px-4 py-2 animate-shake shadow-[3px_3px_0_#1a1a1a]
+          role=alert 强制屏幕阅读器立即朗读，确保房间操作失败时视障用户即时感知 */}
       {roomStore.error && (
-        <div role="alert" className="mt-4 bg-pink/10 border-2 border-pink px-4 py-2 animate-shake shadow-[3px_3px_0_#1a1a1a]">
-          <p className="text-pink font-mono text-sm">{roomStore.error}</p>
+        <div role="alert" className="alert-error">
+          <p className="alert-error-text">{roomStore.error}</p>
         </div>
       )}
     </div>
