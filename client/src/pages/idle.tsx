@@ -545,7 +545,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                   <button
                     onClick={() => handleUpgrade(field.key)}
                     disabled={loading}
-                    className="bg-pink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_#1a1a1a]"
+                    className="bg-pink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-ink btn-press-2 disabled:opacity-50"
                   >
                     升级
                   </button>
@@ -622,7 +622,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                         <button
                           onClick={() => handleUpgradeWeapon(weapon)}
                           disabled={loading}
-                          className="bg-pink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+                          className="bg-pink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink btn-press-2 disabled:opacity-50"
                         >
                           升级 ({upgradeCostGold}💰)
                         </button>
@@ -630,7 +630,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                           <button
                             onClick={() => handleEquipWeapon(weapon.id)}
                             disabled={loading}
-                            className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+                            className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink btn-press-2 disabled:opacity-50"
                           >
                             装备
                           </button>
@@ -640,7 +640,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                       <button
                         onClick={() => handleBuyWeapon(weapon)}
                         disabled={loading || (status?.gold ?? 0) < weapon.unlock_cost_gold}
-                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink btn-press-2 disabled:opacity-50"
                       >
                         购买 ({weapon.unlock_cost_gold}💰)
                       </button>
@@ -703,7 +703,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                         <button
                           onClick={() => handleUpgradeSkill(skill)}
                           disabled={loading}
-                          className="bg-pink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+                          className="bg-pink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink btn-press-2 disabled:opacity-50"
                         >
                           升级 ({upgradeCostGold}💰)
                         </button>
@@ -724,7 +724,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                       <button
                         onClick={() => handleUnlockSkill(skill)}
                         disabled={loading || (status?.level ?? 1) < requiredLevel}
-                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink btn-press-2 disabled:opacity-50"
                       >
                         解锁
                       </button>
@@ -782,7 +782,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                         <button
                           onClick={() => handleEquipPet(pet)}
                           disabled={loading}
-                          className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+                          className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink btn-press-2 disabled:opacity-50"
                         >
                           装备
                         </button>
@@ -791,7 +791,7 @@ function IdlePage({ onBack }: IdlePageProps) {
                       <button
                         onClick={() => handleBuyPet(pet)}
                         disabled={loading || (status?.gold ?? 0) < pet.unlock_cost_gold}
-                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50"
+                        className="bg-ink text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-mint hover:text-ink btn-press-2 disabled:opacity-50"
                       >
                         购买 ({pet.unlock_cost_gold}💰)
                       </button>
