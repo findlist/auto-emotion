@@ -369,7 +369,7 @@ function IdlePage({ onBack }: IdlePageProps) {
         <button
           onClick={onBack}
           aria-label="返回"
-          className="bg-pink text-cream px-3 py-1 font-mono text-sm hover:bg-cream hover:text-ink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+          className="bg-pink text-cream px-3 py-1 font-mono text-sm hover:bg-cream hover:text-ink btn-press-2"
         >
           ← 返回
         </button>
@@ -394,7 +394,7 @@ function IdlePage({ onBack }: IdlePageProps) {
           <button
             onClick={handleClaim}
             disabled={loading}
-            className="bg-ink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-pink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_#1a1a1a]"
+            className="bg-ink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-pink btn-press-2 disabled:opacity-50"
           >
             领取
           </button>
