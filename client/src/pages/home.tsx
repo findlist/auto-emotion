@@ -111,7 +111,7 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
           <button
             aria-label="进入挂机空间"
             onClick={onEnterIdle}
-            className="bg-pink text-cream p-4 sm:p-6 rounded-lg shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center gap-2 animate-stagger delay-100 group"
+            className="bg-pink text-cream p-4 sm:p-6 rounded-lg btn-press-4 flex flex-col items-center justify-center gap-2 animate-stagger delay-100 group"
           >
             {/* emoji 加 group-hover 放大，与 shop 商品卡片交互一致，提升主入口按钮的微交互反馈 */}
             <span aria-hidden="true" className="text-4xl transition-transform group-hover:scale-110">🎮</span>
@@ -122,7 +122,7 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
           <button
             aria-label="进入对战大厅"
             onClick={onEnterBattle}
-            className="bg-mint text-ink p-4 sm:p-6 rounded-lg shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center gap-2 animate-stagger delay-200 group"
+            className="bg-mint text-ink p-4 sm:p-6 rounded-lg btn-press-4 flex flex-col items-center justify-center gap-2 animate-stagger delay-200 group"
           >
             <span aria-hidden="true" className="text-4xl transition-transform group-hover:scale-110">⚔️</span>
             <span className="font-cn text-2xl">对战大厅</span>
@@ -159,7 +159,7 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
                 key={item.target}
                 aria-label={item.ariaLabel}
                 onClick={() => onNavigate(item.target)}
-                className="bg-cream border-3 border-ink p-2 sm:p-3 rounded-lg shadow-[4px_4px_0_#1a1a1a] hover:shadow-[2px_2px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center gap-1 card-hover"
+                className="bg-cream border-3 border-ink p-2 sm:p-3 rounded-lg btn-press-4 flex flex-col items-center gap-1 card-hover"
               >
                 {/* emoji 加圆形背景给视觉重量，与挂机页武器/技能/宠物、商店页商品/背包、成就页状态 emoji 视觉模式一致
                     更多功能按钮无状态差异，统一用 ink/5 中性底；w-10 h-10 比挂机页 w-12 小一档适配紧凑布局 */}
@@ -173,7 +173,7 @@ function HomePage({ onEnterIdle, onEnterBattle, onNavigate }: HomePageProps) {
         </nav>
       </main>
 
-      <nav aria-label="主导航" role="navigation" className="bg-ink text-cream px-2 sm:px-4 py-2 flex justify-around sticky bottom-0 border-t-3 border-pink/30">
+      <nav aria-label="主导航" role="navigation" className="bg-ink text-cream px-2 sm:px-4 py-2 flex justify-around sticky bottom-0 nav-top-border">
         {[
           { key: 'home' as Tab, label: '主页', icon: '🏠' },
           { key: 'idle' as Tab, label: '挂机', icon: '⏰' },
