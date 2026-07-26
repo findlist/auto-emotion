@@ -520,6 +520,8 @@ export class BossGame {
     this.particles.spawn(this.boss.x, this.boss.y, BOSS_GAME_COLORS.ultimate, 'high', BOSS_DEFEATED_PARTICLE_COUNT);
     this.screenShake.shake('high');
     this.world.removeChild(this.boss.sprite);
+    // 显式销毁 boss Graphics 及其子节点（hpBarBg/hpBar），避免 removeChild 后引用丢失导致 GPU 资源泄漏
+    this.boss.sprite.destroy({ children: true });
     this.boss = null;
     // 停止游戏逻辑：防止结算后玩家仍可操作、投射物继续飞行计分
     this.isRunning = false;
