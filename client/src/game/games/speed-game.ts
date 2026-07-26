@@ -217,6 +217,10 @@ const GAME_DURATION = 90; // 秒
 const BUBBLE_SCORE = 10;
 const TAPE_SCORE = 20;
 const WATERMELON_SCORE = 30;
+// 胶带 / 西瓜生成边距：避免目标贴边生成导致玩家无法点击，
+// 与 brawl-game RESPAWN_MARGIN 同模式（保持生成位置距边界的安全距离）
+// 泡泡边距 80 单点使用不抽取，避免过度抽象
+const SPAWN_MARGIN = 100;
 
 /**
  * 手速竞速模式
@@ -391,7 +395,7 @@ export class SpeedGame {
   }
 
   private spawnTape() {
-    const margin = 100;
+    const margin = SPAWN_MARGIN;
     const x = margin + Math.random() * (this.bounds.width - margin * 2);
     const y = margin + Math.random() * (this.bounds.height - margin * 2);
     const width = 150 + Math.random() * 100;
@@ -403,7 +407,7 @@ export class SpeedGame {
   }
 
   private spawnWatermelon() {
-    const margin = 100;
+    const margin = SPAWN_MARGIN;
     const x = margin + Math.random() * (this.bounds.width - margin * 2);
     const y = margin + Math.random() * (this.bounds.height - margin * 2);
     const radius = 40;
