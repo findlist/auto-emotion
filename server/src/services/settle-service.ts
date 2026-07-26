@@ -66,15 +66,13 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
     }
 
     // 找出 MVP（分数最高，Boss 模式还要考虑伤害）
+    // map 返回新对象避免修改入参，防止调用方依赖入参不变性时引入隐蔽 bug
     const sortedPlayers = [...players].sort((a, b) => {
       if (mode === 'boss') {
         return b.damage - a.damage || b.score - a.score;
       }
       return b.score - a.score;
-    });
-    sortedPlayers.forEach((p, i) => {
-      p.isMvp = i === 0;
-    });
+    }).map((p, i) => ({ ...p, isMvp: i === 0 }));
 
     // 计算奖励
     const rewardRate = mode === 'boss' ? 2 : mode === 'brawl' ? 1.5 : 1;

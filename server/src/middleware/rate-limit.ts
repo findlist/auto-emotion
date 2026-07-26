@@ -2,6 +2,7 @@
 // 滑动窗口限流（基于 Redis）
 
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import redis from '../config/redis.js';
 import { AppError, ErrorCode } from '../utils/error.js';
 
@@ -25,7 +26,8 @@ export function rateLimit(options: RateLimitOptions) {
 
     const multi = redis.multi();
     multi.zremrangebyscore(key, 0, windowStart);
-    multi.zadd(key, now.toString(), `${now}-${Math.random()}`);
+    // member 使用 randomUUID 保证唯一，避免同毫秒 Math.random 碰撞导致 zadd 覆盖少计使限流失效
+    multi.zadd(key, now.toString(), `${now}-${randomUUID()}`);
     multi.zcard(key);
     multi.pexpire(key, windowMs);
 

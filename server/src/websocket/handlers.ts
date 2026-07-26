@@ -266,17 +266,22 @@ export async function handleFinish(
 export function handleDisconnect(reason: string, deps: HandlerDeps): void {
   // 主动断开（如玩家离开页面）不广播，避免对其他玩家造成干扰
   if (reason === 'client namespace disconnect') return;
-  // 遍历该 socket 加入的房间（排除自身 socket.id），广播玩家断线提示
-  // try/catch 保护：emit 可能因底层传输已关闭而抛错，不应影响其他房间的广播
-  for (const roomId of deps.socket.rooms) {
-    if (roomId === deps.socket.id) continue;
-    try {
-      deps.socket.to(roomId).emit(RoomEvents.PLAYER_OFFLINE, { userId: deps.user.userId } satisfies PlayerOfflinePayload);
-    } catch (err) {
-      // 设计原因：使用结构化 logger 替代 raw console.error，与前序 websocket/index.ts 修复一致，
-      // 保证 per-connection 断线广播失败日志与全项目 JSON 格式统一，便于生产环境日志聚合
-      // 复用 getErrorMessage 统一 unknown→string 兜底，与 L72 withErrorHandling 同文件保持一致
-      logger.error('PLAYER_OFFLINE 广播失败', { error: getErrorMessage(err, '未知错误'), roomId });
+  // 外层 try/catch 保护：socket.rooms 在异常状态下可能不可迭代，避免 disconnect 事件抛错逃逸
+  try {
+    // 遍历该 socket 加入的房间（排除自身 socket.id），广播玩家断线提示
+    // try/catch 保护：emit 可能因底层传输已关闭而抛错，不应影响其他房间的广播
+    for (const roomId of deps.socket.rooms) {
+      if (roomId === deps.socket.id) continue;
+      try {
+        deps.socket.to(roomId).emit(RoomEvents.PLAYER_OFFLINE, { userId: deps.user.userId } satisfies PlayerOfflinePayload);
+      } catch (err) {
+        // 设计原因：使用结构化 logger 替代 raw console.error，与前序 websocket/index.ts 修复一致，
+        // 保证 per-connection 断线广播失败日志与全项目 JSON 格式统一，便于生产环境日志聚合
+        // 复用 getErrorMessage 统一 unknown→string 兜底，与 L72 withErrorHandling 同文件保持一致
+        logger.error('PLAYER_OFFLINE 广播失败', { error: getErrorMessage(err, '未知错误'), roomId });
+      }
     }
+  } catch (err) {
+    logger.error('handleDisconnect 遍历 rooms 失败', { error: getErrorMessage(err, '未知错误') });
   }
 }
