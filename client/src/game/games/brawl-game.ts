@@ -52,6 +52,9 @@ const FRICTION = 0.92;
 const KNOCKBACK_FORCE = 400;
 const PROJECTILE_KNOCKBACK = 200;
 const PLAYER_RADIUS = 22;
+// 投射物半径：getProjectileTexture 绘制圆 + shoot 传参共用，与 boss-game PROJECTILE_RADIUS 同模式
+// 视觉半径与逻辑半径共用同一常量，避免"看起来 6px 实际碰撞 8px"的视觉/逻辑漂移
+const PROJECTILE_RADIUS = 6;
 const RESPAWN_TIME = 3000;
 
 // 自由乱斗调色板：集中维护所有视觉元素颜色，便于全局调色与主题切换
@@ -141,7 +144,7 @@ export class BrawlGame {
   private getProjectileTexture(): Texture {
     if (!this.projectileTexture) {
       const g = new Graphics();
-      g.circle(0, 0, 6).fill({ color: BRAWL_COLORS.projectile });
+      g.circle(0, 0, PROJECTILE_RADIUS).fill({ color: BRAWL_COLORS.projectile });
       this.projectileTexture = this.app.renderer.generateTexture({ target: g, antialias: true });
       g.destroy();
     }
@@ -248,7 +251,7 @@ export class BrawlGame {
       Math.sin(angle),
       600,
       this.bounds,
-      6,
+      PROJECTILE_RADIUS,
     );
     this.projectiles.push({ projectile, ownerId: playerId });
     this.world.addChild(projectile.sprite);
@@ -256,7 +259,8 @@ export class BrawlGame {
 
   shootToward(playerId: string, targetX: number, targetY: number): void {
     const data = this.players.get(playerId);
-    if (!data) return;
+    // 死亡玩家不射击也不触发 onLocalShoot 回调，避免"幽灵射击"网络事件与无效广播
+    if (!data || !data.alive) return;
 
     const dx = targetX - data.player.x;
     const dy = targetY - data.player.y;
