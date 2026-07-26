@@ -298,6 +298,9 @@ export class SpeedGame {
     this.timeText.position.set(this.bounds.width - 120, 10);
     this.hud.addChild(this.timeText);
 
+    // gameTypeText 是顶部居中的迷你游戏类型标签（捏泡泡/撕胶带/砸西瓜），属辅助标识而非核心数据；
+    // 复用 textStyle 但覆盖为 18px，与 scoreText/comboText/timeText 的 24px 形成主辅字号层级，
+    // 避免辅助标签与核心 HUD 数据视觉竞争，玩家扫视时优先关注分数与剩余时间
     this.gameTypeText = new Text({ text: '捏泡泡', style: { ...textStyle, fontSize: 18 } });
     this.gameTypeText.position.set(this.bounds.width / 2 - 40, 10);
     this.hud.addChild(this.gameTypeText);

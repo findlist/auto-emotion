@@ -222,7 +222,9 @@ export async function upgradeCharacter(
     const char = charResult.rows[0];
     const level = char.level;
 
-    // 计算升级消耗（金币）
+    // 升级金币消耗：50 * level² 二次方曲线
+    // 设计原因：二次方增长让高级别升级成本陡增，配合挂机收益形成长期推进目标；
+    // 系数 50 是挂机数值表基准（与 growth-curve 经验公式同源），level 为角色当前等级
     const goldCost = 50 * level * level;
 
     // 检查金币是否足够
