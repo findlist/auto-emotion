@@ -2,7 +2,7 @@
 // 赛季通行证服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound, USER_NOT_FOUND_MSG } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 
 const SEASON_DURATION_DAYS = 28; // 4周
@@ -99,7 +99,7 @@ export async function getCurrentSeason(userId: string): Promise<SeasonInfo> {
     [userId]
   );
 
-  ensureFound(result.rows, '用户不存在');
+  ensureFound(result.rows, USER_NOT_FOUND_MSG);
 
   const user = result.rows[0];
 
@@ -192,7 +192,7 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
     [userId]
   );
 
-  ensureFound(userResult.rows, '用户不存在');
+  ensureFound(userResult.rows, USER_NOT_FOUND_MSG);
 
   const user = userResult.rows[0];
 

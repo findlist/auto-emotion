@@ -68,6 +68,18 @@ export function getErrorMessage(err: unknown, defaultMsg: string): string {
 export const VALIDATION_ERROR_MSG = '参数校验失败';
 
 /**
+ * 用户不存在时的统一文案。
+ *
+ * 设计原因：user-service（getProfile + refreshToken）、friend-service（sendFriendRequest）、
+ * season-pass-service（getCurrentSeason + claimSeasonReward）、shop-service（buyItem）、
+ * utils/gold（getUserGold）共 6 处业务代码使用同一文案，原本散落 5 处字面量 +
+ * user-service 本地常量，未来调整文案需逐处搜索且易遗漏导致同类错误提示不一致。
+ * 与 ErrorCode.NOT_FOUND 同区域定义，确保错误码与文案单点维护；同时消除 user-service
+ * 本地常量与其它 5 处字面量的分裂，统一为单点 import。
+ */
+export const USER_NOT_FOUND_MSG = '用户不存在';
+
+/**
  * 行存在性守卫：查询结果集为空时抛 NOT_FOUND。
  *
  * 设计原因：22 处 service 守卫重复以下三行模板：

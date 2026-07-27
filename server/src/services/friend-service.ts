@@ -2,7 +2,7 @@
 // 好友服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound, USER_NOT_FOUND_MSG } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 
 // friendships 表 status 字段的状态值常量：'accepted' 已接受 / 'pending' 待处理
@@ -84,7 +84,7 @@ export async function sendFriendRequest(
 
   // 检查目标用户是否存在
   const userResult = await pool.query('SELECT id FROM users WHERE id = $1', [targetUserId]);
-  ensureFound(userResult.rows, '用户不存在');
+  ensureFound(userResult.rows, USER_NOT_FOUND_MSG);
 
   // 检查是否已经是好友
   const friendCheck = await pool.query(

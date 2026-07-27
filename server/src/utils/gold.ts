@@ -2,7 +2,7 @@
 // 金币原子扣减工具：统一封装事务内并发安全的扣减守卫
 
 import type { Tx } from './transaction.js';
-import { AppError, ErrorCode } from './error.js';
+import { AppError, ErrorCode, USER_NOT_FOUND_MSG } from './error.js';
 
 /**
  * 事务内查询用户金币：SELECT gold FROM users WHERE id = $1 的统一封装。
@@ -33,7 +33,7 @@ export async function getUserGold(
     [userId]
   );
   if (result.rows.length === 0) {
-    throw new AppError(ErrorCode.NOT_FOUND, '用户不存在');
+    throw new AppError(ErrorCode.NOT_FOUND, USER_NOT_FOUND_MSG);
   }
   return result.rows[0].gold as number;
 }

@@ -2,7 +2,7 @@
 // 商城服务
 
 import pool from '../config/database.js';
-import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound, USER_NOT_FOUND_MSG } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 import type { Tx } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
@@ -167,7 +167,7 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
     [userId]
   );
 
-  ensureFound(userResult.rows, '用户不存在');
+  ensureFound(userResult.rows, USER_NOT_FOUND_MSG);
 
   const user = userResult.rows[0];
 
