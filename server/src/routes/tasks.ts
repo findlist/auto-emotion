@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { getDailyTasks, claimTaskReward } from '../services/task-service.js';
 import { success } from '../utils/response.js';
 import { withIdempotency } from '../utils/idempotency.js';
-import { routeError, routeBusinessError } from '../utils/route-error.js';
+import { routeError, routeBusinessError, CLAIM_REWARD_FAILED_MSG } from '../utils/route-error.js';
 import { parseIdOrFail } from '../utils/param.js';
 import { requireUser } from '../utils/auth-guard.js';
 
@@ -43,7 +43,7 @@ router.post('/:id/claim', async (req: Request, res: Response) => {
     success(res, result);
   } catch (err) {
     // POST 路由业务异常统一降级 400（不透传 AppError.code，保持 POST 异常契约稳定）
-    routeBusinessError(res, err, '领取奖励失败');
+    routeBusinessError(res, err, CLAIM_REWARD_FAILED_MSG);
   }
 });
 

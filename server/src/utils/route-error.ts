@@ -6,6 +6,15 @@ import { fail } from './response.js';
 import { AppError, getErrorMessage } from './error.js';
 
 /**
+ * POST /:id/claim 路由统一兜底文案。
+ *
+ * 设计原因：achievements / tasks / season-pass 三个 routes 的 claim 路由业务语义完全一致
+ * （领取奖励失败），原本散落 3 处字面量，未来调整文案需逐处搜索且易遗漏导致同类错误提示不一致。
+ * 与 routeBusinessError 同区域定义，调用方从同一 import 引入文案与处理函数，确保兜底文案单点维护。
+ */
+export const CLAIM_REWARD_FAILED_MSG = '领取奖励失败';
+
+/**
  * 统一路由 catch 块错误处理：AppError 透传错误码，普通 Error 兜底 500。
  *
  * 设计原因：routes 层 catch 块原本重复以下两种等价模板，抽取后消除重复并保证错误处理一致性：
