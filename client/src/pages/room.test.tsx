@@ -3,12 +3,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // vi.hoisted 让 mock 工厂引用的运行时可变状态在 vi.mock 提升后仍可访问。
 // error/roomState 在不同用例中动态调整，setter 写入后下次渲染读取最新值。
-const { storeState, setError } = vi.hoisted(() => {
-  const state: { error: string | null } = { error: null };
+const { storeState, setError, setStatus } = vi.hoisted(() => {
+  // status 需按用例动态切换：无障碍测试用 'waiting'（压力源输入可见），
+  // 开始游戏测试用 'ready'（开始按钮可见，与 room.tsx 条件渲染对齐）
+  const state: { error: string | null; status: string } = { error: null, status: 'waiting' };
   return {
     storeState: state,
     setError: (e: string | null) => {
       state.error = e;
+    },
+    setStatus: (s: string) => {
+      state.status = s;
     },
   };
 });
@@ -34,7 +39,7 @@ vi.mock('@/stores/room-store', () => ({
     selector({
       roomId: 'ROOM1',
       hostId: '1',
-      status: 'waiting',
+      status: storeState.status,
       mode: 'boss',
       players: [{ userId: '1', nickname: '小明', isReady: false }],
       stressSources: {},
@@ -62,6 +67,7 @@ import RoomPage from '@/pages/room';
 describe('RoomPage 房间页无障碍', () => {
   beforeEach(() => {
     setError(null);
+    setStatus('waiting');
     confirmMock.showConfirm.mockReset();
     confirmMock.showConfirm.mockResolvedValue(true);
   });
@@ -90,6 +96,8 @@ describe('RoomPage 房主开始游戏确认弹窗', () => {
     confirmMock.showConfirm.mockResolvedValue(true);
     // roomActions.startGame 是 vi.mock 模块级单例，跨用例共享需手动清理调用记录
     vi.mocked(roomActions.startGame).mockClear();
+    // 开始游戏按钮仅在 status==='ready' 时显示（与 room.tsx 条件渲染对齐）
+    setStatus('ready');
   });
 
   it('房主点击开始游戏弹出二次确认，确认后触发 startGame', async () => {

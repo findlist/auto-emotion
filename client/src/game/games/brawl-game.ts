@@ -50,6 +50,10 @@ export interface BrawlGameCallbacks {
 /** 物理常量 */
 const FRICTION = 0.92;
 const KNOCKBACK_FORCE = 400;
+// 碰撞额外击飞系数：玩家碰撞重叠时附加的额外击飞比例（占 KNOCKBACK_FORCE 的 30%），
+// 与 KNOCKBACK_FORCE 配合形成完整击飞参数族；update 中 4 处共用（d1/d2 各 vx/vy），
+// 0.3 是经验值——30% 额外击飞让玩家碰撞后有明显反弹但不会过远失控；调整比例需逐处搜索避免遗漏
+const COLLISION_KNOCKBACK_RATIO = 0.3;
 const PROJECTILE_KNOCKBACK = 200;
 const PLAYER_RADIUS = 22;
 // 投射物半径：getProjectileTexture 绘制圆 + shoot 传参共用，与 boss-game PROJECTILE_RADIUS 同模式
@@ -486,10 +490,10 @@ export class BrawlGame {
         d2.vy += relVelDotN * ny;
 
         // 额外击飞
-        d1.vx += nx * KNOCKBACK_FORCE * 0.3;
-        d1.vy += ny * KNOCKBACK_FORCE * 0.3;
-        d2.vx -= nx * KNOCKBACK_FORCE * 0.3;
-        d2.vy -= ny * KNOCKBACK_FORCE * 0.3;
+        d1.vx += nx * KNOCKBACK_FORCE * COLLISION_KNOCKBACK_RATIO;
+        d1.vy += ny * KNOCKBACK_FORCE * COLLISION_KNOCKBACK_RATIO;
+        d2.vx -= nx * KNOCKBACK_FORCE * COLLISION_KNOCKBACK_RATIO;
+        d2.vy -= ny * KNOCKBACK_FORCE * COLLISION_KNOCKBACK_RATIO;
       }
     }
   }

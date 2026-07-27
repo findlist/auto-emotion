@@ -58,6 +58,8 @@ export class BattleScene implements Scene {
   private currentMode: GameMode | null = null;
 
   private score = 0;
+  // 防止 onGameOver 被多次触发时重复 emit game:finish
+  private finished = false;
 
   // 箭头函数绑定 this，便于 onEnter/onExit 注册与注销监听
   private boundOnGameAction = (data: GameActionPayload): void => {
@@ -123,7 +125,9 @@ export class BattleScene implements Scene {
         },
         onBossHpChange: () => {},
         onBossDefeated: () => {},
-        onGameOver: () => {},
+        onGameOver: (winner) => {
+          this.emitFinish(winner === 'players' ? 'win' : 'lose');
+        },
         onUltimateChargeChange: () => {},
         onLocalShoot: (angle) => {
           // 本地玩家射击时上报到后端，由后端广播给房间内其他玩家
@@ -167,7 +171,9 @@ export class BattleScene implements Scene {
         },
         onPlayerHit: () => {},
         onPlayerDefeated: () => {},
-        onGameOver: () => {},
+        onGameOver: (winnerId) => {
+          this.emitFinish(winnerId === this.localUserId ? 'win' : 'lose');
+        },
         onLocalShoot: (angle) => {
           // 本地玩家射击时上报到后端，由后端广播给房间内其他玩家
           this.emitAction('shoot', { angle });
@@ -212,8 +218,10 @@ export class BattleScene implements Scene {
         onTimeChange: (s) => this.callbacks.onTimeChange?.(s),
         onMiniGameChange: () => {},
         // MVP 改由 battle.tsx 按 finalScores 前端计算，后端无 mvp-report 监听，
-        // 此处保留空回调以满足 SpeedGame 接口约束，避免误加无效事件上报
-        onGameOver: () => {},
+        // onGameOver 上报 game:finish 触发服务端结算流程（speed 模式 result 固定 'win'）
+        onGameOver: (finalScore) => {
+          this.emitFinish('win', finalScore);
+        },
       },
     );
 
@@ -234,6 +242,20 @@ export class BattleScene implements Scene {
   private emitAction(action: string, payload?: unknown): void {
     if (!this.socket || !this.roomId) return;
     this.socket.emit('game:action', { roomId: this.roomId, action, payload });
+  }
+
+  /** 上报游戏结束到后端，触发服务端 CAS 状态转换 playing→settling 并广播结算信息
+   *  finished 标志防止 onGameOver 被多次触发时重复 emit；
+   *  多玩家同时 emit 时服务端 CAS 保证仅首个成功，其余收到 CONFLICT 由 battle.tsx 过滤 */
+  private emitFinish(result: 'win' | 'lose', finalScore?: number): void {
+    if (this.finished) return;
+    this.finished = true;
+    if (!this.socket || !this.roomId) return;
+    this.socket.emit('game:finish', {
+      roomId: this.roomId,
+      finalScore: finalScore ?? this.score,
+      result,
+    });
   }
 
   /** 处理远程玩家操作：过滤自己发出的广播，按 action 类型分发到对应游戏实例 */
@@ -374,6 +396,7 @@ export class BattleScene implements Scene {
   }
 
   private cleanup(): void {
+    this.finished = false;
     this.bossGame?.destroy();
     this.bossGame = null;
     this.brawlGame?.destroy();

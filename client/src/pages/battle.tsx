@@ -106,6 +106,10 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
 
   // 同步 state 到 ref，供 socket 回调读取最新值
   useEffect(() => { playersRef.current = players; }, [players]);
+  // 结算状态 ref：onRoomError 闭包内读取，避免多玩家同时 emit game:finish 时
+  // 后端 CAS CONFLICT 错误覆盖已显示的结算弹窗
+  const settlementRef = useRef(settlement);
+  useEffect(() => { settlementRef.current = settlement; }, [settlement]);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +180,9 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
     // 房间错误：后端在 join/leave/start 等失败时回送 room:error
     const onRoomError = (data: { message: string }) => {
       if (cancelled) return;
+      // 结算已显示时忽略错误：多玩家同时 emit game:finish 时，后端 CAS 仅首个成功，
+      // 其余收到 CONFLICT "游戏未在进行中" 不应覆盖结算弹窗
+      if (settlementRef.current.show) return;
       setError(data.message);
     };
     socket.on('room:error', onRoomError);
