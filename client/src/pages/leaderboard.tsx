@@ -88,17 +88,12 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
 
   return (
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
-      {/* 顶部导航：bg-glow-pink 增加深色头部氛围层次 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
-        {/* 返回按钮放大并加 hover 背景区块 */}
-        <button
-          onClick={onBack}
-          aria-label="返回"
-          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
-        >
+      {/* 顶部导航：page-header 抽象 bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink */}
+      <header className="page-header">
+        <button onClick={onBack} aria-label="返回" className="back-btn">
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">排行榜</h1>
+        <h1 className="page-title">排行榜</h1>
       </header>
 
       {/* Tab 切换：WAI-ARIA tab 语义，border-b-3 + 激活态阴影增强层次 */}
@@ -142,24 +137,26 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
       <main role="tabpanel" id="leaderboard-panel" aria-labelledby={`leaderboard-tab-${activeTab}`} aria-live="polite" aria-atomic="true" className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10">
-            <div className="w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
+            <div className="spinner-brutal" />
             <p className="font-mono text-sm text-ink/60">加载排名中...</p>
           </div>
         ) : ranking.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-12">
-            {/* 装饰性 emoji 与后跟文字语义重复，aria-hidden 屏蔽避免冗余朗读 */}
-            <span className="text-5xl animate-bounce-slow" aria-hidden="true">🏆</span>
-            <div className="text-center">
-              <p className="font-cn text-lg text-ink">暂无数据</p>
-              <p className="font-mono text-sm text-ink/50 mt-1">排行榜还在统计中，稍后再来看看吧</p>
-            </div>
+          /* empty-state 抽象排行榜空状态 */
+          <div className="empty-state">
+            <p className="empty-state-emoji"><span aria-hidden="true">🏆</span></p>
+            <p className="empty-state-title">暂无数据</p>
+            <p className="empty-state-desc">排行榜还在统计中，稍后再来看看吧</p>
           </div>
         ) : (
           <div className="space-y-2">
             {ranking.map((entry, idx) => (
               <div
                 key={entry.userId}
-                className={`border-2 p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger ${getRowStyle(entry.rank, entry.userId === user?.id)}`}
+                /* Top3 行左侧加 6px 色条强化视觉层次，与 medal-gold/silver/bronze 奖牌体系呼应
+                   medal-row-bar-* 为 utilities 层工具类，!important 覆盖 Tailwind border-* */
+                className={`border-2 p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger ${getRowStyle(entry.rank, entry.userId === user?.id)} ${
+                  entry.rank === 1 ? 'medal-row-bar-gold' : entry.rank === 2 ? 'medal-row-bar-silver' : entry.rank === 3 ? 'medal-row-bar-bronze' : ''
+                }`}
                 style={{ animationDelay: `${idx * 40}ms` }}
               >
                 <div className="flex items-center gap-3">
@@ -193,7 +190,8 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="bg-ink text-cream px-4 py-2 font-cn shadow-[3px_3px_0_#1a1a1a] hover:bg-pink transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[3px_3px_0_#1a1a1a] disabled:opacity-50"
+                  /* btn-press-3 抽象 shadow-[3px_3px_0_#1a1a1a] + hover/active 按压效果 */
+                  className="bg-ink text-cream px-4 py-2 font-cn hover:bg-pink btn-press-3 disabled:opacity-50"
                 >
                   上一页
                 </button>
@@ -203,7 +201,7 @@ export default function LeaderboardPage({ onBack }: LeaderboardPageProps) {
                 <button
                   onClick={() => setPage((p) => p + 1)}
                   disabled={page >= Math.ceil(total / pageSize)}
-                  className="bg-ink text-cream px-4 py-2 font-cn shadow-[3px_3px_0_#1a1a1a] hover:bg-pink transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[3px_3px_0_#1a1a1a] disabled:opacity-50"
+                  className="bg-ink text-cream px-4 py-2 font-cn hover:bg-pink btn-press-3 disabled:opacity-50"
                 >
                   下一页
                 </button>

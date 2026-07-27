@@ -565,3 +565,379 @@ body::before {
     box-shadow: 0 0 0 2px var(--color-ink);
   }
 }
+
+/* ============ 第八轮样式优化扩展（列表分类色条 + 可扫描性增强） ============ */
+
+/* 任务类型色条：任务页 3 种任务类型（对战/挂机/社交）左侧色条区分
+   设计原因：挂机页 attr-bar-* 已用色条区分 6 种属性，任务页 3 种类型卡片视觉同质化，
+   玩家无法快速定位目标任务类型。沿用色条模式保持设计语言一致 */
+@layer utilities {
+  .task-bar-0 { border-left: 6px solid var(--color-orange) !important; } /* 对战 - 橙色，攻击性 */
+  .task-bar-1 { border-left: 6px solid var(--color-mint) !important; }   /* 挂机 - 薄荷，安静成长 */
+  .task-bar-2 { border-left: 6px solid var(--color-pink) !important; }   /* 社交 - 粉色，互动 */
+}
+
+/* 成就类型色条：成就页 6 种成就类型（对战/破坏/挂机/社交/等级/战力）左侧色条区分
+   设计原因：成就页按类型分组展示，组内卡片视觉同质化；
+   色条让玩家在长列表滚动时快速定位目标成就类型，与 attr-bar/task-bar 模式统一 */
+@layer utilities {
+  .ach-bar-0 { border-left: 6px solid var(--color-orange) !important; }  /* 对战 - 橙色 */
+  .ach-bar-1 { border-left: 6px solid #ff8c42 !important; }             /* 破坏 - 橙红，比 orange 更深一档 */
+  .ach-bar-2 { border-left: 6px solid var(--color-mint) !important; }   /* 挂机 - 薄荷 */
+  .ach-bar-3 { border-left: 6px solid var(--color-pink) !important; }   /* 社交 - 粉色 */
+  .ach-bar-4 { border-left: 6px solid var(--color-yellow) !important; } /* 等级 - 黄色，进阶醒目 */
+  .ach-bar-5 { border-left: 6px solid var(--color-ink) !important; }    /* 战力 - 黑色，力量感 */
+}
+
+/* 成就分组头部色条：成就分组标题左侧 4px 色条，与组内卡片色条呼应
+   设计原因：原分组标题仅 emoji + 文字，与组内卡片色条无视觉关联；
+   头部加同色色条形成"组别色带"，玩家滚动时一眼识别当前所在分组 */
+@layer utilities {
+  .ach-group-bar-0 { border-left: 4px solid var(--color-orange) !important; }
+  .ach-group-bar-1 { border-left: 4px solid #ff8c42 !important; }
+  .ach-group-bar-2 { border-left: 4px solid var(--color-mint) !important; }
+  .ach-group-bar-3 { border-left: 4px solid var(--color-pink) !important; }
+  .ach-group-bar-4 { border-left: 4px solid var(--color-yellow) !important; }
+  .ach-group-bar-5 { border-left: 4px solid var(--color-ink) !important; }
+}
+
+/* ============ 第九轮样式优化扩展（视觉氛围层次 + UX 一致性修复） ============ */
+
+/* 背景图柔和遮罩：首页 llq.jpg 背景图叠加 cream 半透明遮罩
+   设计原因：原 home.tsx 直接用 llq.jpg 作为 bg-cover 背景，图片色彩繁复
+   与 Neo-brutalism 卡片硬边硬阴影风格冲突，卡片间隙处图片噪声分散注意力。
+   ::before 伪元素叠加 cream/75 半透明层，保留背景图氛围暗示但降低视觉噪声，
+   让卡片层次回到主导地位。pointer-events:none 不阻挡子元素交互 */
+@layer components {
+  .bg-image-soft-mask {
+    position: relative;
+  }
+  .bg-image-soft-mask::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: rgba(255, 248, 231, 0.75);
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* 子元素相对定位提升至遮罩之上，避免被 cream 覆盖 */
+  .bg-image-soft-mask > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* 表单分隔虚线：登录/注册表单与切换链接之间的视觉分隔
+   设计原因：原 login/register 表单底部"立即注册/立即登录"链接直接跟在
+   提交按钮下方，缺少视觉分隔让用户混淆"主操作"与"次要切换"。
+   虚线分隔比实线更轻量，不喧宾夺主，符合 Neo-brutalism 硬边风格的次级层次 */
+@layer utilities {
+  .divider-dashed {
+    border-top: 2px dashed rgba(26, 26, 26, 0.25);
+  }
+}
+
+/* 玩家就绪状态指示圆点：房间页玩家行左侧小圆点，可视化 ready 状态
+   设计原因：原房间玩家行仅靠右侧"✓ 已准备/未准备"文字区分状态，
+   玩家扫视列表时需要逐行阅读文字才能统计已准备人数。
+   左侧色点（mint=就绪 / ink/40=未就绪）提供"一眼可扫描"的视觉锚点，
+   与挂机页 attr-bar-* / 任务页 task-bar-* 的色条模式同源（颜色编码状态） */
+@layer components {
+  .ready-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px var(--color-cream);
+  }
+  .ready-dot-ready {
+    background: var(--color-mint);
+    box-shadow: 0 0 0 2px var(--color-cream), 1px 1px 0 0 var(--color-ink);
+  }
+  .ready-dot-pending {
+    background: rgba(26, 26, 26, 0.35);
+    box-shadow: 0 0 0 2px var(--color-cream);
+  }
+  .ready-dot-host {
+    background: var(--color-yellow);
+    box-shadow: 0 0 0 2px var(--color-cream), 1px 1px 0 0 var(--color-ink);
+  }
+}
+
+/* 统计条迷你进度条：成就页统计栏 inline 展示完成率
+   设计原因：原成就统计栏仅文字"已完成 X 个 | 已领取 Y 个奖励"，
+   玩家无法一眼感知整体进度。内嵌迷你进度条（高 4px，mint 已完成部分）
+   让进度可视化，复用 progress-fill 流光强化"进行中"语义 */
+@layer components {
+  .mini-progress {
+    height: 4px;
+    background: rgba(255, 248, 231, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .mini-progress-fill {
+    height: 100%;
+    background: var(--color-yellow);
+    border-radius: 2px;
+    transition: width var(--duration-slow) ease-out;
+  }
+}
+
+/* ============ 第十轮样式优化扩展（视觉一致性 + 表单错误态 + 加载器抽象） ============ */
+
+/* 页面背景氛围一致：lobby/room/battle 主游戏态原仅 scrollbar-brutal 无背景色，
+   与其他 cream 页面氛围断层。统一加 cream 底色 + 极淡对角条纹让背景有质感
+   设计原因：lobby/room 是连接 home 与 battle 的过渡页，原无背景色显得"空旷"，
+   加 bg-cream + 极淡条纹后与 home/shop 等页面氛围统一，不影响原布局（仅背景层）
+   透明度 0.025 远低于 bg-stripes 的 0.06，避免在过渡页喧宾夺主 */
+@layer utilities {
+  .bg-cream-atmos {
+    background-color: var(--color-cream);
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(26, 26, 26, 0.025) 0,
+      rgba(26, 26, 26, 0.025) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+  }
+}
+
+/* 首页底部导航顶部边框：原 border-t-3 border-pink/30 在 ink 底色上几乎不可见
+   改为全不透明 pink 让导航与主内容清晰分隔
+   设计原因：sticky bottom 导航在移动端是核心交互入口，
+   pink/30 在 ink 底色上有效颜色约 #5a4049，与 #1a1a1a 几乎无区分；
+   改为全不透明 pink (#ff3d7f) 后顶部边界清晰，玩家不会误以为导航是主内容的一部分 */
+@layer utilities {
+  .nav-top-border {
+    border-top: 3px solid var(--color-pink);
+  }
+}
+
+/* 表单输入错误态：原 input 仅在错误消息块加 pink 边框/底色，
+   输入框本身无视觉反馈，用户难以快速定位出错字段
+   设计原因：login/register 表单提交失败时，错误消息显示在表单底部，
+   register 有 4 个输入框，用户无法一眼看出是哪个字段的问题；
+   给输入框加 pink 边框 + 极淡 pink 底色，让错误字段一眼可识别
+   !important 用于覆盖 Tailwind 的 border-ink 工具类（与 attr-bar-* 同模式） */
+@layer utilities {
+  .input-error {
+    border-color: var(--color-pink) !important;
+    background-color: rgba(255, 61, 127, 0.04);
+  }
+}
+
+/* 加载旋转器抽象：shop/tasks/achievements/leaderboard/season-pass 5 处使用
+   完全相同的 "w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin"，
+   抽取为组件类单点维护
+   设计原因：5 处逐字同构的 spinner 类名，任一调整（如改尺寸/颜色）需 5 处同步；
+   抽取后单点修改，JSX className 从 ~70 字符降至 ~15 字符
+   自定义 brutalSpin 关键帧避免依赖 Tailwind 内部 spin keyframe（版本升级时可能变动） */
+@keyframes brutalSpin {
+  to { transform: rotate(360deg); }
+}
+
+@layer components {
+  .spinner-brutal {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 4px solid rgba(26, 26, 26, 0.2);
+    border-top-color: var(--color-pink);
+    border-radius: 9999px;
+    animation: brutalSpin 1s linear infinite;
+  }
+}
+
+/* ============ 第十一轮样式优化扩展（组件类抽象 + 视觉层次增强） ============ */
+
+/* 按钮按压效果：抽取 30+ 处按钮重复的 hover/active 阴影与位移
+   设计原因：所有 Neo-brutalism 按钮都使用 shadow-[Npx_Npx_0_#1a1a1a] + hover:translate + active:translate + active:shadow-none 模式，
+   类名长度 60+ 字符在 30+ 处重复。抽取为 .btn-press-2 / .btn-press-3 / .btn-press-4 后单点维护，
+   JSX className 大幅缩短，未来调整按压幅度只需修改 CSS 一处。
+   -2 / -3 / -4 对应初始阴影 2px / 3px / 4px，与既有 shadow-[2px_2px_0_#1a1a1a] / shadow-[3px_3px_0_#1a1a1a] / shadow-[4px_4px_0_#1a1a1a] 三种规格对齐。
+   保留 transition-all 让 Tailwind 的 hover:bg-* / hover:text-* 等颜色变化仍可过渡 */
+@layer components {
+  .btn-press-2 {
+    transition: transform var(--duration-fast) cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow var(--duration-fast) cubic-bezier(0.22, 1, 0.36, 1),
+                background-color var(--duration-fast) ease-out,
+                color var(--duration-fast) ease-out;
+    box-shadow: 2px 2px 0 0 var(--color-ink);
+  }
+  .btn-press-2:hover {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 0 var(--color-ink);
+  }
+  .btn-press-2:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 0 var(--color-ink);
+  }
+  .btn-press-3 {
+    transition: transform var(--duration-fast) cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow var(--duration-fast) cubic-bezier(0.22, 1, 0.36, 1),
+                background-color var(--duration-fast) ease-out,
+                color var(--duration-fast) ease-out;
+    box-shadow: 3px 3px 0 0 var(--color-ink);
+  }
+  .btn-press-3:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 0 var(--color-ink);
+  }
+  .btn-press-3:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 0 var(--color-ink);
+  }
+  .btn-press-4 {
+    transition: transform var(--duration-fast) cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow var(--duration-fast) cubic-bezier(0.22, 1, 0.36, 1),
+                background-color var(--duration-fast) ease-out,
+                color var(--duration-fast) ease-out;
+    box-shadow: 4px 4px 0 0 var(--color-ink);
+  }
+  .btn-press-4:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 0 var(--color-ink);
+  }
+  .btn-press-4:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 0 var(--color-ink);
+  }
+  /* disabled 状态：保持初始阴影不触发按压，与原 disabled:hover:translate-x-0 disabled:hover:shadow-[Npx_Npx_0_#1a1a1a] 等价
+     设计原因：原 30+ 处按钮都需手写 disabled:hover:translate-x-0 等 4 个类名重置按压效果，
+     抽取到 CSS 后 JSX 只需 disabled:opacity-50 disabled:cursor-not-allowed 处理视觉与光标 */
+  .btn-press-2:disabled,
+  .btn-press-2:disabled:hover,
+  .btn-press-2:disabled:active {
+    transform: none;
+    box-shadow: 2px 2px 0 0 var(--color-ink);
+  }
+  .btn-press-3:disabled,
+  .btn-press-3:disabled:hover,
+  .btn-press-3:disabled:active {
+    transform: none;
+    box-shadow: 3px 3px 0 0 var(--color-ink);
+  }
+  .btn-press-4:disabled,
+  .btn-press-4:disabled:hover,
+  .btn-press-4:disabled:active {
+    transform: none;
+    box-shadow: 4px 4px 0 0 var(--color-ink);
+  }
+}
+
+/* 页面顶部导航：抽取 shop/tasks/achievements/leaderboard/season-pass 5 处重复的 header 结构
+   设计原因：5 个页面 header className 逐字同构（bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink），
+   抽取为 .page-header 后单点维护，新增页面直接复用 */
+@layer components {
+  .page-header {
+    background-color: var(--color-ink);
+    color: var(--color-cream);
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    /* 复用 bg-glow-pink 的双色光晕氛围 */
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(255, 61, 127, 0.18), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(61, 217, 181, 0.14), transparent 50%);
+  }
+  .page-title {
+    font-family: var(--font-cn);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    /* drop-shadow 与既有 drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)] 一致 */
+    filter: drop-shadow(2px 2px 0 rgba(255, 61, 127, 0.4));
+  }
+  /* 返回按钮：圆形触摸目标 36px，hover 时 cream/10 背景
+     设计原因：原 w-9 h-9 (36px) 略小于 44px 触摸标准，但视觉与 Neo-brutalism 风格协调；
+     实际可点击区域通过 hover:bg-cream/10 扩展到整个 36px 圆形 */
+  .back-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-cream);
+    font-size: var(--text-xl);
+    border-radius: var(--radius-lg);
+    transition: background-color var(--duration-fast) ease-out;
+    cursor: pointer;
+  }
+  .back-btn:hover {
+    background-color: rgba(255, 248, 231, 0.1);
+  }
+}
+
+/* 空状态容器：抽取 shop/tasks/achievements/leaderboard/season-pass 5 处重复的空状态结构
+   设计原因：5 处空状态使用相同布局（text-center py-12 animate-stagger + emoji + 主标 + 副标），
+   抽取为 .empty-state 后单点维护，emoji/主标/副标仍由 JSX 控制保持灵活性 */
+@layer components {
+  .empty-state {
+    text-align: center;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+    animation: staggerIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .empty-state-emoji {
+    font-size: 3rem;
+    line-height: 1;
+    display: inline-block;
+    margin-bottom: 1rem;
+    animation: bounce 2s ease-in-out infinite;
+  }
+  .empty-state-title {
+    font-family: var(--font-cn);
+    color: rgba(26, 26, 26, 0.7);
+    font-size: var(--text-lg);
+  }
+  .empty-state-desc {
+    font-family: var(--font-mono);
+    color: rgba(26, 26, 26, 0.4);
+    font-size: var(--text-xs);
+    margin-top: 0.25rem;
+  }
+}
+
+/* 错误提示框：抽取 lobby/room/battle 3 处重复的错误提示结构
+   设计原因：3 处使用相同 className（mt-4 bg-pink/10 border-2 border-pink px-4 py-2 animate-shake shadow-[3px_3px_0_#1a1a1a]），
+   抽取为 .alert-error 后单点维护，错误消息文本仍由 JSX 控制 */
+@layer components {
+  .alert-error {
+    margin-top: 1rem;
+    background-color: rgba(255, 61, 127, 0.1);
+    border: 2px solid var(--color-pink);
+    padding: 0.5rem 1rem;
+    box-shadow: 3px 3px 0 0 var(--color-ink);
+    animation: shake 0.3s ease-in-out;
+  }
+  .alert-error-text {
+    color: var(--color-pink);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  }
+}
+
+/* 排行榜 Top3 行色条：在 Top1/2/3 行左侧加 6px 色条强化视觉层次
+   设计原因：原 Top3 行仅用 bg-yellow/10 / bg-ink/10 / bg-orange/10 区分，对比度偏弱；
+   加左侧色条与挂机页 attr-bar-* / 任务页 task-bar-* / 成就页 ach-bar-* 同源（颜色编码状态）。
+   !important 用于覆盖 Tailwind 的 border-* 工具类（与 attr-bar-* 同模式） */
+@layer utilities {
+  .medal-row-bar-gold { border-left: 6px solid var(--color-yellow) !important; }
+  .medal-row-bar-silver { border-left: 6px solid #d4d4d4 !important; }
+  .medal-row-bar-bronze { border-left: 6px solid var(--color-orange) !important; }
+}
+
+/* 赛季通行证里程碑等级徽章：5/10/15/20/25/30 等关键等级（每 5 级）加特殊视觉
+   设计原因：原所有等级徽章视觉相同（w-14 h-14 rounded-full bg-mint/ink-20），
+   玩家难以一眼识别"里程碑等级"（每 5 级一个奖励节点）；
+   加黄色双环 + 内白边模拟"奖章"质感，让里程碑等级徽章更醒目 */
+@layer components {
+  .milestone-badge {
+    /* 黄色外环 + ink 描边 + 内白边模拟金属奖章质感 */
+    box-shadow:
+      0 0 0 2px var(--color-yellow),
+      0 0 0 4px var(--color-ink),
+      inset 0 0 0 2px rgba(255, 255, 255, 0.4);
+  }
+}

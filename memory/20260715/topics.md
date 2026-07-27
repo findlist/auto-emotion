@@ -417,3 +417,167 @@
 - 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
 - 工作区遗留 README.md + llq.jpg 待用户决策是否提交
 - 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-15 02:20:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 技术债清理 2 个最小单元（season-pass-service 冗余类型断言清理 + server/src/llq.jpg 工作区遗留物删除）
+- 健康预检全绿（本轮独立运行确认，PowerShell 环境用 cwd + ; 替代 &&）：
+  ① 后端 tsc --noEmit ✅ 零错误（TSC_OK）
+  ② 后端 vitest run ✅ 656/656 通过（50 测试文件，5.99s）
+  ③ 前端 npm run build ✅ 零错误零警告（1.56s）
+- P0 三项收尾任务代码独立核实（本轮 Grep 独立核实，命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——Grep 核实 showConfirm 覆盖 16 文件（6 业务页面 achievements/friends/idle/season-pass/shop/tasks + 6 测试配套 + ConfirmDialog 组件 + ConfirmDialog 测试 + confirm.tsx 工具 + confirm 测试）
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位：reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000（指数退避 1-5s）
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位：width: 'min(100%, 800px, calc(75vh * 4 / 3))' + aspectRatio: '4 / 3'
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-15 共 30+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 动态规划：本轮起始预检全绿后，深度扫描识别可推进的最小单元。search Agent 报告 3 项候选：①season-pass-service.ts:210 冗余 as unknown as 类型断言（技术债清理）②server/src/llq.jpg 无引用工作区遗留物（工作区清理）③app.ts 5 处 raw console（前序评估为合法 bootstrap 设计决策，跳过）。按规范优先级"项目健康故障修复 > 技术债清理 > 样式精修"，本轮推进候选 1 + 候选 2
+- 最小单元 1（season-pass-service 冗余类型断言清理）：
+  ① server/src/services/season-pass-service.ts L210 原 `(reward as unknown as { free_reward_type_amount?: number }).free_reward_type_amount || 0` 改为 `reward.free_reward_type_amount ?? 0`
+  ② 设计原因：reward 已是 SeasonReward 类型，接口 L16 已定义 free_reward_type_amount?: number 字段，as unknown as 强转完全冗余；用 ?? 替代 || 仅在 undefined/null 时取默认值，语义更精确（amount 不会为 0，|| 与 ?? 行为一致但 ?? 表达更准确）
+  ③ 新增 2 行中文注释说明设计原因
+  ④ season-pass-service.test.ts 14 个测试用例无回归（vitest 通过验证）
+- 最小单元 2（server/src/llq.jpg 工作区遗留物删除）：
+  ① 经 git ls-files 确认 server/src/llq.jpg 是 git tracked 文件
+  ② 经 Grep 全目录扫描确认 server/src 中无任何代码引用 llq（仅 package-lock.json 巧合命中依赖包名）
+  ③ 与 client/public/llq.jpg 不同——后者被 home.tsx:47 引用为背景图（bg-[url('/llq.jpg')]），是有效资源不能误删
+  ④ git rm server/src/llq.jpg 删除（显式删除单个文件，符合规范"禁止 git add -A"精神）
+
+修改文件清单：
+- server/src/services/season-pass-service.ts（L210 冗余 as unknown as 断言清理 + 2 行设计注释）
+- server/src/llq.jpg（删除无引用工作区遗留物）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（TSC_OK）
+- 后端 vitest run ✅ 656/656 通过（50 测试文件，5.92s，全量无回归）
+- 前端 npm run build ✅ 零错误零警告（1.45s）
+- Git commit 66a4be1（season-pass 类型断言清理）+ d337970（llq.jpg 删除）已推送 origin/main（80dc112..d337970 HEAD -> main）
+
+动态计划调整：
+- 本轮完成 2 个最小单元（season-pass-service 冗余类型断言清理 + server/src/llq.jpg 工作区遗留物删除），达成单轮产出上限（规范 7.1.1：2-3 个最小功能单元），触发终止条件
+- 类型安全隐患清理进展：本轮清理 season-pass-service.ts:210 冗余 as unknown as 断言，剩余 2 处均为合理设计折衷（level-generator.ts:105 经 validateLevelLayout 守卫后的 TS 限制强转、websocket/index.ts:87 Socket.IO 类型与 HandlerDeps 接口强转），不宜强行修复
+- 工作区清理进展：server/src/llq.jpg 已删除，剩余 README.md（前序测试账号表格）+ client/public/llq.jpg（5MB 体积过大）按规范"禁止 git add -A"留待用户决策
+- 剩余可推进项均为设计决策或高风险项：C-05 handleDisconnect 清理（设计决策，5 分钟重连窗口 + TTL 自然清理是合理折中）、generateLevelAndEvents 加锁（设计决策，generating 状态下 setReady/setMode/submitStress 已被守卫拦截）、weapons.ts TODO（设计决策，纯内存对象无需 DB 初始化）、app.ts 5 处 raw console（设计决策，合法 bootstrap 启动横幅）、app.ts/websocket/index.ts 测试（vitest.config 明确排除）、前端覆盖率工具化（依赖 @vitest/coverage-v8 红线阻塞）
+- 上线验收标准（规范第十一条）7 项全部达标，项目已达到生产就绪状态
+- 触发终止条件：成功完成 2 个最小功能单元，达成单轮产出上限（7.1.1）
+
+遗留阻塞问题：
+- 工作区有 2 个前序遗留未提交改动：README.md（+9 行测试账号表格，与 seed.ts 配套的前序遗留文档更新）、client/public/llq.jpg（293KB→5MB，体积过大且非本轮产生）。按规范"禁止 git add -A"不擅自提交，留待用户决策
+
+下一轮迭代建议：
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 工作区遗留 README.md + client/public/llq.jpg 待用户决策是否提交
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-15 02:35:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 技术债清理 1 项（record-service 应用已定义的 GameRecord 接口类型契约）
+- 健康预检全绿（本轮独立运行确认，PowerShell 环境用 cwd + ; 替代 &&）：
+  ① 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+  ② 后端 vitest run ✅ 656/656 通过（50 测试文件，5.45s）
+  ③ 前端 npm run build ✅ 零错误零警告（1.45s）
+- P0 三项收尾任务代码独立核实（本轮 Grep 独立核实，命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——Grep 核实 showConfirm 覆盖 16 文件（6 业务页面 achievements/friends/idle/season-pass/shop/tasks + 6 测试配套 + ConfirmDialog 组件 + ConfirmDialog 测试 + confirm.tsx 工具 + confirm 测试）
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位：reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000（指数退避 1-5s）
+  ③ 对战画布响应式——battle.tsx L474-475 完整在位：width: 'min(100%, 800px, calc(75vh * 4 / 3))' + aspectRatio: '4 / 3'
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-15 共 30+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 动态规划：本轮起始预检全绿后，通过 search Agent 做新鲜技术债扫描（7 维度：any 类型/console 残留/未使用 import/冗余代码/错误处理/测试 mock 一致性）。扫描确认前序多轮清理有效，唯一可推进的最小修复单元为 record-service.ts 中已定义的 GameRecord 接口未被使用（getRecord 缺返回类型注解、listRecords/getRecord 缺类型断言），属接口与实现脱节的真实技术债
+- 最小单元（record-service 类型契约修复）：
+  ① getRecord L62 添加返回类型注解 Promise<GameRecord>，L75 添加 as GameRecord 断言
+  ② listRecords L59 添加 as GameRecord[] 断言，附中文注释说明设计原因（SQL JOIN 返回 any[] 需断言对接接口契约）
+  ③ 纯类型注解修复，不改变运行时行为，调用方 routes/game-record.ts 使用 success(res, record) 接受 any 不受影响
+  ④ record-service.test.ts 7 个测试用例无回归（vi.fn mock 不受类型注解影响）
+
+修改文件清单：
+- server/src/services/record-service.ts（getRecord 补返回类型 + listRecords/getRecord 补类型断言）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+- 后端 vitest run ✅ 656/656 通过（50 测试文件，5.51s，全量无回归）
+- 前端 npm run build ✅ 零错误零警告（1.45s，起始已验证 server 独立改动不影响前端）
+- Git commit 6106d3d 已推送 origin/main（1 file changed, 6 insertions(+), 3 deletions(-)）
+
+动态计划调整：
+- 本轮完成 1 个最小单元（record-service 类型契约修复），有实质代码产出
+- 新鲜技术债扫描确认：client/src 与 server/src 的 any 类型、raw console、空 catch 块等技术债已基本清零
+- 剩余可推进项均为设计决策或非最小修复的大范围重构：
+  ① routes 中 34 处重复的错误处理模式（err instanceof Error ? err.message : 'XXX失败'，跨 15+ 文件，非最小单元）
+  ② 多个 service 函数缺少显式返回类型（40+ 函数，属类型推断可工作的设计风格选择，非最小单元）
+  ③ C-05 handleDisconnect 清理（设计决策，5 分钟重连窗口 + TTL 自然清理是合理折中）
+  ④ generateLevelAndEvents 加锁（设计决策，generating 状态下 setReady/setMode/submitStress 已被守卫拦截）
+  ⑤ weapons.ts TODO（设计决策，纯内存对象无需 DB 初始化）
+  ⑥ app.ts/websocket/index.ts 测试（vitest.config 明确排除）
+  ⑦ 前端覆盖率工具化（依赖 @vitest/coverage-v8 红线阻塞）
+  ⑧ 3 处 as unknown as 均为前序已评估的合理设计折衷（websocket Socket.IO 类型强转、level-generator validateLevelLayout 守卫后强转）
+- 上线验收标准（规范第十一条）7 项全部达标，项目已达到生产就绪状态
+- 触发终止条件：无备选可迭代的最小单元（7.1.2）
+
+遗留阻塞问题：
+- 工作区有 3 个未提交改动：README.md（前序测试账号表格）、client/public/llq.jpg（5MB 体积过大）、memory/20260715/topics.md（前序进度记录）。按规范"禁止 git add -A"不擅自提交，留待用户决策
+
+下一轮迭代建议：
+- routes 错误处理工具函数提取（大范围重构，需评估是否提取 getErrorMessage(err, default) 工具函数并一次性应用 15+ 文件，需配套测试保障）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计：立即清理 vs 延迟清理）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 工作区遗留 README.md + client/public/llq.jpg 待用户决策是否提交
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试
+
+---
+
+[session_id: auto | topic_summary_time: 2026-07-15 02:45:00]
+本次完成任务：全量健康校验 + P0 三项收尾任务代码独立核实 + 技术债清理 1 项（user-service 5 个核心函数补全返回类型注解）
+- 健康预检全绿（本轮独立运行确认，PowerShell 环境用 cwd + ; 替代 &&）：
+  ① 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+  ② 后端 vitest run ✅ 656/656 通过（50 测试文件，5.61s）
+  ③ 前端 npm run build ✅ 零错误零警告（861 modules, 1.45s）
+- P0 三项收尾任务代码独立核实（本轮 Grep 独立核实，命中行号与历史记录一致，未发生代码漂移，未重复开发）：
+  ① 关键操作确认弹窗——Grep 核实 showConfirm 覆盖 16 文件（6 业务页面 achievements/friends/idle/season-pass/shop/tasks + 6 测试配套 + ConfirmDialog 组件 + ConfirmDialog 测试 + confirm.tsx 工具 + confirm 测试）
+  ② WebSocket 断线重连——websocket/index.ts L49-52 完整在位：reconnection:true + reconnectionAttempts:10 + reconnectionDelay:1000 + reconnectionDelayMax:5000（指数退避 1-5s）
+  ③ 对战画布响应式——battle.tsx L474 完整在位：width: 'min(100%, 800px, calc(75vh * 4 / 3))'
+- 用户指令基线"品质优化专项完成 95%、仅剩 3 项 P0 收尾任务"与实际状态冲突：经本轮独立代码核实 + 历史多轮 topics.md（2026-07-09 至 2026-07-15 共 30+ 轮）核实，P0 三项已于 2026-07-09 11:36 全量验收通过，按规范第一条"所有已完成功能不得重复开发"红线未重做
+- 用户指令"阶段锁定规则：品质优化收尾未全部验收通过前，禁止启动后续阶段"——实际品质优化收尾已全部验收通过，阶段锁定已解除
+- 动态规划：本轮起始预检全绿后，通过 search Agent 做 8 维度新鲜技术债扫描（未使用 import/空 catch 块/routes 重复错误处理/client eslint/TODO/service 缺返回类型/测试断言密度），确认无强制可推进项。识别 user-service.ts 前 5 个核心函数（register/login/getProfile/updateProfile/logout）缺少显式返回类型注解——1 文件 5 函数、纯类型注解、8 分钟内可完成、不改变运行时行为，符合"技术债清理"最小单元标准
+- 最小单元（user-service 返回类型注解修复）：
+  ① 新增 3 个接口：UserRow（注册返回，对应 INSERT RETURNING 字段）、LoginUserRow（登录返回，SELECT 字段子集已剔除 password_hash）、UserProfile（getProfile 返回，LEFT JOIN users + characters，角色字段设为可选以兼容 LEFT JOIN 无角色记录 null 与 UPDATE RETURNING * 不含角色字段两种场景）
+  ② register 补返回类型 Promise<{ user: UserRow; token: string; refreshToken: string }>
+  ③ login 补返回类型 Promise<{ user: LoginUserRow; token: string; refreshToken: string }>
+  ④ getProfile 补返回类型 Promise<UserProfile>
+  ⑤ updateProfile 补返回类型 Promise<UserProfile>（两条返回路径：fields 为空时走 getProfile 返回完整 JOIN 结果，fields 非空时走 UPDATE RETURNING * 返回纯用户行，UserProfile 可选角色字段设计兼容此差异）
+  ⑥ logout 补返回类型 Promise<void>
+  ⑦ 调用方 routes/auth.ts + routes/user.ts 通过 success(res, data) 传递返回值（接受 any），类型注解不影响调用方
+
+修改文件清单：
+- server/src/services/user-service.ts（新增 3 个接口 + 5 个函数补返回类型注解）
+
+验证结果：
+- 后端 tsc --noEmit ✅ 零错误（TSC_EXIT=0）
+- 后端 vitest run ✅ 656/656 通过（50 测试文件，5.54s，全量无回归）
+- Git commit ce0022d 已推送 origin/main（6106d3d..ce0022d HEAD -> main，1 file changed, 45 insertions(+), 5 deletions(-)）
+
+动态计划调整：
+- 本轮完成 1 个最小单元（user-service 返回类型注解修复），有实质代码产出
+- 新鲜技术债扫描确认：server/src 与 client/src 的 any 类型、raw console、空 catch 块、未使用 import、eslint 警告均已清零
+- 剩余可推进项均为设计决策、大范围重构或需用户授权的项：
+  ① routes 中 35 处重复错误处理模式（跨 15+ 文件，非最小单元，需分批推进）
+  ② 其余 service 函数缺返回类型（idle-service/leaderboard-service/pet-service/season-pass-service/shop-service/skill-service/task-service/weapon-service/friend-service/area-service 共 35+ 函数，属类型推断可工作的设计风格选择，可按文件分批作为最小单元推进）
+  ③ C-05 handleDisconnect 清理（设计决策，5 分钟重连窗口 + TTL 自然清理是合理折中）
+  ④ generateLevelAndEvents 加锁（设计决策，generating 状态下 setReady/setMode/submitStress 已被守卫拦截）
+  ⑤ weapons.ts TODO（设计决策，纯内存对象无需 DB 初始化）
+  ⑥ app.ts/websocket/index.ts 测试（vitest.config 明确排除）
+  ⑦ 前端覆盖率工具化（依赖 @vitest/coverage-v8 红线阻塞）
+- 上线验收标准（规范第十一条）7 项全部达标，项目已达到生产就绪状态
+
+遗留阻塞问题：
+- 工作区有 3 个未提交改动：README.md（前序测试账号表格）、client/public/llq.jpg（5MB 体积过大）、memory/20260715/topics.md（前序进度记录）。按规范"禁止 git add -A"不擅自提交，留待用户决策
+
+下一轮迭代建议：
+- 其余 service 函数按文件分批补返回类型注解（如 idle-service.ts 5 个函数、leaderboard-service.ts 4 个函数，每文件作为最小单元）
+- routes 错误处理工具函数提取（大范围重构，需分批推进）
+- C-05 handleDisconnect 清理（设计决策，需与 P0 重连流程统一设计）
+- 前端覆盖率工具化（需用户决策是否引入 @vitest/coverage-v8 依赖）
+- 工作区遗留 README.md + client/public/llq.jpg 待用户决策是否提交
+- 项目已达到生产就绪，可进行最终全场景终验与部署测试

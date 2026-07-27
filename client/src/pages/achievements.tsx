@@ -97,17 +97,12 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
 
   return (
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
-      {/* 顶部导航：bg-glow-pink 增加深色头部氛围层次 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
-        {/* 返回按钮放大并加 hover 背景区块，提升点击友好度 */}
-        <button
-          onClick={onBack}
-          aria-label="返回"
-          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
-        >
+      {/* 顶部导航：page-header 抽象 bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink */}
+      <header className="page-header">
+        <button onClick={onBack} aria-label="返回" className="back-btn">
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">成就</h1>
+        <h1 className="page-title">成就</h1>
         <span className="ml-auto font-mono text-sm bg-cream/10 px-3 py-1 rounded-full border border-cream/20">
           {completedCount}/{achievements.length}
         </span>
@@ -142,7 +137,7 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
       <main className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10">
-            <div className="w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
+            <div className="spinner-brutal" />
             <p className="font-mono text-sm text-ink/60">加载成就中...</p>
           </div>
         ) : (
@@ -178,10 +173,15 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                         style={{ animationDelay: `${idx * 50}ms` }}
                       >
                         <div className="flex items-start gap-3 mb-2">
-                          {/* 成就状态 emoji（完成/未完成）为装饰性视觉标识，状态通过边框色、进度条、领取按钮多渠道传达，aria-hidden 屏蔽避免冗余朗读 */}
-                          <span className="text-3xl" aria-hidden="true">
-                            {achievement.completed ? '🏆' : '🔒'}
-                          </span>
+                          {/* 成就状态 emoji 加圆形背景：已完成用 mint/20 呼应 mint 边框，未完成用 ink/5 中性底
+                              与挂机页武器/技能/宠物图标视觉模式一致 */}
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            achievement.completed ? 'bg-mint/20' : 'bg-ink/5'
+                          }`}>
+                            <span className="text-2xl" aria-hidden="true">
+                              {achievement.completed ? '🏆' : '🔒'}
+                            </span>
+                          </div>
                           <div className="flex-1">
                             <p className="font-cn text-ink font-bold">{achievement.name}</p>
                             <p className="font-mono text-xs text-ink/60">
@@ -231,7 +231,8 @@ export default function AchievementsPage({ onBack }: AchievementsPageProps) {
                             <button
                               onClick={() => handleClaim(achievement)}
                               disabled={loading}
-                              className="bg-mint text-ink px-3 py-1 font-cn font-bold text-sm shadow-[2px_2px_0_#1a1a1a] hover:bg-ink hover:text-cream transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[2px_2px_0_#1a1a1a] disabled:opacity-50"
+                              /* btn-press-2 抽象 shadow-[2px_2px_0_#1a1a1a] + hover/active 按压效果 */
+                              className="bg-mint text-ink px-3 py-1 font-cn font-bold text-sm hover:bg-ink hover:text-cream btn-press-2 disabled:opacity-50"
                             >
                               领取
                             </button>

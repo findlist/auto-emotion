@@ -251,7 +251,11 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
 
       {/* 操作按钮 */}
       <div className="flex gap-4 animate-stagger delay-400">
-        {!isHost && roomStore.status === 'waiting' && (
+        {/* 准备按钮：waiting 状态所有玩家（含房主）可见
+            设计原因：后端 setReady 要求 room.players.every(p => p.isReady) 才会将房间状态置为 ready，
+            原条件 !isHost 导致房主永远无法准备，房间卡死在 waiting，进而 startGame 必失败。
+            房主同样需要准备，与普通玩家保持同一交互路径 */}
+        {roomStore.status === 'waiting' && (
           <button
             onClick={handleToggleReady}
             className={`px-8 py-3 font-mono text-sm font-bold tracking-wider btn-press-4 ${
@@ -264,7 +268,11 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
           </button>
         )}
 
-        {isHost && roomStore.status === 'waiting' && (
+        {/* 开始游戏按钮：仅在房间已 ready 时房主可见
+            设计原因：后端 startGame 强校验 status === 'ready'，原条件 status === 'waiting'
+            会导致房主在 waiting 态点击必失败（"游戏已开始或未准备"）。改为 ready 态显示，
+            与后端状态机对齐：所有人准备 → ready → 房主可开始 */}
+        {isHost && roomStore.status === 'ready' && (
           <button
             onClick={handleStartGame}
             disabled={roomStore.players.length < 1}

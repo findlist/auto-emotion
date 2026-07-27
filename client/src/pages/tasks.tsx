@@ -78,34 +78,27 @@ export default function TasksPage({ onBack }: TasksPageProps) {
 
   return (
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
-      {/* 顶部导航：bg-glow-pink 增加深色头部氛围层次 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
-        {/* 返回按钮放大并加 hover 背景区块，提升点击友好度 */}
-        <button
-          onClick={onBack}
-          aria-label="返回"
-          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
-        >
+      {/* 顶部导航：page-header 抽象 */}
+      <header className="page-header">
+        <button onClick={onBack} aria-label="返回" className="back-btn">
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">每日任务</h1>
+        <h1 className="page-title">每日任务</h1>
       </header>
 
       {/* 任务列表：scrollbar-brutal 统一滚动条风格 */}
       <main className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10">
-            <div className="w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
+            <div className="spinner-brutal" />
             <p className="font-mono text-sm text-ink/60">加载任务中...</p>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-12">
-            {/* 装饰性 emoji 与后跟文字语义重复，aria-hidden 屏蔽避免冗余朗读 */}
-            <span className="text-5xl animate-bounce-slow" aria-hidden="true">📋</span>
-            <div className="text-center">
-              <p className="font-cn text-lg text-ink">暂无任务</p>
-              <p className="font-mono text-sm text-ink/50 mt-1">每日凌晨刷新，敬请期待</p>
-            </div>
+          /* empty-state 抽象任务空状态 */
+          <div className="empty-state">
+            <p className="empty-state-emoji"><span aria-hidden="true">📋</span></p>
+            <p className="empty-state-title">暂无任务</p>
+            <p className="empty-state-desc">每日凌晨刷新，敬请期待</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -132,17 +125,24 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                   <div className="flex items-start gap-3 mb-3">
                     {/* 任务类型 emoji 与后跟任务名语义重复，aria-hidden 屏蔽装饰图标 */}
                     <span className="text-3xl" aria-hidden="true">{typeInfo.emoji}</span>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="font-cn text-ink font-bold">{task.name}</p>
                       <p className="font-mono text-xs text-ink/60">
                         {task.progress}/{task.target}
                       </p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono text-xs text-ink/70">奖励</p>
-                      <p className="font-mono text-sm text-ink">
-                        +{task.reward_exp}经验 +{task.reward_gold}金币
-                      </p>
+                    {/* 奖励 chip 化：与挂机页区域信息 chip 模式同源
+                        设计原因：原"+X经验 +Y金币"纯文本视觉层次弱，玩家扫视列表难以定位奖励数值；
+                        改为 mint 经验 chip + yellow 金币 chip，色彩语义与挂机页 ✨经验/💰金币 一致 */}
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      <div className="bg-mint/15 text-ink px-2 py-0.5 rounded-full font-mono text-xs flex items-center gap-1 border border-mint/30">
+                        <span aria-hidden="true">✨</span>
+                        <span className="text-mint font-bold">+{task.reward_exp}</span>
+                      </div>
+                      <div className="bg-yellow/20 text-ink px-2 py-0.5 rounded-full font-mono text-xs flex items-center gap-1 border border-yellow/40">
+                        <span aria-hidden="true">💰</span>
+                        <span className="text-yellow font-bold">+{task.reward_gold}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -171,14 +171,18 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                     />
                   </div>
 
-                  {/* 状态标签：加阴影增强 Neo-brutalism 层次 */}
+                  {/* 状态标签：加阴影增强 Neo-brutalism 层次
+                      "可领取"态叠加 animate-badge-pulse 黄色光晕脉冲，与排行榜 Top1 同款动画
+                      设计原因：可领取奖励是玩家最关注的状态，原静态 mint badge 在长列表中容易被忽略；
+                      黄色脉冲光晕（badgePulse 关键帧 rgba(255,217,61,0.6)）让"可领取"在视野中"呼吸"，
+                      吸引玩家点击领取，与排行榜 Top1 冠军强调使用同一视觉语言 */}
                   <div className="flex items-center justify-between">
                     <span
                       className={`font-mono text-xs px-2 py-1 shadow-[1px_1px_0_#1a1a1a] ${
                         status === 'claimed'
                           ? 'bg-ink text-cream/70'
                           : status === 'completed'
-                          ? 'bg-mint text-ink'
+                          ? 'bg-mint text-ink animate-badge-pulse'
                           : 'bg-ink/20 text-ink/70'
                       }`}
                     >

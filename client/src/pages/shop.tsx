@@ -118,18 +118,13 @@ export default function ShopPage({ onBack }: ShopPageProps) {
 
   return (
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto scrollbar-brutal">
-      {/* 顶部导航 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
-        {/* 返回按钮放大并加 hover 背景区块，与 tasks/achievements/leaderboard/season-pass 页保持一致
-            原/shop 使用 w-8 h-8 rounded 较小，触摸目标不足 44px 且与其他页风格不统一 */}
-        <button
-          onClick={onBack}
-          aria-label="返回"
-          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
-        >
+      {/* 顶部导航：page-header 抽象 bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink */}
+      <header className="page-header">
+        {/* back-btn 抽象 w-9 h-9 hover:bg-cream/10 rounded-lg transition-colors */}
+        <button onClick={onBack} aria-label="返回" className="back-btn">
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">商城</h1>
+        <h1 className="page-title">商城</h1>
       </header>
 
       {/* Tab 切换：WAI-ARIA tab 语义让屏幕阅读器正确识别为标签页界面
@@ -197,7 +192,7 @@ export default function ShopPage({ onBack }: ShopPageProps) {
       <main role="tabpanel" id="shop-panel" aria-labelledby={`shop-tab-${activeTab}`} className="flex-1 p-4 overflow-auto scrollbar-brutal">
         {loading ? (
           <div className="text-center py-8 animate-fadeIn">
-            <div className="inline-block w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
+            <div className="spinner-brutal inline-block" />
             <p className="font-cn text-ink/70 mt-3">加载中...</p>
           </div>
         ) : activeTab === 'items' ? (
@@ -206,24 +201,25 @@ export default function ShopPage({ onBack }: ShopPageProps) {
              切换时自动定位到商品列表区 */
           <div role="tabpanel" id="shop-items-panel" aria-labelledby={`shop-type-${activeType}`} className="animate-fadeIn">
             {items.length === 0 ? (
-              <div className="text-center py-12 animate-stagger">
-                {/* 装饰性 emoji 与后跟文字语义重复，aria-hidden 屏蔽避免冗余朗读 */}
-                <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">🛒</span></p>
-                <p className="font-cn text-ink/70 text-lg">暂无商品</p>
-                <p className="font-mono text-xs text-ink/40 mt-1">敬请期待新上架</p>
+              /* empty-state 抽象 text-center py-12 animate-stagger + emoji + 主标 + 副标 */
+              <div className="empty-state">
+                <p className="empty-state-emoji"><span aria-hidden="true">🛒</span></p>
+                <p className="empty-state-title">暂无商品</p>
+                <p className="empty-state-desc">敬请期待新上架</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {items.map((item, idx) => (
                   <div
                     key={item.id}
-                    className="bg-cream border-2 border-ink p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger"
+                    /* 外层加 group 让 emoji 圆形背景响应整卡 hover（原 hover:scale-105 仅在 emoji 自身 hover 时触发） */
+                    className="group bg-cream border-2 border-ink p-3 shadow-[3px_3px_0_#1a1a1a] card-hover animate-stagger"
                     style={{ animationDelay: `${idx * 50}ms` }}
                   >
                     <div className="text-center mb-2">
                       {/* 商品 emoji 加圆形背景给视觉重量，与挂机页武器/技能/宠物图标视觉模式一致
-                          hover 时 emoji 放大，圆形背景作为放大基准点让缩放更自然 */}
-                      <div className="inline-flex w-16 h-16 rounded-full bg-ink/5 items-center justify-center transition-transform hover:scale-105">
+                          group-hover:scale-105 让鼠标悬停整卡时 emoji 放大，与首页主入口按钮交互一致 */}
+                      <div className="inline-flex w-16 h-16 rounded-full bg-ink/5 items-center justify-center transition-transform group-hover:scale-105">
                         <span className="text-4xl" aria-hidden="true">{item.emoji}</span>
                       </div>
                     </div>
@@ -239,7 +235,8 @@ export default function ShopPage({ onBack }: ShopPageProps) {
                     <button
                       onClick={() => handleBuy(item)}
                       disabled={loading}
-                      className="w-full bg-ink text-cream py-2 font-cn font-bold hover:bg-pink transition-all shadow-[2px_2px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-50 disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0_#1a1a1a]"
+                      /* btn-press-2 抽象 shadow-[2px_2px_0_#1a1a1a] + hover/active 按压效果；disabled 状态由 CSS :disabled 选择器统一处理 */
+                      className="w-full bg-ink text-cream py-2 font-cn font-bold hover:bg-pink btn-press-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       购买
                     </button>
@@ -249,11 +246,11 @@ export default function ShopPage({ onBack }: ShopPageProps) {
             )}
           </div>
         ) : inventory.length === 0 ? (
-          <div className="text-center py-12 animate-stagger">
-            {/* 装饰性 emoji 与后跟文字语义重复，aria-hidden 屏蔽避免冗余朗读 */}
-            <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">🎒</span></p>
-            <p className="font-cn text-ink/70 text-lg">背包空空如也</p>
-            <p className="font-mono text-xs text-ink/40 mt-1">去商城购买道具吧</p>
+          /* empty-state 抽象背包空状态 */
+          <div className="empty-state">
+            <p className="empty-state-emoji"><span aria-hidden="true">🎒</span></p>
+            <p className="empty-state-title">背包空空如也</p>
+            <p className="empty-state-desc">去商城购买道具吧</p>
           </div>
         ) : (
           <div className="space-y-3 animate-fadeIn">

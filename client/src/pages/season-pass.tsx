@@ -110,7 +110,7 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
   if (!seasonPass) {
     return (
       <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-3">
-        <div className="w-10 h-10 border-4 border-ink/20 border-t-pink rounded-full animate-spin" />
+        <div className="spinner-brutal" />
         <p className="font-mono text-sm text-ink/60">加载赛季通行证中...</p>
       </div>
     );
@@ -120,16 +120,12 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
 
   return (
     <div className="min-h-screen bg-cream flex flex-col max-w-2xl mx-auto">
-      {/* 顶部导航：bg-glow-pink 增加深色头部氛围层次 */}
-      <header className="bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink">
-        <button
-          onClick={onBack}
-          aria-label="返回"
-          className="w-9 h-9 flex items-center justify-center text-cream text-xl hover:bg-cream/10 rounded-lg transition-colors"
-        >
+      {/* 顶部导航：page-header 抽象 bg-ink text-cream px-4 py-3 flex items-center gap-4 bg-glow-pink */}
+      <header className="page-header">
+        <button onClick={onBack} aria-label="返回" className="back-btn">
           ←
         </button>
-        <h1 className="font-cn text-lg font-bold drop-shadow-[2px_2px_0_rgba(255,61,127,0.4)]">赛季通行证</h1>
+        <h1 className="page-title">赛季通行证</h1>
       </header>
 
       {/* 赛季信息：叠加 bg-stripes 对角条纹增强氛围层次 */}
@@ -174,7 +170,8 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
           <button
             onClick={handleBuy}
             disabled={loading}
-            className="w-full bg-yellow text-ink px-4 py-3 font-cn font-bold text-lg shadow-[4px_4px_0_#1a1a1a] hover:bg-ink hover:text-yellow transition-colors active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[4px_4px_0_#1a1a1a] disabled:opacity-50"
+            /* btn-press-4 抽象 shadow-[4px_4px_0_#1a1a1a] + hover/active 按压效果；大 CTA 用 -4 规格 */
+            className="w-full bg-yellow text-ink px-4 py-3 font-cn font-bold text-lg hover:bg-ink hover:text-yellow btn-press-4 disabled:opacity-50"
           >
             购买高级通行证
           </button>
@@ -199,11 +196,13 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div
+                    /* 里程碑等级（每 5 级）加 milestone-badge 黄色双环奖章质感，让关键奖励节点更醒目
+                       与任务页 animate-badge-pulse "可领取"强调使用同一视觉语言（黄色高亮关键状态） */
                     className={`w-14 h-14 rounded-full flex items-center justify-center font-mono font-bold text-lg ${
                       isUnlocked
                         ? 'bg-mint text-ink shadow-[2px_2px_0_#1a1a1a] ring-2 ring-yellow/40'
                         : 'bg-ink/20 text-ink/50'
-                    }`}
+                    } ${reward.level % 5 === 0 ? 'milestone-badge' : ''}`}
                   >
                     {reward.level}
                   </div>
@@ -230,7 +229,8 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                       <button
                         onClick={() => handleClaim(reward.level, false)}
                         disabled={loading}
-                        className="mt-2 w-full bg-mint text-ink px-2 py-1 font-cn text-xs font-bold shadow-[2px_2px_0_#1a1a1a] hover:bg-ink hover:text-cream transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[2px_2px_0_#1a1a1a] disabled:opacity-50"
+                        /* btn-press-2 抽象 shadow-[2px_2px_0_#1a1a1a] + hover/active 按压效果 */
+                        className="mt-2 w-full bg-mint text-ink px-2 py-1 font-cn text-xs font-bold hover:bg-ink hover:text-cream btn-press-2 disabled:opacity-50"
                       >
                         领取
                       </button>
@@ -254,7 +254,8 @@ export default function SeasonPassPage({ onBack }: SeasonPassPageProps) {
                       <button
                         onClick={() => handleClaim(reward.level, true)}
                         disabled={loading}
-                        className="mt-2 w-full bg-yellow text-ink px-2 py-1 font-cn text-xs font-bold shadow-[2px_2px_0_#1a1a1a] hover:bg-ink hover:text-yellow transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[2px_2px_0_#1a1a1a] disabled:opacity-50"
+                        /* btn-press-2 抽象 shadow-[2px_2px_0_#1a1a1a] + hover/active 按压效果 */
+                        className="mt-2 w-full bg-yellow text-ink px-2 py-1 font-cn text-xs font-bold hover:bg-ink hover:text-yellow btn-press-2 disabled:opacity-50"
                       >
                         领取
                       </button>
