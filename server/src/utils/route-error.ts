@@ -24,6 +24,15 @@ export const CLAIM_REWARD_FAILED_MSG = '领取奖励失败';
 export const BUY_FAILED_MSG = '购买失败';
 
 /**
+ * 必填参数缺失通用文案。
+ *
+ * 设计原因：match / settle 两个 routes 的入参校验业务语义完全一致（缺少必填参数），
+ * 原本散落 2 处字面量，调整文案需逐处搜索。与 BUY_FAILED_MSG 同模式，
+ * 集中在 route-error.ts 维护路由层通用文案，确保单点维护。
+ */
+export const MISSING_PARAM_MSG = '缺少参数';
+
+/**
  * 统一路由 catch 块错误处理：AppError 透传错误码，普通 Error 兜底 500。
  *
  * 设计原因：routes 层 catch 块原本重复以下两种等价模板，抽取后消除重复并保证错误处理一致性：

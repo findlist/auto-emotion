@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { settleGame } from '../services/settle-service.js';
 import { success, fail } from '../utils/response.js';
-import { routeError } from '../utils/route-error.js';
+import { routeError, MISSING_PARAM_MSG } from '../utils/route-error.js';
 import type { GameMode } from '../types/game.js';
 import { requireUser } from '../utils/auth-guard.js';
 
@@ -28,7 +28,7 @@ router.post('/', async (req: Request, res: Response) => {
   };
 
   if (!roomId || !mode || !players || !Array.isArray(players) || players.length === 0) {
-    fail(res, 400, '缺少参数');
+    fail(res, 400, MISSING_PARAM_MSG);
     return;
   }
 

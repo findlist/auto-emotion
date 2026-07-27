@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { joinQuickMatch, leaveQuickMatch, getMatchStatus } from '../services/match-service.js';
 import { success, fail } from '../utils/response.js';
-import { routeError } from '../utils/route-error.js';
+import { routeError, MISSING_PARAM_MSG } from '../utils/route-error.js';
 import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
@@ -13,7 +13,7 @@ router.post('/quick', async (req: Request, res: Response) => {
 
   const { nickname, socketId } = req.body as { nickname?: string; socketId?: string };
   if (!nickname || !socketId) {
-    fail(res, 400, '缺少参数');
+    fail(res, 400, MISSING_PARAM_MSG);
     return;
   }
 
