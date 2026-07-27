@@ -10,6 +10,13 @@ import type { Tx } from '../utils/transaction.js';
 import { deductGold, ensureGold } from '../utils/gold.js';
 
 /**
+ * 未拥有武器错误文案
+ * 设计原因：upgradeWeapon + equipWeapon 两处守卫均通过 getUserWeapon 返回 null 判断未拥有，
+ * 文案必须一致避免用户困惑；延续 user-service 错误文案常量抽取模式（USER_NOT_FOUND_MSG 同模式）
+ */
+const WEAPON_NOT_OWNED_MSG = '未拥有该武器';
+
+/**
  * 用户武器记录：user_weapons 表的查询结果类型
  * 设计原因：getUserWeapon helper 返回值类型，仅暴露调用方实际读取的字段（upgradeWeapon
  * 读取 level），其他 SELECT * 字段（user_id/weapon_id/exp/is_equipped/created_at/updated_at）
@@ -95,7 +102,7 @@ export async function upgradeWeapon(
     // 检查是否拥有该武器
     const userWeapon = await getUserWeapon(tx, userId, weaponId);
     if (!userWeapon) {
-      throw new AppError(ErrorCode.NOT_FOUND, '未拥有该武器');
+      throw new AppError(ErrorCode.NOT_FOUND, WEAPON_NOT_OWNED_MSG);
     }
 
     const currentLevel = userWeapon.level;
@@ -135,7 +142,7 @@ export async function equipWeapon(
     // 检查是否拥有该武器
     const owned = await getUserWeapon(tx, userId, weaponId);
     if (!owned) {
-      throw new AppError(ErrorCode.NOT_FOUND, '未拥有该武器');
+      throw new AppError(ErrorCode.NOT_FOUND, WEAPON_NOT_OWNED_MSG);
     }
 
     // 取消当前装备的武器

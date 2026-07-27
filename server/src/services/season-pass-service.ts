@@ -8,6 +8,14 @@ import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 const SEASON_DURATION_DAYS = 28; // 4周
 const SEASON_MAX_LEVEL = 50;
 
+/**
+ * 赛季奖励重复领取错误文案
+ * 设计原因：claimSeasonReward 事务外 fast-fail 预检查 + 事务内 advisory lock 后权威复查
+ * 两个检查点拦截同一业务语义，用户无论从哪个分支被拦截看到的提示必须一致；
+ * 延续 user-service 错误文案常量抽取模式（INVALID_REFRESH_TOKEN_MSG 同模式 fast-fail + 事务内双检查）
+ */
+const SEASON_REWARD_ALREADY_CLAIMED_MSG = '奖励已领取';
+
 interface SeasonReward {
   level: number;
   exp_required: number;
@@ -198,7 +206,7 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
   );
 
   if (claimedResult.rows.length > 0) {
-    throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
+    throw new AppError(ErrorCode.CONFLICT, SEASON_REWARD_ALREADY_CLAIMED_MSG);
   }
 
   return withTransaction(async (tx) => {
@@ -214,7 +222,7 @@ export async function claimSeasonReward(userId: string, level: number, isPremium
     );
 
     if (recheck.rows.length > 0) {
-      throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
+      throw new AppError(ErrorCode.CONFLICT, SEASON_REWARD_ALREADY_CLAIMED_MSG);
     }
 
     // 记录领取

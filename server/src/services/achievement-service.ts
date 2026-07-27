@@ -6,6 +6,14 @@ import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
 
+/**
+ * 成就奖励重复领取错误文案
+ * 设计原因：claimAchievementReward 事务外 fast-fail 预检查 + 事务内 advisory lock 后权威复查
+ * 两个检查点拦截同一业务语义，用户无论从哪个分支被拦截看到的提示必须一致；
+ * 延续 user-service 错误文案常量抽取模式（PHONE_ALREADY_REGISTERED_MSG 同模式）
+ */
+const ACHIEVEMENT_REWARD_ALREADY_CLAIMED_MSG = '奖励已领取';
+
 interface Achievement {
   id: number;
   code: string;
@@ -177,7 +185,7 @@ export async function claimAchievementReward(userId: string, achievementId: numb
   }
 
   if (achievement.claimed) {
-    throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
+    throw new AppError(ErrorCode.CONFLICT, ACHIEVEMENT_REWARD_ALREADY_CLAIMED_MSG);
   }
 
   // 事务内 advisory lock + 权威复查 + 发奖（withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release）
@@ -194,7 +202,7 @@ export async function claimAchievementReward(userId: string, achievementId: numb
     );
 
     if (recheck.rows.length > 0 && recheck.rows[0].claimed) {
-      throw new AppError(ErrorCode.CONFLICT, '奖励已领取');
+      throw new AppError(ErrorCode.CONFLICT, ACHIEVEMENT_REWARD_ALREADY_CLAIMED_MSG);
     }
 
     // 更新领取状态：schema 字段为 claimed_at (TIMESTAMP)，非 claimed (BOOLEAN)
