@@ -26,6 +26,21 @@ const LEVELS = 5;
 const ANGLE_START = -90;
 const ANGLE_STEP = 72;
 
+// 压力强度阈值：getIntensityColor / getPolygonFill / getPolygonStroke 三函数共享。
+// 40 为低压上限（薄荷绿），70 为中压上限（黄），超过 70 走高压（粉红）。
+// 三函数必须共用同一阈值，避免 fill 与 stroke 颜色区间错位。
+const LOW_PRESSURE_THRESHOLD = 40;
+const HIGH_PRESSURE_THRESHOLD = 70;
+
+// 压力强度调色板（hex）：getIntensityColor 与 getPolygonStroke 共享。
+// getPolygonFill 使用 rgba 格式不与此处共享，但颜色值一一对应（同色系不同透明度）。
+// 调整颜色时需同步修改 getPolygonFill 中的 rgba 值保持视觉一致。
+const PRESSURE_COLORS = {
+  low: '#3dd9b5',
+  mid: '#ffd93d',
+  high: '#ff3d7f',
+} as const;
+
 function deg2rad(deg: number) {
   return (deg * Math.PI) / 180;
 }
@@ -40,23 +55,23 @@ function polygonPath(points: { x: number; y: number }[]) {
 }
 
 function getIntensityColor(value: number): string {
-  if (value <= 40) return '#3dd9b5';
+  if (value <= LOW_PRESSURE_THRESHOLD) return PRESSURE_COLORS.low;
   if (value <= 55) return '#c4e84b';
-  if (value <= 70) return '#ffd93d';
+  if (value <= HIGH_PRESSURE_THRESHOLD) return PRESSURE_COLORS.mid;
   if (value <= 85) return '#ff6b35';
-  return '#ff3d7f';
+  return PRESSURE_COLORS.high;
 }
 
 function getPolygonFill(avgValue: number): string {
-  if (avgValue <= 40) return 'rgba(61,217,181,0.25)';
-  if (avgValue <= 70) return 'rgba(255,217,61,0.25)';
+  if (avgValue <= LOW_PRESSURE_THRESHOLD) return 'rgba(61,217,181,0.25)';
+  if (avgValue <= HIGH_PRESSURE_THRESHOLD) return 'rgba(255,217,61,0.25)';
   return 'rgba(255,61,127,0.25)';
 }
 
 function getPolygonStroke(avgValue: number): string {
-  if (avgValue <= 40) return '#3dd9b5';
-  if (avgValue <= 70) return '#ffd93d';
-  return '#ff3d7f';
+  if (avgValue <= LOW_PRESSURE_THRESHOLD) return PRESSURE_COLORS.low;
+  if (avgValue <= HIGH_PRESSURE_THRESHOLD) return PRESSURE_COLORS.mid;
+  return PRESSURE_COLORS.high;
 }
 
 function PressureRadar({ data, size = 280 }: PressureRadarProps) {
