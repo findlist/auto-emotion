@@ -8,6 +8,11 @@ import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 const SEASON_DURATION_DAYS = 28; // 4周
 const SEASON_MAX_LEVEL = 50;
 
+// 每级所需经验：generateSeasonRewards（TS 正算 level * 100）与 addSeasonExp（SQL 反算 (season_exp + $1) / 100 + 1）
+// 跨 TS/SQL 双处维护同一业务规则，抽取为常量避免修改一处忘记另一处导致等级计算漂移。
+// 模块级常量无注入风险，可安全插值到 SQL 模板字符串。
+const SEASON_EXP_PER_LEVEL = 100;
+
 /**
  * 赛季奖励重复领取错误文案
  * 设计原因：claimSeasonReward 事务外 fast-fail 预检查 + 事务内 advisory lock 后权威复查
@@ -48,7 +53,7 @@ interface SeasonInfo {
 function generateSeasonRewards(): SeasonReward[] {
   const rewards: SeasonReward[] = [];
   for (let level = 1; level <= SEASON_MAX_LEVEL; level++) {
-    const expRequired = level * 100;
+    const expRequired = level * SEASON_EXP_PER_LEVEL;
     rewards.push({
       level,
       exp_required: expRequired,
@@ -162,10 +167,10 @@ export async function buySeasonPass(userId: string): Promise<{ success: true }> 
 export async function addSeasonExp(userId: string, exp: number): Promise<void> {
   // 设计原因：原实现仅累加 season_exp 不更新 season_level，导致用户经验持续增长但等级始终为 1，
   // 后续 claimSeasonReward 校验 user.season_level < level 永远抛"等级不足"，奖励无法领取
-  // 此处在 UPDATE 时根据累加后的 season_exp 重算 season_level（每级 100 exp），
+  // 此处在 UPDATE 时根据累加后的 season_exp 重算 season_level（每级 SEASON_EXP_PER_LEVEL exp），
   // 用 GREATEST 防止降级；season_level/season_exp 均为 INT，PostgreSQL 整数除法直接得整级数
   await pool.query(
-    `UPDATE users SET season_exp = season_exp + $1, season_level = GREATEST(season_level, (season_exp + $1) / 100 + 1) WHERE id = $2`,
+    `UPDATE users SET season_exp = season_exp + $1, season_level = GREATEST(season_level, (season_exp + $1) / ${SEASON_EXP_PER_LEVEL} + 1) WHERE id = $2`,
     [exp, userId]
   );
 }
