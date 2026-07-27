@@ -15,6 +15,14 @@ import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
+/**
+ * 榜单类型校验失败文案——/:type/me 路由前置校验分支（L71）+ try 块内 else 兜底分支（L83）
+ * 共 2 处共用。前置校验通过后 else 分支理论上永不触发，但作为防御性兜底保留以防
+ * validTypes 数组与条件分支不同步；抽取为常量确保两处文案永远同步，延续 user-service
+ * 错误文案常量抽取模式（USER_NOT_FOUND_MSG 同模式）。
+ */
+const INVALID_LEADERBOARD_TYPE_MSG = '无效的榜单类型';
+
 // 文件内私有 helper：注册 power/battle/speed 三类公开榜单路由
 // 设计原因：三个路由结构完全一致，仅 service 函数引用与错误文案不同；
 // 抽取后消除"解析分页 → 调 service → success/routeError"的重复样板
@@ -68,7 +76,7 @@ router.get('/:type/me', authMiddleware, async (req: Request, res: Response) => {
   const validTypes = ['power', 'battle', 'speed', 'friends'];
 
   if (!validTypes.includes(type)) {
-    fail(res, 400, '无效的榜单类型');
+    fail(res, 400, INVALID_LEADERBOARD_TYPE_MSG);
     return;
   }
 
@@ -80,7 +88,7 @@ router.get('/:type/me', authMiddleware, async (req: Request, res: Response) => {
     } else if (type === 'power' || type === 'battle' || type === 'speed') {
       result = await getUserRank(user.userId, type);
     } else {
-      fail(res, 400, '无效的榜单类型');
+      fail(res, 400, INVALID_LEADERBOARD_TYPE_MSG);
       return;
     }
 
