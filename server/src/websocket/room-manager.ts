@@ -41,6 +41,10 @@ interface Player {
 }
 
 const ROOM_TTL = 5 * 60; // 5分钟 TTL
+// 房间更新锁 TTL：withRoomLock 中 2 处 redis.set EX 共用，
+// 防止持锁进程崩溃导致死锁；5 秒兜底足够（房间读-改-写操作通常 <100ms），
+// startGame 的 30 秒锁是独立开始锁（覆盖 AI 关卡生成耗时，语义不同不共用）
+const ROOM_LOCK_TTL_SECONDS = 5;
 
 // 兜底数据常量：AI 生成失败时使用的默认压力源与怪兽名，集中管理便于后续统一调整
 // 设计原因：原为散落字面量，多处修改易遗漏；命名常量使兜底语义在调用处自解释
@@ -79,10 +83,10 @@ export const roomManager = {
   async withRoomLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {
     const lockKey = `room:lock:update:${roomId}`;
     // 尝试获取锁，失败则短暂等待后重试一次，避免高频并发时直接抛错影响体验
-    let acquired = await redis.set(lockKey, '1', 'EX', 5, 'NX');
+    let acquired = await redis.set(lockKey, '1', 'EX', ROOM_LOCK_TTL_SECONDS, 'NX');
     if (!acquired) {
       await new Promise((resolve) => setTimeout(resolve, 50));
-      acquired = await redis.set(lockKey, '1', 'EX', 5, 'NX');
+      acquired = await redis.set(lockKey, '1', 'EX', ROOM_LOCK_TTL_SECONDS, 'NX');
       if (!acquired) throw new AppError(ErrorCode.CONFLICT, '房间正忙，请稍后重试');
     }
     try {
