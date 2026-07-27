@@ -5,6 +5,14 @@ import pool from '../config/database.js';
 import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 
+// friendships 表 status 字段的状态值常量：'accepted' 已接受 / 'pending' 待处理
+// 设计原因：两类状态字面量散落于 getFriends / getPendingRequests / sendFriendRequest /
+// acceptFriendRequest / rejectFriendRequest 多个 SQL 拼接共 12 处，拼写错误（如 'acceptted'）
+// 会导致查询条件失效或状态写入错误，集中维护避免遗漏；const 字面量编译期固化，
+// SQL 模板插值不引入注入风险（与 schema VARCHAR 字段语义对齐）
+const FRIENDSHIP_STATUS_ACCEPTED = 'accepted';
+const FRIENDSHIP_STATUS_PENDING = 'pending';
+
 // 好友列表行：对应 getFriends 的 SQL JOIN 结果，online 由 LATERAL 子查询计算
 interface FriendRow {
   id: string;
@@ -35,9 +43,9 @@ export async function getFriends(userId: string): Promise<FriendRow[]> {
      JOIN users u ON u.id = f.friend_id
      LEFT JOIN LATERAL (
        SELECT 1 FROM friendships f2
-       WHERE f2.user_id = u.id AND f2.friend_id = f.user_id AND f2.status = 'accepted'
+       WHERE f2.user_id = u.id AND f2.friend_id = f.user_id AND f2.status = '${FRIENDSHIP_STATUS_ACCEPTED}'
      ) f2 ON true
-     WHERE f.user_id = $1 AND f.status = 'accepted'
+     WHERE f.user_id = $1 AND f.status = '${FRIENDSHIP_STATUS_ACCEPTED}'
      ORDER BY u.nickname`,
     [userId]
   );
@@ -53,7 +61,7 @@ export async function getPendingRequests(userId: string): Promise<PendingRequest
     `SELECT f.id, f.user_id as from_user_id, u.nickname, u.avatar_url, f.created_at
      FROM friendships f
      JOIN users u ON u.id = f.user_id
-     WHERE f.friend_id = $1 AND f.status = 'pending'
+     WHERE f.friend_id = $1 AND f.status = '${FRIENDSHIP_STATUS_PENDING}'
      ORDER BY f.created_at DESC`,
     [userId]
   );
@@ -81,7 +89,7 @@ export async function sendFriendRequest(
   // 检查是否已经是好友
   const friendCheck = await pool.query(
     `SELECT id FROM friendships
-     WHERE user_id = $1 AND friend_id = $2 AND status = 'accepted'`,
+     WHERE user_id = $1 AND friend_id = $2 AND status = '${FRIENDSHIP_STATUS_ACCEPTED}'`,
     [userId, targetUserId]
   );
   if (friendCheck.rows.length > 0) {
@@ -91,7 +99,7 @@ export async function sendFriendRequest(
   // 检查是否已有待处理的请求
   const pendingCheck = await pool.query(
     `SELECT id FROM friendships
-     WHERE user_id = $1 AND friend_id = $2 AND status = 'pending'`,
+     WHERE user_id = $1 AND friend_id = $2 AND status = '${FRIENDSHIP_STATUS_PENDING}'`,
     [userId, targetUserId]
   );
   if (pendingCheck.rows.length > 0) {
@@ -101,7 +109,7 @@ export async function sendFriendRequest(
   // 检查是否收到过对方的请求（双向处理）
   const reverseCheck = await pool.query(
     `SELECT id FROM friendships
-     WHERE user_id = $1 AND friend_id = $2 AND status = 'pending'`,
+     WHERE user_id = $1 AND friend_id = $2 AND status = '${FRIENDSHIP_STATUS_PENDING}'`,
     [targetUserId, userId]
   );
   if (reverseCheck.rows.length > 0) {
@@ -111,11 +119,11 @@ export async function sendFriendRequest(
     // withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release，ROLLBACK 失败兜底文案统一为「未知错误」
     await withTransaction(async (tx) => {
       await tx.query(
-        `UPDATE friendships SET status = 'accepted' WHERE user_id = $1 AND friend_id = $2`,
+        `UPDATE friendships SET status = '${FRIENDSHIP_STATUS_ACCEPTED}' WHERE user_id = $1 AND friend_id = $2`,
         [targetUserId, userId]
       );
       await tx.query(
-        `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, 'accepted')`,
+        `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, '${FRIENDSHIP_STATUS_ACCEPTED}')`,
         [userId, targetUserId]
       );
     });
@@ -124,7 +132,7 @@ export async function sendFriendRequest(
 
   // 发送好友请求
   const result = await pool.query(
-    `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, 'pending') RETURNING id`,
+    `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, '${FRIENDSHIP_STATUS_PENDING}') RETURNING id`,
     [userId, targetUserId]
   );
   return { success: true, requestId: result.rows[0].id };
@@ -143,7 +151,7 @@ export async function acceptFriendRequest(
     // 检查请求是否存在且属于当前用户
     const requestResult = await tx.query(
       `SELECT user_id, friend_id FROM friendships
-       WHERE id = $1 AND friend_id = $2 AND status = 'pending'`,
+       WHERE id = $1 AND friend_id = $2 AND status = '${FRIENDSHIP_STATUS_PENDING}'`,
       [requestId, userId]
     );
 
@@ -153,7 +161,7 @@ export async function acceptFriendRequest(
 
     // 更新原请求为已接受
     await tx.query(
-      `UPDATE friendships SET status = 'accepted' WHERE id = $1`,
+      `UPDATE friendships SET status = '${FRIENDSHIP_STATUS_ACCEPTED}' WHERE id = $1`,
       [requestId]
     );
 
@@ -163,7 +171,7 @@ export async function acceptFriendRequest(
     // 原参数 [fromUserId, toUserId] 会触发 UNIQUE(user_id, friend_id) ON CONFLICT DO NOTHING 被忽略，
     // 导致接收者接受请求后看不到对方为好友（单向好友关系）
     await tx.query(
-      `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, 'accepted')
+      `INSERT INTO friendships (user_id, friend_id, status) VALUES ($1, $2, '${FRIENDSHIP_STATUS_ACCEPTED}')
        ON CONFLICT DO NOTHING`,
       [toUserId, fromUserId]
     );
@@ -181,7 +189,7 @@ export async function rejectFriendRequest(
   requestId: string
 ): Promise<{ success: true }> {
   const result = await pool.query(
-    `DELETE FROM friendships WHERE id = $1 AND friend_id = $2 AND status = 'pending' RETURNING id`,
+    `DELETE FROM friendships WHERE id = $1 AND friend_id = $2 AND status = '${FRIENDSHIP_STATUS_PENDING}' RETURNING id`,
     [requestId, userId]
   );
 
