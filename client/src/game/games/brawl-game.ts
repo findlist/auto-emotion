@@ -71,10 +71,11 @@ const BRAWL_COLORS = {
 
 // 自由乱斗数值配置族：集中维护战斗数值，便于策划调参与数值平衡
 // 设计原因：原本 5 处数值字面量散落于 update 边界反弹 + 投射物命中 + onPlayerDefeated 击杀得分 + respawnPlayer 出生点，
-// 调整任一数值需逐处搜索且字面量本身含义不明。仅抽取 2+ 处重复使用的字面量，单点使用的字面量（如 PROJECTILE_SPEED=600、PLAYER_MAX_HP=100）按"避免过度抽象"原则保留
+// 调整任一数值需逐处搜索且字面量本身含义不明。仅抽取 2+ 处重复使用的字面量，单点使用的字面量（如 PROJECTILE_SPEED=600）按"避免过度抽象"原则保留
 const BOUNCE_DAMPING = 0.5;           // 边界反弹速度衰减系数：玩家撞墙后速度保留 50%，4 处共用
 const PROJECTILE_HIT_DAMAGE = 20;     // 投射物命中伤害：玩家 hp 扣减 + onPlayerHit 回调参数共用
 const KILL_SCORE = 100;               // 击杀玩家得分：scores 累加 + onScoreChange 回调参数共用
+const PLAYER_MAX_HP = 100;            // 玩家最大血量：addPlayer 初始 hp + maxHp 共用，确保玩家初始血量永远等于最大血量
 const RESPAWN_MARGIN = 100;           // 复活出生点边距：避免玩家出生在墙边被立即推出边界
 const RESPAWN_RANGE = 200;            // 复活出生点随机区间总扣减量（= 2*RESPAWN_MARGIN，左右两边各 100）
 
@@ -211,8 +212,8 @@ export class BrawlGame {
       player,
       vx: 0,
       vy: 0,
-      hp: 100,
-      maxHp: 100,
+      hp: PLAYER_MAX_HP,
+      maxHp: PLAYER_MAX_HP,
       alive: true,
       nickname,
     };
