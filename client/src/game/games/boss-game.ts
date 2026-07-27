@@ -94,6 +94,9 @@ const BOSS_HIT_DAMAGE = 10;                 // 玩家投射物命中 Boss 的单
 const BOSS_SKILL_HP_RATIO = 0.5;            // Boss 血量低于此比例触发技能（半血狂暴）
 const ULTIMATE_PARTICLE_COUNT = 40;         // 大招释放全屏粒子数
 const BOSS_DEFEATED_PARTICLE_COUNT = 50;    // Boss 被击败时的爆破粒子数
+// Boss 技能弹幕扇形数量：useBossSkill 中 for 循环上限 + 角度计算分母共用（i < 8 + i / 8），
+// 调整扇形数量需逐处搜索避免遗漏，确保循环上限与角度分母永远一致
+const BOSS_SKILL_PROJECTILE_COUNT = 8;
 // 投射物出界判定边距：update 中 4 处边界检查共用（proj.x/y < -10 或 > bounds + 10），
 // 避免投射物刚好贴边时被误判出界；调整边距需逐处搜索避免遗漏
 const PROJECTILE_BOUNDS_MARGIN = 10;
@@ -404,8 +407,8 @@ export class BossGame {
     this.screenShake.shake('high');
 
     const bossProjTex = this.getBossProjectileTexture();
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2;
+    for (let i = 0; i < BOSS_SKILL_PROJECTILE_COUNT; i++) {
+      const angle = (i / BOSS_SKILL_PROJECTILE_COUNT) * Math.PI * 2;
       const projectile = new Projectile(
         bossProjTex,
         this.boss.x,
