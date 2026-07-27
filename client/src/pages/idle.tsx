@@ -447,13 +447,15 @@ function IdlePage({ onBack }: IdlePageProps) {
                 key={area.id}
                 onClick={() => !isLocked && handleSwitchArea(area.id)}
                 disabled={isLocked || loading}
-                className={`flex-shrink-0 px-4 py-3 rounded-lg font-mono text-sm transition-all ${
+                className={`flex-shrink-0 px-4 py-3 rounded-lg font-mono text-sm ${
                   isActive
                     ? 'bg-pink text-cream shadow-[3px_3px_0_#1a1a1a] -translate-y-[1px]'
                     : isLocked
                       // 锁定态改用 ink/10 + 虚线边框保持 Neo-brutalism 调色板一致性（原 gray-300 脱离设计系统）
                       ? 'bg-ink/5 text-ink/40 border-2 border-dashed border-ink/30 cursor-not-allowed'
-                      : 'bg-cream border-2 border-ink text-ink hover:bg-yellow hover:border-ink shadow-[3px_3px_0_#1a1a1a] hover:shadow-[1px_1px_0_#1a1a1a] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none'
+                      // 非激活可用态：btn-press-3 抽象 3px 阴影 + hover/active 按压效果
+                      // hover:bg-yellow 保留颜色变化，btn-press-3 的 transition 已包含 background-color 过渡
+                      : 'bg-cream border-2 border-ink text-ink hover:bg-yellow hover:border-ink btn-press-3'
                 }`}
                 style={{ backgroundColor: isActive ? area.bg_color : undefined }}
               >
@@ -558,14 +560,14 @@ function IdlePage({ onBack }: IdlePageProps) {
         {activeTab === 'weapons' && (
           <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">武器库</p>
-            {/* 空状态：与 shop/tasks/achievements/leaderboard 空状态模式一致
-                设计原因：原 weapons 为空时仅显示标题下方留白，玩家不知是"无数据"还是"加载中"，
-                补全空状态后明确传达"暂无武器"语义，引导玩家购买解锁 */}
+            {/* 空状态：empty-state 抽象与 shop/tasks/achievements/leaderboard 一致
+                设计原因：原内联空状态结构与 shop/leaderboard 重复但未迁移（昨天报告遗漏点）；
+                迁移到 empty-state 组件类后单点维护，emoji 主标副标语义仍由 JSX 控制 */}
             {weapons.length === 0 ? (
-              <div className="text-center py-12 animate-stagger">
-                <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">⚔️</span></p>
-                <p className="font-cn text-ink/70 text-lg">暂无武器</p>
-                <p className="font-mono text-xs text-ink/40 mt-1">通过购买解锁强力武器</p>
+              <div className="empty-state">
+                <p className="empty-state-emoji"><span aria-hidden="true">⚔️</span></p>
+                <p className="empty-state-title">暂无武器</p>
+                <p className="empty-state-desc">通过购买解锁强力武器</p>
               </div>
             ) : (
               weapons.map((weapon) => {
@@ -656,12 +658,12 @@ function IdlePage({ onBack }: IdlePageProps) {
         {activeTab === 'skills' && (
           <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">技能书</p>
-            {/* 空状态：与 weapons tab 一致，明确传达"暂无技能"语义 */}
+            {/* 空状态：empty-state 抽象（与 weapons tab 一致） */}
             {skills.length === 0 ? (
-              <div className="text-center py-12 animate-stagger">
-                <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">✨</span></p>
-                <p className="font-cn text-ink/70 text-lg">暂无技能</p>
-                <p className="font-mono text-xs text-ink/40 mt-1">达到等级后可解锁技能</p>
+              <div className="empty-state">
+                <p className="empty-state-emoji"><span aria-hidden="true">✨</span></p>
+                <p className="empty-state-title">暂无技能</p>
+                <p className="empty-state-desc">达到等级后可解锁技能</p>
               </div>
             ) : (
               skills.map((skill) => {
@@ -740,12 +742,12 @@ function IdlePage({ onBack }: IdlePageProps) {
         {activeTab === 'pets' && (
           <div className="space-y-3 animate-fadeIn">
             <p className="font-cn text-sm text-ink/70">宠物</p>
-            {/* 空状态：与 weapons/skills tab 一致，明确传达"暂无宠物"语义 */}
+            {/* 空状态：empty-state 抽象（与 weapons/skills tab 一致） */}
             {pets.length === 0 ? (
-              <div className="text-center py-12 animate-stagger">
-                <p className="text-5xl mb-4 inline-block animate-bounce-slow"><span aria-hidden="true">🐾</span></p>
-                <p className="font-cn text-ink/70 text-lg">暂无宠物</p>
-                <p className="font-mono text-xs text-ink/40 mt-1">购买宠物辅助战斗</p>
+              <div className="empty-state">
+                <p className="empty-state-emoji"><span aria-hidden="true">🐾</span></p>
+                <p className="empty-state-title">暂无宠物</p>
+                <p className="empty-state-desc">购买宠物辅助战斗</p>
               </div>
             ) : (
               pets.map((pet) => {

@@ -225,7 +225,10 @@ export default function LobbyPage({ onEnterRoom }: LobbyPageProps) {
             <button
               onClick={handleJoinRoom}
               disabled={!roomCode.trim()}
-              className="bg-ink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-pink transition-colors disabled:opacity-50"
+              /* btn-press-2 抽象 2px 阴影 + hover/active 按压效果
+                 设计原因：原加入按钮无阴影与同页"创建房间"/"快速匹配"btn-press-4 视觉权重断层，
+                 加入是输入框内的小尺寸主操作（px-4 py-2），用 btn-press-2 小按钮规格与规格体系一致 */
+              className="bg-ink text-cream px-4 py-2 font-mono text-sm font-bold hover:bg-pink btn-press-2 disabled:opacity-50"
             >
               加入
             </button>

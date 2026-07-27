@@ -193,7 +193,9 @@ export default function TasksPage({ onBack }: TasksPageProps) {
                       <button
                         onClick={() => handleClaim(task)}
                         disabled={loading}
-                        className="bg-mint text-ink px-4 py-1 font-cn font-bold shadow-[2px_2px_0_#1a1a1a] hover:bg-ink hover:text-cream transition-colors active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:active:translate-x-0 disabled:active:translate-y-0 disabled:active:shadow-[2px_2px_0_#1a1a1a] disabled:opacity-50"
+                        /* btn-press-2 抽象 shadow-[2px_2px_0_#1a1a1a] + hover/active 按压效果
+                           与 achievements.tsx 同模式领取按钮一致化（昨天报告遗漏点） */
+                        className="bg-mint text-ink px-4 py-1 font-cn font-bold hover:bg-ink hover:text-cream btn-press-2 disabled:opacity-50"
                       >
                         领取
                       </button>

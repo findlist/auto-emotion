@@ -236,7 +236,10 @@ export default function RoomPage({ onBack, onGameStart }: RoomPageProps) {
             <button
               onClick={handleSubmitStress}
               disabled={!stressInput.trim()}
-              className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink transition-colors disabled:opacity-50"
+              /* btn-press-2 抽象 2px 阴影 + hover/active 按压效果
+                 设计原因：原提交按钮无阴影与同页"离开房间"btn-press-3、"准备"btn-press-4 视觉权重断层，
+                 作为压力源输入的主操作应有小按钮规格的阴影反馈，与 idle/shop 小按钮一致 */
+              className="bg-ink text-cream px-4 py-2 font-mono text-sm hover:bg-pink btn-press-2 disabled:opacity-50"
             >
               提交
             </button>
