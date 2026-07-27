@@ -9,6 +9,11 @@ import { shuffle } from '../utils/shuffle.js';
 // 奖励发放统一封装：claimTaskReward 任务领奖累加经验金币，与 idle-engine/idle-service 同源对称
 import { addExperienceAndGold } from '../utils/gold.js';
 
+// 任务奖励重复领取错误文案：事务外 fast-fail 预检查 + 事务内 advisory lock 后权威检查共 2 处共用
+// 设计原因：两个检查点拦截同一业务语义（任务奖励已领取），用户无论从哪个分支被拦截看到的提示必须一致；
+// 延续 user-service 错误文案常量抽取模式（INVALID_REFRESH_TOKEN_MSG 同模式：fast-fail + 事务内双检查）
+const TASK_REWARD_ALREADY_CLAIMED_MSG = '已领取奖励';
+
 interface DailyTask {
   id: number;
   code: string;
@@ -182,7 +187,7 @@ export async function claimTaskReward(userId: string, taskId: number): Promise<{
   const task = taskResult.rows[0];
 
   if (task.claimed) {
-    throw new AppError(ErrorCode.CONFLICT, '已领取奖励');
+    throw new AppError(ErrorCode.CONFLICT, TASK_REWARD_ALREADY_CLAIMED_MSG);
   }
 
   if (task.progress < task.target) {
@@ -205,7 +210,7 @@ export async function claimTaskReward(userId: string, taskId: number): Promise<{
 
     // 用户已有记录时检查 claimed，无记录时（首次领取）跳过此检查走 INSERT 分支
     if (recheck.rows.length > 0 && recheck.rows[0].claimed) {
-      throw new AppError(ErrorCode.CONFLICT, '已领取奖励');
+      throw new AppError(ErrorCode.CONFLICT, TASK_REWARD_ALREADY_CLAIMED_MSG);
     }
 
     // 更新领取状态

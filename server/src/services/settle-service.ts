@@ -6,6 +6,11 @@ import { AppError, ErrorCode } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 import type { GameMode } from '../types/game.js';
 
+// 房间重复结算错误文案：事务外 fast-fail 预检查 + 事务内 advisory lock 后权威检查共 2 处共用
+// 设计原因：两个检查点拦截同一业务语义（房间已结算），用户无论从哪个分支被拦截看到的提示必须一致；
+// 延续 user-service 错误文案常量抽取模式（INVALID_REFRESH_TOKEN_MSG 同模式：fast-fail + 事务内双检查）
+const ROOM_ALREADY_SETTLED_MSG = '该房间已结算';
+
 interface SettleInput {
   roomId: string;
   mode: GameMode;
@@ -47,7 +52,7 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
     [roomId]
   );
   if (existing.rows.length > 0) {
-    throw new AppError(ErrorCode.CONFLICT, '该房间已结算');
+    throw new AppError(ErrorCode.CONFLICT, ROOM_ALREADY_SETTLED_MSG);
   }
 
   return withTransaction(async (tx) => {
@@ -62,7 +67,7 @@ export async function settleGame(input: SettleInput): Promise<SettleResult> {
       [roomId]
     );
     if (recheck.rows.length > 0) {
-      throw new AppError(ErrorCode.CONFLICT, '该房间已结算');
+      throw new AppError(ErrorCode.CONFLICT, ROOM_ALREADY_SETTLED_MSG);
     }
 
     // 找出 MVP（分数最高，Boss 模式还要考虑伤害）

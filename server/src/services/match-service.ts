@@ -9,6 +9,10 @@ const MATCH_QUEUE_KEY = 'match:queue';
 const MATCH_STATUS_KEY_PREFIX = 'match:status:'; // match:status:{userId}
 const MATCH_TIMEOUT_MS = 30_000; // 30秒超时
 const MATCH_PLAYER_COUNT = 4; // 4人匹配
+// 匹配队列状态错误文案：joinQuickMatch 中 some 检查 + SET NX EX 失败检查共 2 处共用
+// 设计原因：两个检查点分别处理"队列残留但状态过期"与"已占位"两种竞态场景，对用户而言都属"已在队列中"，
+// 文案必须一致避免用户困惑；延续 user-service 错误文案常量抽取模式（PHONE_ALREADY_REGISTERED_MSG 同模式）
+const ALREADY_IN_QUEUE_MSG = '已在匹配队列中';
 
 // 模块级 timer 管理：userId -> setTimeout 句柄
 // 设计原因：原 setTimeout 未保存返回值，leaveQuickMatch 无法取消，玩家离开后 30 秒仍执行无意义 redis 查询；
@@ -161,7 +165,7 @@ export async function joinQuickMatch(
   
   // 检查是否已在队列中（处理状态过期但队列残留的边缘场景）
   if (players.some(p => p.userId === userId)) {
-    throw new AppError(ErrorCode.BAD_REQUEST, '已在匹配队列中');
+    throw new AppError(ErrorCode.BAD_REQUEST, ALREADY_IN_QUEUE_MSG);
   }
 
   // 原子占位：SET NX EX 保证同一用户并发请求仅一个能继续，消除上方 some 检查与 rpush 之间的竞态窗口
@@ -174,7 +178,7 @@ export async function joinQuickMatch(
     'NX'
   );
   if (!acquired) {
-    throw new AppError(ErrorCode.BAD_REQUEST, '已在匹配队列中');
+    throw new AppError(ErrorCode.BAD_REQUEST, ALREADY_IN_QUEUE_MSG);
   }
 
   // 单条 JSON 字符串入队，确保 lrem 可按完整对象原子删除
