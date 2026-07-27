@@ -6,7 +6,15 @@ import redis from '../config/redis.js';
 import { ErrorCode, AppError } from './error.js';
 import { fail } from './response.js';
 
-export async function checkIdempotency(key: string, ttlSeconds = 5): Promise<boolean> {
+/**
+ * 幂等窗口 TTL 默认值（秒）——checkIdempotency 与 withIdempotency 两个函数签名的默认值共用。
+ * 设计原因：withIdempotency 内部透传 ttlSeconds 给 checkIdempotency，两个默认值必须语义同步，
+ * 散落维护存在"调整一处忘改另一处"的漂移风险；常量化后单点修改，延续 room-manager
+ * ROOM_LOCK_TTL_SECONDS 同模式（Redis SET EX TTL 默认值集中维护）。
+ */
+const DEFAULT_IDEMPOTENCY_TTL_SECONDS = 5;
+
+export async function checkIdempotency(key: string, ttlSeconds = DEFAULT_IDEMPOTENCY_TTL_SECONDS): Promise<boolean> {
   // 使用 SET NX EX 原子操作：key 不存在时才设置并返回 'OK'，已存在返回 null
   // 设计原因：原 exists + setex 两步非原子，并发请求都查到 exists=0 后各自 setex，
   // 幂等失效导致重复发奖/重复扣款。SET NX EX 是 Redis 单命令原子操作，彻底消除竞态
@@ -25,7 +33,7 @@ export async function checkIdempotency(key: string, ttlSeconds = 5): Promise<boo
 export async function withIdempotency(
   res: Response,
   key: string,
-  ttlSeconds = 5
+  ttlSeconds = DEFAULT_IDEMPOTENCY_TTL_SECONDS
 ): Promise<boolean> {
   try {
     await checkIdempotency(key, ttlSeconds);

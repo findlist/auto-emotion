@@ -2,6 +2,17 @@ import axios, { AxiosError, type AxiosInstance, type AxiosResponse, type Interna
 import type { ApiResponse, ErrorResponse } from '@/types/api';
 
 /**
+ * localStorage key 与 Authorization Header 名常量——http.ts 内多处读写 token/refreshToken
+ * 与设置 Authorization Header 共用。设计原因：key/Header 名拼写错误会导致静默鉴权失效
+ * （token 写入但读取不到）或后端鉴权失败（401 循环），常量化让 TS 检查覆盖拼写。
+ * 注意：user-store.ts 也有同源 'token'/'refreshToken' key（跨文件共享需新建共享文件，
+ * 按规范不擅自推进，留待用户决策）。
+ */
+const TOKEN_KEY = 'token';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+const AUTH_HEADER = 'Authorization';
+
+/**
  * 全局 axios 实例
  * - 请求拦截：自动注入 JWT token
  * - 响应拦截：统一解包 ApiResponse，错误时抛出业务错误
@@ -14,9 +25,9 @@ const http: AxiosInstance = axios.create({
 
 // 请求拦截：注入 token
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
-    config.headers.set('Authorization', `Bearer ${token}`);
+    config.headers.set(AUTH_HEADER, `Bearer ${token}`);
   }
   return config;
 });
@@ -38,7 +49,7 @@ function rejectPendingRequests(err: unknown): void {
 
 /** 用 refreshToken 调 /api/auth/refresh 换取新 access token，绕过 http 实例避免拦截器递归 */
 async function refreshAccessToken(): Promise<string> {
-  const refreshToken = localStorage.getItem('refreshToken');
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
   if (!refreshToken) throw new Error('无 refreshToken');
 
   // 设置 10 秒超时，避免 refresh 接口 hang 住时所有 401 请求永久挂起
@@ -72,8 +83,8 @@ async function refreshAccessToken(): Promise<string> {
 
 /** 清登录态并跳首页（refresh 不可恢复时调用，刷新后自动游客重新登录） */
 function clearAuthAndRedirectLogin(): void {
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
   if (window.location.pathname !== '/') {
     window.location.href = '/';
   }
@@ -111,14 +122,14 @@ http.interceptors.response.use(
       !originalRequest._retry &&
       !originalRequest.url?.includes('/auth/refresh') &&
       !originalRequest.url?.includes('/auth/login') &&
-      localStorage.getItem('refreshToken')
+      localStorage.getItem(REFRESH_TOKEN_KEY)
     ) {
       // 并发 401 合并：首个请求触发 refresh，其余请求挂起等待
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           pendingRequests.push({
             resolve: (token: string) => {
-              originalRequest.headers.set('Authorization', `Bearer ${token}`);
+              originalRequest.headers.set(AUTH_HEADER, `Bearer ${token}`);
               // 标记 _retry 防止重发后再次 401 时无限递归刷新
               // 设计原因：队列请求用新 token 重发，若新 token 也无效（极少见），应走普通 401 路径清登录态而非再次触发刷新
               originalRequest._retry = true;
@@ -133,7 +144,7 @@ http.interceptors.response.use(
       isRefreshing = true;
       try {
         const newToken = await refreshAccessToken();
-        localStorage.setItem('token', newToken);
+        localStorage.setItem(TOKEN_KEY, newToken);
 
         // 重发挂起队列
         pendingRequests.forEach(({ resolve }) => resolve(newToken));
@@ -143,7 +154,7 @@ http.interceptors.response.use(
         // 重发当前请求
         // 设计原因：用 http.request 而非 http(config) 调用形式，避免依赖 axios 实例可调用性
         // （axios.create 返回的实例本身是函数，但测试 mock 中 fakeHttp 是普通对象）
-        originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
+        originalRequest.headers.set(AUTH_HEADER, `Bearer ${newToken}`);
         return http.request(originalRequest);
       } catch (refreshError) {
         // refresh 失败：清挂起队列 + 清登录态 + 跳登录

@@ -2,6 +2,16 @@ import { showToast } from '@/utils/toast';
 import type { ErrorResponse } from '@/types/api';
 import type { ToastType } from '@/components/Toast';
 
+/**
+ * 默认 Toast 类型与兜底文案——showApiError 多分支兜底共用。
+ * 设计原因：非 ErrorResponse 兜底（L57）与 4xx 未映射状态码兜底（L74）均用 'error' 类型
+ * + '操作失败' 文案，散落维护存在"调整一处忘改另一处"的漂移风险；常量化后单点修改，
+ * 且让"未映射状态码默认走 error"这一设计意图在常量名上自解释。
+ * 注意：L67 的 '网络异常，请检查连接' 是 5xx 专用兜底，语义不同不合并。
+ */
+const DEFAULT_TOAST_TYPE: ToastType = 'error';
+const DEFAULT_ERROR_MSG = '操作失败';
+
 interface ApiErrorToastConfig {
   type: ToastType;
   fallback: string;
@@ -45,7 +55,7 @@ export function isErrorResponse(err: unknown): err is ErrorResponse {
 export function showApiError(err: unknown, fallbackMessage?: string): void {
   // 非 ErrorResponse（如代码 bug 抛 Error）兜底用 error 类型
   if (!isErrorResponse(err)) {
-    showToast('error', fallbackMessage || '操作失败');
+    showToast(DEFAULT_TOAST_TYPE, fallbackMessage || DEFAULT_ERROR_MSG);
     return;
   }
 
@@ -56,12 +66,12 @@ export function showApiError(err: unknown, fallbackMessage?: string): void {
 
   // 5xx 服务器错误或网络错误（httpStatus undefined 表示无 response，如断网/超时）
   if (httpStatus === undefined || httpStatus >= 500) {
-    showToast('error', err.message || fallbackMessage || '网络异常，请检查连接');
+    showToast(DEFAULT_TOAST_TYPE, err.message || fallbackMessage || '网络异常，请检查连接');
     return;
   }
 
   // 4xx 客户端错误：按映射表选类型，未映射的状态码兜底 error
   const config = HTTP_STATUS_TOAST_MAP[httpStatus];
-  const message = err.message || fallbackMessage || config?.fallback || '操作失败';
-  showToast(config?.type ?? 'error', message);
+  const message = err.message || fallbackMessage || config?.fallback || DEFAULT_ERROR_MSG;
+  showToast(config?.type ?? DEFAULT_TOAST_TYPE, message);
 }
