@@ -8,6 +8,7 @@ import { TIER_LABEL, type EffectTier } from '@/game/effects/particle';
 import type { GameMode } from '@/types/game';
 import Loading from '@/components/Loading';
 import { getSocket, roomActions } from '@/websocket';
+import { RoomEvents, GameEvents } from '@/websocket/events';
 import { useUserStore } from '@/stores/user-store';
 import { logger } from '@/utils/logger';
 import { showConfirm } from '@/utils/confirm';
@@ -131,7 +132,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
 
     // 大厅 socket 可能在进入对战页前已连接，此时主动 emit room:join 加入房间
     if (socket.connected) {
-      socket.emit('room:join', { roomId, nickname: nicknameRef.current });
+      socket.emit(RoomEvents.JOIN, { roomId, nickname: nicknameRef.current });
       hasJoined = true;
     }
     // 监听大厅 socket 的连接状态变化，同步本地 UI
@@ -140,7 +141,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       setConnected(true);
       // 仅首次连接时 emit room:join；重连由 websocket/index.ts 的 reconnect 事件统一处理
       if (!hasJoined) {
-        socket.emit('room:join', { roomId, nickname: nicknameRef.current });
+        socket.emit(RoomEvents.JOIN, { roomId, nickname: nicknameRef.current });
         hasJoined = true;
       }
     };
@@ -175,7 +176,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
         data.room.players.map((p) => ({ userId: p.userId, nickname: p.nickname })),
       );
     };
-    socket.on('room:state', onRoomState);
+    socket.on(RoomEvents.STATE, onRoomState);
 
     // 房间错误：后端在 join/leave/start 等失败时回送 room:error
     const onRoomError = (data: { message: string }) => {
@@ -185,7 +186,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       if (settlementRef.current.show) return;
       setError(data.message);
     };
-    socket.on('room:error', onRoomError);
+    socket.on(RoomEvents.ERROR, onRoomError);
 
     // 分数同步：后端字段为 userId（与 room.players 一致），原前端误用 playerId 导致匹配失败
     const onScoreUpdate = (data: { userId: string; score: number }) => {
@@ -194,7 +195,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
         prev.map((p) => (p.userId === data.userId ? { ...p, score: data.score } : p))
       );
     };
-    socket.on('game:score-update', onScoreUpdate);
+    socket.on(GameEvents.SCORE_UPDATE, onScoreUpdate);
 
     // 游戏开始：后端仅广播 { roomId }，不携带 levelData（levelData 由 game:level-ready 单独下发）
     // 因此此处只切换 gameStarted 状态，画面初始化由 game:level-ready 触发
@@ -202,7 +203,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       if (cancelled) return;
       setGameStarted(true);
     };
-    socket.on('game:start', onGameStart);
+    socket.on(GameEvents.START, onGameStart);
 
     // 游戏结算：后端按玩家逐个广播 { userId, finalScore, result }，前端累加到 finalScores
     // MVP 由 finalScores 按分数降序后取首名，不再依赖单独的 mvpPlayerId 字段
@@ -225,7 +226,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
         return { show: true, finalScores: newFinalScores };
       });
     };
-    socket.on('game:finish', onGameFinish);
+    socket.on(GameEvents.FINISH, onGameFinish);
 
     // 关卡生成超时兜底：AI 生成卡死或事件丢失时，30 秒后提示错误，避免用户永久卡 loading
     // 设计原因：isLoading 仅由 game:level-ready 事件置 false，若后端 AI 生成失败、事件丢失或网络异常，
@@ -253,7 +254,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
         if (!cancelled) initGame(data);
       });
     };
-    socket.on('game:level-ready', onLevelReady);
+    socket.on(GameEvents.LEVEL_READY, onLevelReady);
 
     function initGame(levelDataParam: unknown) {
       if (!containerRef.current) return;
@@ -306,7 +307,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
             onScoreChange: (score) => {
               setLocalScore(score);
               // 分数上报事件名与后端 GameEvents.SCORE_UPDATE 对齐
-              socket.emit('game:score-update', { roomId, score });
+              socket.emit(GameEvents.SCORE_UPDATE, { roomId, score });
             },
             onTierChange: (t) => setTier(t),
             onCooldownChange: (ms) => setCooldown(ms),
@@ -342,12 +343,12 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
       // 不调用 socket.disconnect()，保护全局大厅 socket 供其他页面继续使用
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
-      socket.off('room:state', onRoomState);
-      socket.off('room:error', onRoomError);
-      socket.off('game:score-update', onScoreUpdate);
-      socket.off('game:start', onGameStart);
-      socket.off('game:finish', onGameFinish);
-      socket.off('game:level-ready', onLevelReady);
+      socket.off(RoomEvents.STATE, onRoomState);
+      socket.off(RoomEvents.ERROR, onRoomError);
+      socket.off(GameEvents.SCORE_UPDATE, onScoreUpdate);
+      socket.off(GameEvents.START, onGameStart);
+      socket.off(GameEvents.FINISH, onGameFinish);
+      socket.off(GameEvents.LEVEL_READY, onLevelReady);
       // 主动离开房间，触发后端清理房间数据（而非依赖 5 分钟 TTL）
       // 走 roomActions.leaveRoom 而非直接 emit，确保 lastRoomId/lastNickname 同步清除，
       // 避免用户退出对战后在大厅断线重连时被误 rejoin 回已退出的房间
@@ -405,7 +406,7 @@ function BattlePage({ roomId, nickname, mode, onBack }: BattlePageProps) {
     });
     if (ok) {
       // 开始游戏事件名与后端 RoomEvents.START 对齐
-      getSocket().emit('room:start', { roomId });
+      getSocket().emit(RoomEvents.START, { roomId });
     }
   }, [roomId, connected, mode]);
 
