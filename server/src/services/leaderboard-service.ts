@@ -7,6 +7,10 @@ import { parseCount } from '../utils/param.js';
 
 const LEADERBOARD_KEY_PREFIX = 'leaderboard:';
 
+// 排行榜默认分页大小：getLeaderboard + 4 个对外 wrapper 共 5 处默认参数共用同一值。
+// 抽取为常量避免新增 wrapper 时漏改默认值导致各入口分页大小不一致。
+const DEFAULT_LEADERBOARD_PAGE_SIZE = 20;
+
 export type LeaderboardType = 'power' | 'battle' | 'speed';
 
 // 排行榜查询返回行结构：所有 SELECT 均通过 AS 别名统一为 user_id/nickname/score
@@ -109,7 +113,7 @@ interface LeaderboardEntry {
 export async function getLeaderboard(
   type: LeaderboardType,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = DEFAULT_LEADERBOARD_PAGE_SIZE
 ): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   const offset = (page - 1) * pageSize;
   const scoreField = getScoreField(type);
@@ -163,7 +167,7 @@ export async function getUserRank(userId: string, type: LeaderboardType): Promis
  */
 export async function getPowerLeaderboard(
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = DEFAULT_LEADERBOARD_PAGE_SIZE
 ): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   return getLeaderboard('power', page, pageSize);
 }
@@ -173,7 +177,7 @@ export async function getPowerLeaderboard(
  */
 export async function getBattleLeaderboard(
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = DEFAULT_LEADERBOARD_PAGE_SIZE
 ): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   return getLeaderboard('battle', page, pageSize);
 }
@@ -183,7 +187,7 @@ export async function getBattleLeaderboard(
  */
 export async function getSpeedLeaderboard(
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = DEFAULT_LEADERBOARD_PAGE_SIZE
 ): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   return getLeaderboard('speed', page, pageSize);
 }
@@ -244,7 +248,7 @@ export async function getFriendsUserRank(userId: string): Promise<{ rank: number
 export async function getFriendsLeaderboard(
   userId: string,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = DEFAULT_LEADERBOARD_PAGE_SIZE
 ): Promise<{ ranking: LeaderboardEntry[]; total: number }> {
   const offset = (page - 1) * pageSize;
 
