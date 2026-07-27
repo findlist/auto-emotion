@@ -3,7 +3,7 @@
 
 import type { QueryResultRow } from 'pg';
 import pool from '../config/database.js';
-import { ensureFound } from '../utils/error.js';
+import { ensureFound, CHARACTER_NOT_FOUND_MSG } from '../utils/error.js';
 
 // 离线结果接口
 export interface OfflineResult {
@@ -56,7 +56,7 @@ export async function calculateOffline(
     [userId]
   );
 
-  ensureFound(charResult.rows, '角色不存在');
+  ensureFound(charResult.rows, CHARACTER_NOT_FOUND_MSG);
 
   const char = charResult.rows[0];
   const idleSince = new Date(char.idle_since);

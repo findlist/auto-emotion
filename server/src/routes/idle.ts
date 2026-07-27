@@ -11,6 +11,7 @@ import { routeError } from '../utils/route-error.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { withIdempotency } from '../utils/idempotency.js';
 import { parseBody } from '../utils/param.js';
+import { CHARACTER_NOT_FOUND_MSG } from '../utils/error.js';
 // requireUser 与其他 12 个 routes 文件保持同一鉴权兜底范式，消除 req.user! 非空断言
 import { requireUser } from '../utils/auth-guard.js';
 
@@ -24,7 +25,7 @@ router.get('/status', authMiddleware, async (req, res) => {
     if (!requireUser(res, user)) return;
     const data = await idleService.getStatus(user.userId);
     if (!data) {
-      fail(res, 404, '角色不存在');
+      fail(res, 404, CHARACTER_NOT_FOUND_MSG);
       return;
     }
     success(res, data);

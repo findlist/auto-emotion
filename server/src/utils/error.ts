@@ -80,6 +80,17 @@ export const VALIDATION_ERROR_MSG = '参数校验失败';
 export const USER_NOT_FOUND_MSG = '用户不存在';
 
 /**
+ * 角色不存在时的统一文案。
+ *
+ * 设计原因：idle-engine（settle + switchArea + upgradeCharacter 共 3 处）、
+ * idle-service（getStatus）、skill-service（upgradeSkill）、offline-calculator（calculateOffline）、
+ * routes/idle（GET /status 兜底）共 7 处业务代码使用同一文案，原本散落 7 处字面量，
+ * 未来调整文案需逐处搜索且易遗漏导致同类错误提示不一致。
+ * 与 ErrorCode.NOT_FOUND / USER_NOT_FOUND_MSG 同区域定义，确保错误码与文案单点维护。
+ */
+export const CHARACTER_NOT_FOUND_MSG = '角色不存在';
+
+/**
  * 行存在性守卫：查询结果集为空时抛 NOT_FOUND。
  *
  * 设计原因：22 处 service 守卫重复以下三行模板：

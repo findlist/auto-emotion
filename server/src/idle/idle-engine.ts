@@ -4,7 +4,7 @@
 
 import pool from '../config/database.js';
 import { expForLevel } from './growth-curve.js';
-import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound, CHARACTER_NOT_FOUND_MSG } from '../utils/error.js';
 // 设计原因：三处事务样板（settle/switchArea/upgradeCharacter）与全项目 19 处 withTransaction 调用范式对齐，
 // 统一由工具函数管理 BEGIN/COMMIT/ROLLBACK/release 与 ROLLBACK 失败日志，业务侧仅关心 work 回调内的 SQL
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
@@ -97,7 +97,7 @@ export async function settle(userId: string, durationSeconds: number): Promise<S
       [userId]
     );
 
-    ensureFound(charResult.rows, '角色不存在');
+    ensureFound(charResult.rows, CHARACTER_NOT_FOUND_MSG);
 
     const char = charResult.rows[0];
     const expRate = parseFloat(char.exp_rate) || 1.0;
@@ -179,7 +179,7 @@ export async function switchArea(userId: string, areaId: number): Promise<void> 
       [userId]
     );
 
-    ensureFound(charResult.rows, '角色不存在');
+    ensureFound(charResult.rows, CHARACTER_NOT_FOUND_MSG);
 
     const requiredLevel = areaResult.rows[0].required_level;
     const currentLevel = charResult.rows[0].level;
@@ -217,7 +217,7 @@ export async function upgradeCharacter(
       [userId]
     );
 
-    ensureFound(charResult.rows, '角色不存在');
+    ensureFound(charResult.rows, CHARACTER_NOT_FOUND_MSG);
 
     const char = charResult.rows[0];
     const level = char.level;

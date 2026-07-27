@@ -3,7 +3,7 @@
 
 import pool from '../config/database.js';
 import { skillUnlockLevel } from '../idle/growth-curve.js';
-import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound, CHARACTER_NOT_FOUND_MSG } from '../utils/error.js';
 import { withTransaction } from '../utils/transaction.js';
 import type { Tx } from '../utils/transaction.js';
 import { deductGold, ensureGold } from '../utils/gold.js';
@@ -113,7 +113,7 @@ export async function unlockSkill(
       [userId]
     );
 
-    ensureFound(charResult.rows, '角色不存在');
+    ensureFound(charResult.rows, CHARACTER_NOT_FOUND_MSG);
 
     const requiredLevel = skillUnlockLevel(skillId);
     if (charResult.rows[0].level < requiredLevel) {

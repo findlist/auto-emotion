@@ -7,7 +7,7 @@ import * as offlineCalculator from '../idle/offline-calculator.js';
 import type { CharacterStatus, SettleResult } from '../idle/idle-engine.js';
 import type { OfflineResult } from '../idle/offline-calculator.js';
 import pool from '../config/database.js';
-import { AppError, ErrorCode, ensureFound } from '../utils/error.js';
+import { AppError, ErrorCode, ensureFound, CHARACTER_NOT_FOUND_MSG } from '../utils/error.js';
 import { withTransaction, advisoryXactLock } from '../utils/transaction.js';
 // 奖励发放统一封装：claimOffline 离线收益累加经验金币，与 idle-engine/task-service 同源对称
 import { addExperienceAndGold } from '../utils/gold.js';
@@ -73,7 +73,7 @@ export async function switchArea(userId: string, areaId: number): Promise<{ succ
 
   // 检查角色等级
   const char = await pool.query('SELECT level FROM characters WHERE user_id = $1', [userId]);
-  ensureFound(char.rows, '角色不存在');
+  ensureFound(char.rows, CHARACTER_NOT_FOUND_MSG);
   if (char.rows[0].level < area.rows[0].required_level) {
     throw new AppError(ErrorCode.FORBIDDEN, `需要等级 ${area.rows[0].required_level} 才能进入此区域`);
   }
