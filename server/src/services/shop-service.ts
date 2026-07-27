@@ -7,6 +7,12 @@ import { withTransaction } from '../utils/transaction.js';
 import type { Tx } from '../utils/transaction.js';
 import { parseCount } from '../utils/param.js';
 
+// shop_items 表无 emoji 列，SELECT 输出统一占位 emoji
+// 设计原因：getShopItems / buyItem / getUserInventory 3 处 SQL 均通过 AS 别名构造 emoji 字段
+// 以保持 ShopItem / InventoryItem 接口与前端 shop.tsx 第 261 行契约兼容；
+// 占位符字面量散落于 3 处 SQL 拼接，调整默认 emoji 需逐处搜索避免遗漏，抽取为常量集中维护
+const DEFAULT_SHOP_EMOJI = '🛒';
+
 interface ShopItem {
   id: number;
   name: string;
@@ -115,7 +121,7 @@ export async function getShopItems(type?: string): Promise<ShopItem[]> {
   // shop_items 表无 price/price_type/emoji 列：实际为 price_gold/price_real/effect_type/effect_value
   // 通过 AS 别名暴露 price/price_type/emoji 字段以保持 ShopItem 接口与前端兼容
   // price_real=0 表示金币商品（预填数据全部如此），故 price_type 固定 'gold'；emoji 用占位符
-  let query = `SELECT id, name, description, type, price_gold AS price, 'gold' AS price_type, '🛒' AS emoji FROM shop_items WHERE 1=1`;
+  let query = `SELECT id, name, description, type, price_gold AS price, 'gold' AS price_type, '${DEFAULT_SHOP_EMOJI}' AS emoji FROM shop_items WHERE 1=1`;
   const params: unknown[] = [];
 
   if (type) {
@@ -137,7 +143,7 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
   // 获取商品信息：SELECT * 会返回 schema 真实列(price_gold/effect_type 等)但无 price/price_type/emoji
   // 后续依赖 item.price 和 item.price_type 判断货币类型，缺失会导致都走 else 钻石分支（P0 修复）
   const itemResult = await pool.query(
-    `SELECT id, name, description, type, price_gold AS price, 'gold' AS price_type, '🛒' AS emoji
+    `SELECT id, name, description, type, price_gold AS price, 'gold' AS price_type, '${DEFAULT_SHOP_EMOJI}' AS emoji
      FROM shop_items WHERE id = $1`,
     [itemId]
   );
@@ -194,7 +200,7 @@ export async function getUserInventory(userId: string): Promise<InventoryItem[]>
   const result = await pool.query(
     `SELECT ui.id, ui.item_type, ui.item_id, ui.quantity,
             COALESCE(si.name, ai.name, pi.name, wi.name) as name,
-            '🛒' as emoji
+            '${DEFAULT_SHOP_EMOJI}' as emoji
      FROM user_inventory ui
      LEFT JOIN shop_items si ON si.type = ui.item_type AND si.id = ui.item_id
      LEFT JOIN achievements ai ON ai.type = ui.item_type AND ai.id = ui.item_id
