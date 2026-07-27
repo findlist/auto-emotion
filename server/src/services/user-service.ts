@@ -21,6 +21,9 @@ const PHONE_ALREADY_REGISTERED_MSG = '手机号已注册'; // register 前置检
 const INVALID_CREDENTIALS_MSG = '手机号或密码错误'; // login 用户不存在 + 密码错误共 2 处，统一为模糊文案防止账号枚举
 const USER_NOT_FOUND_MSG = '用户不存在'; // getProfile + refreshToken 共 2 处
 const INVALID_REFRESH_TOKEN_MSG = '无效的刷新令牌'; // refreshToken verify 失败 + type 不匹配共 2 处
+// refresh token 类型标识：signTokenPair 签发写入 + refreshToken 校验读取共 2 处，
+// 抽取为常量确保签发与校验单点同步，拼写错误会导致 refresh token 永远校验失败
+const REFRESH_TOKEN_TYPE = 'refresh';
 
 /**
  * 统一签发 access + refresh token 对。
@@ -222,7 +225,7 @@ export async function refreshToken(token: string): Promise<{ token: string }> {
   } catch {
     throw new AppError(ErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MSG);
   }
-  if (payload.type !== 'refresh') {
+  if (payload.type !== REFRESH_TOKEN_TYPE) {
     throw new AppError(ErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MSG);
   }
 
