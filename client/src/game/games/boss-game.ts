@@ -94,6 +94,9 @@ const BOSS_HIT_DAMAGE = 10;                 // 玩家投射物命中 Boss 的单
 const BOSS_SKILL_HP_RATIO = 0.5;            // Boss 血量低于此比例触发技能（半血狂暴）
 const ULTIMATE_PARTICLE_COUNT = 40;         // 大招释放全屏粒子数
 const BOSS_DEFEATED_PARTICLE_COUNT = 50;    // Boss 被击败时的爆破粒子数
+// 投射物出界判定边距：update 中 4 处边界检查共用（proj.x/y < -10 或 > bounds + 10），
+// 避免投射物刚好贴边时被误判出界；调整边距需逐处搜索避免遗漏
+const PROJECTILE_BOUNDS_MARGIN = 10;
 
 /**
  * Boss 组队战模式
@@ -498,7 +501,7 @@ export class BossGame {
       if (hitDestructible) continue;
 
       // 投射物出界（proj.isAlive 为 false 表示 update 内已标记越界，需 destroy 释放 sprite）
-      if (!proj.isAlive || proj.x < -10 || proj.x > this.bounds.width + 10 || proj.y < -10 || proj.y > this.bounds.height + 10) {
+      if (!proj.isAlive || proj.x < -PROJECTILE_BOUNDS_MARGIN || proj.x > this.bounds.width + PROJECTILE_BOUNDS_MARGIN || proj.y < -PROJECTILE_BOUNDS_MARGIN || proj.y > this.bounds.height + PROJECTILE_BOUNDS_MARGIN) {
         proj.destroy();
         continue;
       }
