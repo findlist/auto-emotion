@@ -6,6 +6,14 @@ import { requireUser } from '../utils/auth-guard.js';
 
 const router = Router();
 
+/**
+ * skillId 缺失校验文案——registerSkillPostRoute helper 内（unlock/upgrade）+ activate
+ * 路由独立分支共 2 处共用。helper 抽取了 unlock/upgrade 但 activate 因 active 可选参数
+ * 未纳入 helper，导致校验文案被复制；抽取为常量确保两处永远同步，延续 user-service
+ * 错误文案常量抽取模式（USER_NOT_FOUND_MSG 同模式）。
+ */
+const MISSING_SKILL_ID_MSG = '缺少 skillId';
+
 router.get('/list', async (req: Request, res: Response) => {
   const user = req.user;
   if (!requireUser(res, user)) return;
@@ -34,7 +42,7 @@ function registerSkillPostRoute(
 
     const { skillId } = req.body as { skillId?: number };
     if (!skillId) {
-      fail(res, 400, '缺少 skillId');
+      fail(res, 400, MISSING_SKILL_ID_MSG);
       return;
     }
 
@@ -59,7 +67,7 @@ router.post('/activate', async (req: Request, res: Response) => {
 
   const { skillId, active } = req.body as { skillId?: number; active?: boolean };
   if (!skillId) {
-    fail(res, 400, '缺少 skillId');
+    fail(res, 400, MISSING_SKILL_ID_MSG);
     return;
   }
 
