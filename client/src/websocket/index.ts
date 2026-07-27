@@ -10,6 +10,7 @@ import type { Player, RoomStatus } from '../stores/room-store';
 import type { GameMode } from '../types/game';
 import { logger } from '../utils/logger';
 import { showToast } from '../utils/toast';
+import { RoomEvents, GameEvents } from './events';
 
 /** 房间数据结构（与 server/src/websocket/room-manager.ts 保持一致） */
 // 设计原因:mode 收敛为 GameMode,与 room-store/GameMode 类型链路统一,
@@ -75,7 +76,7 @@ export function connect(): Socket {
     showToast('success', '已重新连接');
     // 若断线前在房间内，主动 rejoin 触发后端刷新 socketId 并下发最新房间状态
     if (lastRoomId && lastNickname) {
-      socket?.emit('room:join', { roomId: lastRoomId, nickname: lastNickname });
+      socket?.emit(RoomEvents.JOIN, { roomId: lastRoomId, nickname: lastNickname });
     }
   });
 
@@ -90,7 +91,7 @@ export function connect(): Socket {
   });
 
   // 房间状态同步
-  socket.on('room:state', (data: { room: Room }) => {
+  socket.on(RoomEvents.STATE, (data: { room: Room }) => {
     try {
       const roomStore = useRoomStore.getState();
       const { room } = data;
@@ -109,7 +110,7 @@ export function connect(): Socket {
   });
 
   // 房间错误：code 可选，与后端 ErrorPayload 对齐，前端可基于 code 做差异化提示
-  socket.on('room:error', (data: { code?: number; message: string }) => {
+  socket.on(RoomEvents.ERROR, (data: { code?: number; message: string }) => {
     try {
       const roomStore = useRoomStore.getState();
       roomStore.setError(data.message);
@@ -119,7 +120,7 @@ export function connect(): Socket {
   });
 
   // 玩家异常断线提示：其他玩家收到，提示等待重连（断线玩家自身由 disconnect 事件单独提示）
-  socket.on('room:player-offline', (data: { userId: string }) => {
+  socket.on(RoomEvents.PLAYER_OFFLINE, (data: { userId: string }) => {
     try {
       const roomStore = useRoomStore.getState();
       const player = roomStore.players.find((p) => p.userId === data.userId);
@@ -131,7 +132,7 @@ export function connect(): Socket {
   });
 
   // 游戏开始
-  socket.on('game:start', () => {
+  socket.on(GameEvents.START, () => {
     try {
       const roomStore = useRoomStore.getState();
       const { roomId, hostId, mode, players, stressSources } = roomStore;
@@ -216,7 +217,7 @@ export const roomActions = {
     // 记录房间信息，用于断线重连后自动恢复
     lastRoomId = roomId;
     lastNickname = nickname;
-    getSocket().emit('room:join', { roomId, nickname });
+    getSocket().emit(RoomEvents.JOIN, { roomId, nickname });
   },
 
   /** 离开房间 */
@@ -224,31 +225,31 @@ export const roomActions = {
     // 主动离开时清除重连记录，避免重连后误回房间
     lastRoomId = null;
     lastNickname = null;
-    getSocket().emit('room:leave', { roomId });
+    getSocket().emit(RoomEvents.LEAVE, { roomId });
   },
 
   /** 准备 */
   ready(roomId: string): void {
-    getSocket().emit('room:ready', { roomId });
+    getSocket().emit(RoomEvents.READY, { roomId });
   },
 
   /** 取消准备 */
   unready(roomId: string): void {
-    getSocket().emit('room:unready', { roomId });
+    getSocket().emit(RoomEvents.UNREADY, { roomId });
   },
 
   /** 设置模式 */
   setMode(roomId: string, mode: GameMode): void {
-    getSocket().emit('room:set-mode', { roomId, mode });
+    getSocket().emit(RoomEvents.SET_MODE, { roomId, mode });
   },
 
   /** 提交压力源 */
   submitStress(roomId: string, stressSource: string): void {
-    getSocket().emit('room:submit-stress', { roomId, stressSource });
+    getSocket().emit(RoomEvents.SUBMIT_STRESS, { roomId, stressSource });
   },
 
   /** 开始游戏 */
   startGame(roomId: string): void {
-    getSocket().emit('room:start', { roomId });
+    getSocket().emit(RoomEvents.START, { roomId });
   },
 };
