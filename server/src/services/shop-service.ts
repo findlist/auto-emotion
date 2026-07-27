@@ -13,6 +13,14 @@ import { parseCount } from '../utils/param.js';
 // 占位符字面量散落于 3 处 SQL 拼接，调整默认 emoji 需逐处搜索避免遗漏，抽取为常量集中维护
 const DEFAULT_SHOP_EMOJI = '🛒';
 
+/**
+ * 商城双货币余额不足文案——buyItem 事务外余额预检查（fast-fail 改善 UX）+ deductCurrency
+ * 事务内原子守卫（并发兜底）两个检查点拦截同一业务语义，文案必须一致；延续 user-service
+ * 错误文案常量抽取模式（PHONE_ALREADY_REGISTERED_MSG 同模式）。
+ */
+const SHOP_INSUFFICIENT_GOLD_MSG = '金币不足';
+const SHOP_INSUFFICIENT_GEMS_MSG = '钻石不足';
+
 interface ShopItem {
   id: number;
   name: string;
@@ -61,7 +69,7 @@ async function deductCurrency(
   if (result.rows.length === 0) {
     throw new AppError(
       ErrorCode.BAD_REQUEST,
-      currency === 'gold' ? '金币不足' : '钻石不足'
+      currency === 'gold' ? SHOP_INSUFFICIENT_GOLD_MSG : SHOP_INSUFFICIENT_GEMS_MSG
     );
   }
 }
@@ -165,10 +173,10 @@ export async function buyItem(userId: string, itemId: number): Promise<{ success
 
   // 检查余额
   if (item.price_type === 'gold' && user.gold < item.price) {
-    throw new AppError(ErrorCode.BAD_REQUEST, '金币不足');
+    throw new AppError(ErrorCode.BAD_REQUEST, SHOP_INSUFFICIENT_GOLD_MSG);
   }
   if (item.price_type === 'gems' && user.gems < item.price) {
-    throw new AppError(ErrorCode.BAD_REQUEST, '钻石不足');
+    throw new AppError(ErrorCode.BAD_REQUEST, SHOP_INSUFFICIENT_GEMS_MSG);
   }
 
   // 事务内扣款 + 入库（withTransaction 自动管理 BEGIN/COMMIT/ROLLBACK/release）

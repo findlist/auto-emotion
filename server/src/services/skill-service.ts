@@ -9,6 +9,12 @@ import type { Tx } from '../utils/transaction.js';
 import { deductGold, ensureGold } from '../utils/gold.js';
 
 /**
+ * 未解锁该技能——upgradeSkill + activateSkill 两处守卫均通过 getUserSkill 返回 null 判断未解锁，
+ * 文案必须一致避免用户困惑；延续 user-service USER_NOT_FOUND_MSG 同模式（多函数共用同一文案）。
+ */
+const SKILL_NOT_UNLOCKED_MSG = '未解锁该技能';
+
+/**
  * 用户技能记录：user_skills 表的查询结果类型
  * 设计原因：getUserSkill helper 返回值类型，仅暴露调用方实际读取的字段（upgradeSkill
  * 读取 level），其他 SELECT * 字段（user_id/skill_id/is_active/created_at/updated_at）
@@ -140,7 +146,7 @@ export async function upgradeSkill(
     const userSkill = await getUserSkill(tx, userId, skillId);
 
     if (!userSkill) {
-      throw new AppError(ErrorCode.NOT_FOUND, '未解锁该技能');
+      throw new AppError(ErrorCode.NOT_FOUND, SKILL_NOT_UNLOCKED_MSG);
     }
 
     const currentLevel = userSkill.level;
@@ -184,7 +190,7 @@ export async function activateSkill(
     const owned = await getUserSkill(tx, userId, skillId);
 
     if (!owned) {
-      throw new AppError(ErrorCode.NOT_FOUND, '未解锁该技能');
+      throw new AppError(ErrorCode.NOT_FOUND, SKILL_NOT_UNLOCKED_MSG);
     }
 
     // 更新激活状态
