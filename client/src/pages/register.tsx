@@ -7,6 +7,13 @@ interface RegisterPageProps {
   onRegisterSuccess: () => void;
 }
 
+// 注册表单输入框统一样式：4 个输入框（手机号/昵称/密码/确认密码）使用完全相同的 mint 变体样式，
+// 抽取为 helper 避免散落字面量，未来调整输入框视觉风格时单点维护
+// 设计原因：className 含动态分支 ${error ? 'input-error' : ''}，无法用纯常量表达，需函数形式
+const inputClass = (error?: string | null): string =>
+  `w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`;
+
+
 export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: RegisterPageProps) {
   const register = useUserStore((s) => s.register);
   const loading = useUserStore((s) => s.loading);
@@ -80,7 +87,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入手机号"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className={`w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`}
+                className={inputClass(error)}
                 required
                 minLength={11}
                 maxLength={20}
@@ -98,7 +105,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入昵称（2-10字符）"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className={`w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`}
+                className={inputClass(error)}
                 required
                 minLength={2}
                 maxLength={10}
@@ -116,7 +123,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请输入密码（至少6位）"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className={`w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`}
+                className={inputClass(error)}
                 required
                 minLength={6}
                 maxLength={50}
@@ -134,7 +141,7 @@ export default function RegisterPage({ onNavigateToLogin, onRegisterSuccess }: R
                 placeholder="请再次输入密码"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
-                className={`w-full px-4 py-3 border-2 border-ink font-mono text-sm focus:border-mint focus:outline-none input-focus-mint transition-all ${error ? 'input-error' : ''}`}
+                className={inputClass(error)}
                 required
                 minLength={6}
                 maxLength={50}
