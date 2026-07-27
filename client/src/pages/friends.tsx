@@ -13,6 +13,10 @@ interface FriendsPageProps {
 
 type Tab = 'friends' | 'requests';
 
+// 好友卡片统一样式：添加好友卡片 + 好友列表项 + 好友请求项共 3 处使用完全相同的视觉风格，
+// 抽取为常量避免散落字面量，未来调整卡片视觉风格时单点维护
+const FRIEND_CARD_CLASS = 'bg-cream border-2 border-ink p-4 shadow-[3px_3px_0_#1a1a1a]';
+
 export default function FriendsPage({ onBack }: FriendsPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>('friends');
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -189,7 +193,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
         {activeTab === 'friends' && (
           <div className="space-y-4">
             {/* 添加好友 */}
-            <div className="bg-cream border-2 border-ink p-4 shadow-[3px_3px_0_#1a1a1a]">
+            <div className={FRIEND_CARD_CLASS}>
               <p className="font-cn text-sm text-ink/70 mb-2">添加好友</p>
               <div className="flex gap-2">
                 {/* input 仅 placeholder 无语义标签，aria-label 让屏幕阅读器识别字段用途
@@ -223,7 +227,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
               friends.map((friend) => (
                 <div
                   key={friend.id}
-                  className="bg-cream border-2 border-ink p-4 shadow-[3px_3px_0_#1a1a1a]"
+                  className={FRIEND_CARD_CLASS}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-ink rounded-full flex items-center justify-center text-2xl">
@@ -262,7 +266,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
               requests.map((request) => (
                 <div
                   key={request.id}
-                  className="bg-cream border-2 border-ink p-4 shadow-[3px_3px_0_#1a1a1a]"
+                  className={FRIEND_CARD_CLASS}
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-12 h-12 bg-ink rounded-full flex items-center justify-center text-2xl">
