@@ -46,6 +46,10 @@ const ROOM_TTL = 5 * 60; // 5分钟 TTL
 // 设计原因：原为散落字面量，多处修改易遗漏；命名常量使兜底语义在调用处自解释
 const FALLBACK_STRESS_SOURCE = '工作压力';
 const FALLBACK_MONSTER_NAME = '压力怪兽';
+// 默认 Boss 出生点：AI 关卡生成失败或未提供 bossSpawn 时的兜底坐标
+// 设计原因：generateLevelAndEvents 中 2 处兜底（fallback level 数据 + levelReadyData 默认值）共用，
+// 抽取为常量确保两处兜底坐标永远一致，避免调整时遗漏导致 fallback 与 default 不匹配
+const DEFAULT_BOSS_SPAWN = { x: 400, y: 150 };
 
 /** 生成6位房间号 */
 function generateRoomId(): string {
@@ -322,7 +326,7 @@ export const roomManager = {
           difficulty,
           destructibles: [],
           spawnPoints: [{ x: 400, y: 500 }, { x: 600, y: 500 }],
-          bossSpawn: room.mode === 'boss' ? { x: 400, y: 150 } : undefined,
+          bossSpawn: room.mode === 'boss' ? DEFAULT_BOSS_SPAWN : undefined,
         };
 
     // 事件兜底数据
@@ -364,7 +368,7 @@ export const roomManager = {
           hp: d.hp,
         })),
         spawnPoints: level.spawnPoints,
-        bossPoint: level.bossSpawn || { x: 400, y: 150 },
+        bossPoint: level.bossSpawn || DEFAULT_BOSS_SPAWN,
       },
       events: events.map((e) => ({
         type: e.type,
