@@ -100,6 +100,10 @@ const BOSS_SKILL_PROJECTILE_COUNT = 8;
 // 投射物出界判定边距：update 中 4 处边界检查共用（proj.x/y < -10 或 > bounds + 10），
 // 避免投射物刚好贴边时被误判出界；调整边距需逐处搜索避免遗漏
 const PROJECTILE_BOUNDS_MARGIN = 10;
+// Boss 投射物 ownerId 标识：bossSkill 创建弹幕 + update 碰撞检测 + 破坏物伤害归属 共用同一字符串
+// 设计原因：三处分散于不同方法，拼写错误会导致 Boss 弹幕误伤自身或破坏物得分归属错乱；
+// 抽取为常量确保创建与判定永远同步，与 ProjectileData.ownerId 字段类型契约对齐
+const BOSS_PROJECTILE_OWNER = 'boss';
 
 /**
  * Boss 组队战模式
@@ -419,8 +423,8 @@ export class BossGame {
         this.bounds,
         BOSS_PROJECTILE_RADIUS,
       );
-      // Boss 投射物 ownerId='boss'，破坏物品时 lastHitBy 不计入玩家得分
-      this.projectiles.push({ projectile, ownerId: 'boss' });
+      // Boss 投射物 ownerId=BOSS_PROJECTILE_OWNER，破坏物品时 lastHitBy 不计入玩家得分
+      this.projectiles.push({ projectile, ownerId: BOSS_PROJECTILE_OWNER });
       this.world.addChild(projectile.sprite);
     }
   }
@@ -471,7 +475,7 @@ export class BossGame {
       proj.update(delta);
 
       // 碰撞检测：玩家投射物 vs Boss（Boss 自身弹幕不误伤 Boss）
-      if (projData.ownerId !== 'boss' && this.boss && proj.isAlive) {
+      if (projData.ownerId !== BOSS_PROJECTILE_OWNER && this.boss && proj.isAlive) {
         const dx = proj.x - this.boss.x;
         const dy = proj.y - this.boss.y;
         if (Math.sqrt(dx * dx + dy * dy) < BOSS_HIT_RADIUS) {
@@ -493,7 +497,7 @@ export class BossGame {
         for (const dest of this.destructibles) {
           if (!dest.isAlive) continue;
           if (this.circleRectHit(proj.x, proj.y, proj.radiusValue, dest.x, dest.y, dest.halfWidth, dest.halfHeight)) {
-            dest.takeDamage(1, projData.ownerId !== 'boss' ? projData.ownerId : undefined);
+            dest.takeDamage(1, projData.ownerId !== BOSS_PROJECTILE_OWNER ? projData.ownerId : undefined);
             proj.destroy();
             hitDestructible = true;
             break;
