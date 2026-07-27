@@ -78,6 +78,9 @@ const KILL_SCORE = 100;               // 击杀玩家得分：scores 累加 + on
 const PLAYER_MAX_HP = 100;            // 玩家最大血量：addPlayer 初始 hp + maxHp 共用，确保玩家初始血量永远等于最大血量
 const RESPAWN_MARGIN = 100;           // 复活出生点边距：避免玩家出生在墙边被立即推出边界
 const RESPAWN_RANGE = 200;            // 复活出生点随机区间总扣减量（= 2*RESPAWN_MARGIN，左右两边各 100）
+// 投射物出界判定边距：update 中 4 处边界检查共用（proj.x/y < -10 或 > bounds + 10），
+// 避免投射物刚好贴边时被误判出界；与 boss-game 同模式但语义独立，调整边距需逐处搜索避免遗漏
+const PROJECTILE_BOUNDS_MARGIN = 10;
 
 /**
  * 自由乱斗模式
@@ -429,7 +432,7 @@ export class BrawlGame {
       }
 
       // 出界
-      if (proj.x < -10 || proj.x > this.bounds.width + 10 || proj.y < -10 || proj.y > this.bounds.height + 10) {
+      if (proj.x < -PROJECTILE_BOUNDS_MARGIN || proj.x > this.bounds.width + PROJECTILE_BOUNDS_MARGIN || proj.y < -PROJECTILE_BOUNDS_MARGIN || proj.y > this.bounds.height + PROJECTILE_BOUNDS_MARGIN) {
         proj.destroy();
         continue;
       }
