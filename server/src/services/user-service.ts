@@ -11,6 +11,10 @@ const SALT_ROUNDS = 10;
 // 由 config/index.ts 启动时 assertRequired 校验非空，避免散落的 process.env 读取导致校验遗漏
 const JWT_EXPIRES_IN = '7d';
 const REFRESH_EXPIRES_IN = '30d';
+// Redis 黑名单 key 前缀：logout 写入 + refreshToken 校验读取共用，
+// 设计原因：前缀拼写错误会导致黑名单失效（登出后 token 仍可用），抽取为常量确保写入与读取永远同步；
+// middleware/auth.ts 亦有单点使用，跨文件不抽取（与 MATCH_STATUS_KEY_PREFIX 各文件单点定义同模式）
+const BLACKLIST_KEY_PREFIX = 'blacklist:';
 
 /**
  * 统一签发 access + refresh token 对。
@@ -197,9 +201,9 @@ export async function logout(token: string, refreshToken?: string): Promise<void
   // 泄露的 refreshToken 在登出后 30 天内仍可换新 token，是真实安全漏洞
   const accessTtl = 7 * 24 * 60 * 60; // 7 天，与 access token 有效期一致
   const refreshTtl = 30 * 24 * 60 * 60; // 30 天，与 refreshToken 有效期一致
-  await redis.setex(`blacklist:${token}`, accessTtl, '1');
+  await redis.setex(`${BLACKLIST_KEY_PREFIX}${token}`, accessTtl, '1');
   if (refreshToken) {
-    await redis.setex(`blacklist:${refreshToken}`, refreshTtl, '1');
+    await redis.setex(`${BLACKLIST_KEY_PREFIX}${refreshToken}`, refreshTtl, '1');
   }
 }
 
@@ -220,7 +224,7 @@ export async function refreshToken(token: string): Promise<{ token: string }> {
   // 设计原因：与 logout 配合形成完整闭环，防止登出后 refreshToken 仍可换新 token
   // redis 异常时降级放行，避免 redis 故障阻塞用户刷新 token
   try {
-    const blacklisted = await redis.get(`blacklist:${token}`);
+    const blacklisted = await redis.get(`${BLACKLIST_KEY_PREFIX}${token}`);
     if (blacklisted) {
       throw new AppError(ErrorCode.UNAUTHORIZED, '刷新令牌已失效');
     }
