@@ -15,6 +15,12 @@ const REFRESH_EXPIRES_IN = '30d';
 // 设计原因：前缀拼写错误会导致黑名单失效（登出后 token 仍可用），抽取为常量确保写入与读取永远同步；
 // middleware/auth.ts 亦有单点使用，跨文件不抽取（与 MATCH_STATUS_KEY_PREFIX 各文件单点定义同模式）
 const BLACKLIST_KEY_PREFIX = 'blacklist:';
+// 用户错误文案常量：register/login/getProfile/refreshToken 共用，统一抽取避免文案漂移
+// 设计原因：错误提示文案散落在多处 throw/ensureFound 中，若单独修改一处会导致同类错误提示不一致
+const PHONE_ALREADY_REGISTERED_MSG = '手机号已注册'; // register 前置检查 + 并发竞态兜底共 2 处
+const INVALID_CREDENTIALS_MSG = '手机号或密码错误'; // login 用户不存在 + 密码错误共 2 处，统一为模糊文案防止账号枚举
+const USER_NOT_FOUND_MSG = '用户不存在'; // getProfile + refreshToken 共 2 处
+const INVALID_REFRESH_TOKEN_MSG = '无效的刷新令牌'; // refreshToken verify 失败 + type 不匹配共 2 处
 
 /**
  * 统一签发 access + refresh token 对。
@@ -89,7 +95,7 @@ export async function register(input: RegisterInput): Promise<{ user: UserRow; t
   // 检查手机号是否已注册
   const exist = await pool.query('SELECT id FROM users WHERE phone = $1', [phone]);
   if (exist.rows.length > 0) {
-    throw new AppError(ErrorCode.CONFLICT, '手机号已注册');
+    throw new AppError(ErrorCode.CONFLICT, PHONE_ALREADY_REGISTERED_MSG);
   }
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
@@ -106,7 +112,7 @@ export async function register(input: RegisterInput): Promise<{ user: UserRow; t
     );
     // 并发注册竞态兜底：前置检查通过后对方可能已插入，ON CONFLICT 命中返回空行
     if (userResult.rows.length === 0) {
-      throw new AppError(ErrorCode.CONFLICT, '手机号已注册');
+      throw new AppError(ErrorCode.CONFLICT, PHONE_ALREADY_REGISTERED_MSG);
     }
     const user = userResult.rows[0];
 
@@ -133,14 +139,14 @@ export async function login(input: LoginInput): Promise<{ user: LoginUserRow; to
   );
   
   if (result.rows.length === 0) {
-    throw new AppError(ErrorCode.UNAUTHORIZED, '手机号或密码错误');
+    throw new AppError(ErrorCode.UNAUTHORIZED, INVALID_CREDENTIALS_MSG);
   }
 
   const user = result.rows[0];
   const valid = await bcrypt.compare(password, user.password_hash);
   
   if (!valid) {
-    throw new AppError(ErrorCode.UNAUTHORIZED, '手机号或密码错误');
+    throw new AppError(ErrorCode.UNAUTHORIZED, INVALID_CREDENTIALS_MSG);
   }
 
   // 更新最后登录时间
@@ -163,7 +169,7 @@ export async function getProfile(userId: string): Promise<UserProfile> {
     [userId]
   );
   
-  ensureFound(result.rows, '用户不存在');
+  ensureFound(result.rows, USER_NOT_FOUND_MSG);
 
   return result.rows[0];
 }
@@ -214,10 +220,10 @@ export async function refreshToken(token: string): Promise<{ token: string }> {
   try {
     payload = jwt.verify(token, config.jwtSecret) as { userId: string; type: string };
   } catch {
-    throw new AppError(ErrorCode.UNAUTHORIZED, '无效的刷新令牌');
+    throw new AppError(ErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MSG);
   }
   if (payload.type !== 'refresh') {
-    throw new AppError(ErrorCode.UNAUTHORIZED, '无效的刷新令牌');
+    throw new AppError(ErrorCode.UNAUTHORIZED, INVALID_REFRESH_TOKEN_MSG);
   }
 
   // 检查 refreshToken 是否已加入黑名单（用户登出后该 token 应失效）
@@ -234,7 +240,7 @@ export async function refreshToken(token: string): Promise<{ token: string }> {
   }
 
   const userResult = await pool.query('SELECT id, phone FROM users WHERE id = $1', [payload.userId]);
-  ensureFound(userResult.rows, '用户不存在');
+  ensureFound(userResult.rows, USER_NOT_FOUND_MSG);
 
   const user = userResult.rows[0];
   const newToken = jwt.sign({ userId: user.id, phone: user.phone }, config.jwtSecret, { expiresIn: JWT_EXPIRES_IN });
