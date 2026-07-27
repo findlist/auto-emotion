@@ -26,6 +26,18 @@ interface RecordDetail extends RecordItem {
   damage?: number;
 }
 
+// 战绩详情弹窗"标签-值"行：8 处详情行结构同构（label + value），仅 label 文案与 value 样式不同，
+// 抽取为 helper 组件避免散落 JSX 样板，调整详情行视觉风格时单点维护
+// 设计原因：value 样式有差异化（font-mono/font-bold/text-green-600 等），通过 valueClass 参数注入
+function DetailRow({ label, children, valueClass }: { label: string; children: React.ReactNode; valueClass?: string }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-ink/70">{label}</span>
+      <span className={valueClass}>{children}</span>
+    </div>
+  );
+}
+
 export default function RecordsPage() {
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -275,40 +287,32 @@ export default function RecordsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-ink/70">房间ID</span>
-                    <span className="font-mono text-sm">{selectedRecord.room_id}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-ink/70">时间</span>
-                    <span>{formatDate(selectedRecord.created_at)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-ink/70">时长</span>
-                    <span>{formatDuration(selectedRecord.duration_seconds)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-ink/70">我的分数</span>
-                    <span className="font-bold">{selectedRecord.score}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-ink/70">我的排名</span>
-                    <span className="font-bold">#{selectedRecord.rank}</span>
-                  </div>
+                  <DetailRow label="房间ID" valueClass="font-mono text-sm">
+                    {selectedRecord.room_id}
+                  </DetailRow>
+                  <DetailRow label="时间">
+                    {formatDate(selectedRecord.created_at)}
+                  </DetailRow>
+                  <DetailRow label="时长">
+                    {formatDuration(selectedRecord.duration_seconds)}
+                  </DetailRow>
+                  <DetailRow label="我的分数" valueClass="font-bold">
+                    {selectedRecord.score}
+                  </DetailRow>
+                  <DetailRow label="我的排名" valueClass="font-bold">
+                    #{selectedRecord.rank}
+                  </DetailRow>
                   {selectedRecord.damage !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-ink/70">我的伤害</span>
-                      <span>{selectedRecord.damage}</span>
-                    </div>
+                    <DetailRow label="我的伤害">
+                      {selectedRecord.damage}
+                    </DetailRow>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-ink/70">获得经验</span>
-                    <span className="text-green-600">+{selectedRecord.exp_reward}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-ink/70">获得金币</span>
-                    <span className="text-yellow-600">+{selectedRecord.gold_reward}</span>
-                  </div>
+                  <DetailRow label="获得经验" valueClass="text-green-600">
+                    +{selectedRecord.exp_reward}
+                  </DetailRow>
+                  <DetailRow label="获得金币" valueClass="text-yellow-600">
+                    +{selectedRecord.gold_reward}
+                  </DetailRow>
                   {selectedRecord.is_mvp && (
                     <div className="text-center mt-4">
                       <span className="inline-block bg-pink text-cream px-4 py-2 font-bold text-lg">
