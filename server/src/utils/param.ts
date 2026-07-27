@@ -4,6 +4,7 @@
 import { Response } from 'express';
 import { ZodSchema } from 'zod';
 import { fail } from './response.js';
+import { VALIDATION_ERROR_MSG } from './error.js';
 
 /**
  * 解析路由参数为整数 ID
@@ -157,7 +158,7 @@ export function parseBody<T>(
 ): T | null {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    fail(res, 422, '参数校验失败', parsed.error.issues);
+    fail(res, 422, VALIDATION_ERROR_MSG, parsed.error.issues);
     return null;
   }
   return parsed.data;

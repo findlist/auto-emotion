@@ -58,6 +58,16 @@ export function getErrorMessage(err: unknown, defaultMsg: string): string {
 }
 
 /**
+ * zod schema 校验失败时的统一文案。
+ *
+ * 设计原因：middleware/validate.ts（抛 AppError 经全局 errorHandler 兜底响应）
+ * 与 utils/param.ts（parseBody helper 直接 fail(res, 422, ...)）两条路径对前端展示的
+ * 文案必须一致，原本散落 2 处字面量，未来调整文案需逐处搜索且易遗漏导致同类错误提示不一致。
+ * 与 ErrorCode.VALIDATION_ERROR 同区域定义，确保错误码与文案单点维护。
+ */
+export const VALIDATION_ERROR_MSG = '参数校验失败';
+
+/**
  * 行存在性守卫：查询结果集为空时抛 NOT_FOUND。
  *
  * 设计原因：22 处 service 守卫重复以下三行模板：

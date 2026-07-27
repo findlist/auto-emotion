@@ -3,7 +3,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
-import { AppError, ErrorCode } from '../utils/error.js';
+import { AppError, ErrorCode, VALIDATION_ERROR_MSG } from '../utils/error.js';
 
 interface ParseResult {
   body: unknown;
@@ -47,7 +47,7 @@ export function validate(schema: ZodSchema) {
       if (err instanceof ZodError) {
         throw new AppError(
           ErrorCode.VALIDATION_ERROR,
-          '参数校验失败',
+          VALIDATION_ERROR_MSG,
           err.issues
         );
       }
