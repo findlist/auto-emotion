@@ -12,6 +12,15 @@ import type { GameMode } from '@/types/game';
 /** 调色板 */
 const PALETTE = [0xff3d7f, 0xffd93d, 0xff6b35, 0x3dd9b5];
 
+// 前后端契约常量：集中维护与后端 GameEvents / action 类型对齐的字符串标识符
+// 设计原因：原为散落字面量，调整事件名或 action 类型需逐处搜索且拼写错误会导致远程操作监听失效
+// 单机兜底玩家 ID：initBossGame + initBrawlGame 共用，socket=null 时作为 localId 兜底
+const LOCAL_FALLBACK_ID = 'local';
+// 射击操作类型契约：emitAction 上报 + handleRemoteAction case 分支共用，拼写错误会导致远程射击无法匹配
+const ACTION_SHOOT = 'shoot';
+// 操作同步 socket 事件名：onEnter 注册 + onExit 注销 + emitAction emit 共用，与后端 GameEvents.ACTION 对齐
+const GAME_ACTION_EVENT = 'game:action';
+
 /** 状态变更回调 */
 export interface BattleSceneCallbacks {
   onScoreChange?(score: number): void;
@@ -110,7 +119,7 @@ export class BattleScene implements Scene {
   private initBossGame(levelData?: BossLevelData): void {
     // 单机演示模式（socket=null）允许继续初始化本地游戏，emitAction 内部已有 socket 守卫保证不上报
     // 多人模式 socket 非空时 localId 取业务 userId，单机模式兜底为 'local' 保证游戏实例正常创建
-    const localId = this.localUserId || this.socket?.id || 'local';
+    const localId = this.localUserId || this.socket?.id || LOCAL_FALLBACK_ID;
 
     this.bossGame = new BossGame(
       this.engine.app,
@@ -131,7 +140,7 @@ export class BattleScene implements Scene {
         onUltimateChargeChange: () => {},
         onLocalShoot: (angle) => {
           // 本地玩家射击时上报到后端，由后端广播给房间内其他玩家
-          this.emitAction('shoot', { angle });
+          this.emitAction(ACTION_SHOOT, { angle });
         },
       },
     );
@@ -156,7 +165,7 @@ export class BattleScene implements Scene {
 
   private initBrawlGame(levelData?: BrawlLevelData): void {
     // 单机演示模式（socket=null）允许继续初始化本地游戏，emitAction 内部已有 socket 守卫保证不上报
-    const localId = this.localUserId || this.socket?.id || 'local';
+    const localId = this.localUserId || this.socket?.id || LOCAL_FALLBACK_ID;
 
     this.brawlGame = new BrawlGame(
       this.engine.app,
@@ -176,7 +185,7 @@ export class BattleScene implements Scene {
         },
         onLocalShoot: (angle) => {
           // 本地玩家射击时上报到后端，由后端广播给房间内其他玩家
-          this.emitAction('shoot', { angle });
+          this.emitAction(ACTION_SHOOT, { angle });
         },
       },
     );
@@ -230,18 +239,18 @@ export class BattleScene implements Scene {
 
   onEnter(): void {
     // 注册 game:action 监听，接收远程玩家操作并在本地重现
-    this.socket?.on('game:action', this.boundOnGameAction);
+    this.socket?.on(GAME_ACTION_EVENT, this.boundOnGameAction);
   }
 
   onExit(): void {
     // 注销监听避免内存泄漏与重复触发
-    this.socket?.off('game:action', this.boundOnGameAction);
+    this.socket?.off(GAME_ACTION_EVENT, this.boundOnGameAction);
   }
 
   /** 上报本地操作到后端，由后端广播给房间内所有玩家 */
   private emitAction(action: string, payload?: unknown): void {
     if (!this.socket || !this.roomId) return;
-    this.socket.emit('game:action', { roomId: this.roomId, action, payload });
+    this.socket.emit(GAME_ACTION_EVENT, { roomId: this.roomId, action, payload });
   }
 
   /** 上报游戏结束到后端，触发服务端 CAS 状态转换 playing→settling 并广播结算信息
@@ -266,7 +275,7 @@ export class BattleScene implements Scene {
     if (userId === this.localUserId) return;
 
     switch (data.action) {
-      case 'shoot': {
+      case ACTION_SHOOT: {
         const angle = (data.payload as { angle?: number })?.angle;
         if (typeof angle === 'number') {
           this.handleRemoteShoot(userId, angle);
