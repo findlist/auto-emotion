@@ -41,6 +41,14 @@ const PRESSURE_COLORS = {
   high: '#ff3d7f',
 } as const;
 
+// 通用配置常量：SVG 描边/填充/文字色 + 等宽字体族 + 压力上下限 + 无数据默认值。
+// INK_COLOR 用于 6 处 SVG 属性与 style 属性（boxShadow/borderTop 中的 #1a1a1a
+// 属 CSS 字符串子串不抽取，避免模板字符串增加复杂度）。
+const INK_COLOR = '#1a1a1a';
+const MONO_FONT_FAMILY = "'DM Mono', monospace";
+const MAX_PRESSURE = 100;
+const DEFAULT_PRESSURE = 50;
+
 function deg2rad(deg: number) {
   return (deg * Math.PI) / 180;
 }
@@ -79,11 +87,11 @@ function PressureRadar({ data, size = 280 }: PressureRadarProps) {
 
   const displayData = useMemo(() => {
     const fallback = data.hasData ? data : {
-      work: 50, life: 50, social: 50, finance: 50, health: 50, hasData: false,
+      work: DEFAULT_PRESSURE, life: DEFAULT_PRESSURE, social: DEFAULT_PRESSURE, finance: DEFAULT_PRESSURE, health: DEFAULT_PRESSURE, hasData: false,
     };
     return DIMENSIONS.map((d) => ({
       ...d,
-      value: Math.min(100, Math.max(0, fallback[d.key])),
+      value: Math.min(MAX_PRESSURE, Math.max(0, fallback[d.key])),
     }));
   }, [data]);
 
@@ -108,7 +116,7 @@ function PressureRadar({ data, size = 280 }: PressureRadarProps) {
 
   const dataPolygonPath = useMemo(() => {
     const points = displayData.map((d, i) => {
-      const r = maxR * (d.value / 100);
+      const r = maxR * (d.value / MAX_PRESSURE);
       return getPoint(cx, cy, r, ANGLE_START + i * ANGLE_STEP);
     });
     return polygonPath(points);
@@ -124,7 +132,7 @@ function PressureRadar({ data, size = 280 }: PressureRadarProps) {
 
   const dotPositions = useMemo(() => {
     return displayData.map((d, i) => {
-      const r = maxR * (d.value / 100);
+      const r = maxR * (d.value / MAX_PRESSURE);
       const pos = getPoint(cx, cy, r, ANGLE_START + i * ANGLE_STEP);
       return { ...pos, value: d.value, color: getIntensityColor(d.value) };
     });
@@ -158,7 +166,7 @@ function PressureRadar({ data, size = 280 }: PressureRadarProps) {
               key={i}
               d={path}
               fill="none"
-              stroke="#1a1a1a"
+              stroke={INK_COLOR}
               strokeWidth={i === gridPolygons.length - 1 ? 2 : 1}
               opacity={0.15 + i * 0.05}
             />
@@ -170,7 +178,7 @@ function PressureRadar({ data, size = 280 }: PressureRadarProps) {
             <line
               key={i}
               x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2}
-              stroke="#1a1a1a"
+              stroke={INK_COLOR}
               strokeWidth={1}
               opacity={0.15}
             />
@@ -192,7 +200,7 @@ function PressureRadar({ data, size = 280 }: PressureRadarProps) {
             <circle
               cx={dot.x} cy={dot.y} r={hoveredIndex === i ? 7 : 5}
               fill={dot.color}
-              stroke="#1a1a1a"
+              stroke={INK_COLOR}
               strokeWidth={2}
               className="transition-all duration-150 cursor-pointer"
               onMouseEnter={() => handleDotEnter(i)}
@@ -222,7 +230,7 @@ function PressureRadar({ data, size = 280 }: PressureRadarProps) {
             style={{
               fontFamily: "'ZCOOL KuaiLe', 'Bungee', cursive",
               fontSize: '13px',
-              fill: '#1a1a1a',
+              fill: INK_COLOR,
               fontWeight: 700,
             }}
           >
@@ -249,8 +257,8 @@ function PressureRadar({ data, size = 280 }: PressureRadarProps) {
               className="px-3 py-1.5 rounded-md text-sm font-bold whitespace-nowrap border-2 border-ink"
               style={{
                 backgroundColor: '#fff8e7',
-                color: '#1a1a1a',
-                fontFamily: "'DM Mono', monospace",
+                color: INK_COLOR,
+                fontFamily: MONO_FONT_FAMILY,
                 boxShadow: '3px 3px 0 #1a1a1a',
               }}
             >
