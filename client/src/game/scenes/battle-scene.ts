@@ -8,6 +8,7 @@ import { BrawlGame, type BrawlLevelData } from '@/game/games/brawl-game';
 import { SpeedGame } from '@/game/games/speed-game';
 import type { EffectTier } from '@/game/effects/particle';
 import type { GameMode } from '@/types/game';
+import { GameEvents } from '@/websocket/events';
 
 /** 调色板 */
 const PALETTE = [0xff3d7f, 0xffd93d, 0xff6b35, 0x3dd9b5];
@@ -18,8 +19,6 @@ const PALETTE = [0xff3d7f, 0xffd93d, 0xff6b35, 0x3dd9b5];
 const LOCAL_FALLBACK_ID = 'local';
 // 射击操作类型契约：emitAction 上报 + handleRemoteAction case 分支共用，拼写错误会导致远程射击无法匹配
 const ACTION_SHOOT = 'shoot';
-// 操作同步 socket 事件名：onEnter 注册 + onExit 注销 + emitAction emit 共用，与后端 GameEvents.ACTION 对齐
-const GAME_ACTION_EVENT = 'game:action';
 
 /** 状态变更回调 */
 export interface BattleSceneCallbacks {
@@ -239,18 +238,18 @@ export class BattleScene implements Scene {
 
   onEnter(): void {
     // 注册 game:action 监听，接收远程玩家操作并在本地重现
-    this.socket?.on(GAME_ACTION_EVENT, this.boundOnGameAction);
+    this.socket?.on(GameEvents.ACTION, this.boundOnGameAction);
   }
 
   onExit(): void {
     // 注销监听避免内存泄漏与重复触发
-    this.socket?.off(GAME_ACTION_EVENT, this.boundOnGameAction);
+    this.socket?.off(GameEvents.ACTION, this.boundOnGameAction);
   }
 
   /** 上报本地操作到后端，由后端广播给房间内所有玩家 */
   private emitAction(action: string, payload?: unknown): void {
     if (!this.socket || !this.roomId) return;
-    this.socket.emit(GAME_ACTION_EVENT, { roomId: this.roomId, action, payload });
+    this.socket.emit(GameEvents.ACTION, { roomId: this.roomId, action, payload });
   }
 
   /** 上报游戏结束到后端，触发服务端 CAS 状态转换 playing→settling 并广播结算信息
@@ -260,7 +259,7 @@ export class BattleScene implements Scene {
     if (this.finished) return;
     this.finished = true;
     if (!this.socket || !this.roomId) return;
-    this.socket.emit('game:finish', {
+    this.socket.emit(GameEvents.FINISH, {
       roomId: this.roomId,
       finalScore: finalScore ?? this.score,
       result,
