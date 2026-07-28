@@ -208,8 +208,15 @@ function DemoPage({ onBack }: DemoPageProps) {
       <div
         ref={containerRef}
         onContextMenu={handleContextMenu}
-        className="relative"
-        style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}
+        className="relative mx-auto"
+        style={{
+          // 响应式自适应：与 battle.tsx 保持一致，宽度取三者最小值，保持 4:3 比例
+          // 1. 100%：不超过父容器宽度（移动端撑满）
+          // 2. 800px：画布逻辑分辨率上限
+          // 3. calc(75vh * 4/3)：按视口高度反推最大宽度，避免画布超出视口
+          width: 'min(100%, 800px, calc(75vh * 4 / 3))',
+          aspectRatio: '4 / 3',
+        }}
       >
         {/* HUD 覆盖层 */}
         <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-none">
