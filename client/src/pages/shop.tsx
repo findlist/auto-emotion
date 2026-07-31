@@ -173,7 +173,7 @@ export default function ShopPage({ onBack }: ShopPageProps) {
               aria-controls="shop-items-panel"
               id={`shop-type-${type}`}
               onClick={() => setActiveType(type)}
-              className={`px-3 py-1 font-cn text-sm whitespace-nowrap transition-all flex items-center gap-1 ${
+              className={`px-3 py-2.5 font-cn text-sm whitespace-nowrap transition-all flex items-center gap-1 ${
                 activeType === type
                   ? 'bg-ink text-cream shadow-[2px_2px_0_#ff3d7f]'
                   : 'bg-ink/15 text-ink/80 hover:bg-ink/25'
