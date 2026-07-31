@@ -243,7 +243,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
                     <button
                       onClick={() => handleRemove(friend.id)}
                       disabled={loading}
-                      className="bg-red-500 text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink transition-colors disabled:opacity-50"
+                      className="bg-orange text-cream px-3 py-1 font-mono text-xs font-bold hover:bg-ink transition-colors disabled:opacity-50"
                     >
                       删除
                     </button>
@@ -290,7 +290,7 @@ export default function FriendsPage({ onBack }: FriendsPageProps) {
                     <button
                       onClick={() => handleReject(request.id)}
                       disabled={loading}
-                      className="flex-1 bg-ink text-cream px-3 py-2 font-cn font-bold hover:bg-red-500 transition-colors disabled:opacity-50"
+                      className="flex-1 bg-ink text-cream px-3 py-2 font-cn font-bold hover:bg-orange transition-colors disabled:opacity-50"
                     >
                       拒绝
                     </button>
